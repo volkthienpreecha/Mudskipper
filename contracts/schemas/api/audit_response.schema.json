@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/api/audit_response.schema.json",
+  "title": "POST /api/audit and GET /api/audit/:id",
+  "description": "A stored, reproducible inspection ranking.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "../common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "../common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "type": "boolean"
+    },
+    "audit_id": {
+      "type": "string",
+      "pattern": "^a_[0-9a-f]{16}$"
+    },
+    "created_at": {
+      "$ref": "../common.schema.json#/$defs/datetime"
+    },
+    "budget": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "input_hash": {
+      "$ref": "../common.schema.json#/$defs/sha256"
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "matched": {
+      "$ref": "../common.schema.json#/$defs/count"
+    },
+    "unmatched": {
+      "$ref": "../common.schema.json#/$defs/count"
+    },
+    "ranked": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ranked"
+      }
+    },
+    "notice": {
+      "const": "Ranking for inspection, not a finding about anyone."
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "fixture",
+    "audit_id",
+    "created_at",
+    "budget",
+    "seed",
+    "input_hash",
+    "synthetic",
+    "matched",
+    "unmatched",
+    "ranked",
+    "notice"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "ranked": {
+      "type": "object",
+      "properties": {
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "claim_id": {
+          "type": "string"
+        },
+        "field_id": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/field_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "district": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/district"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "weight": {
+          "enum": [
+            0.1,
+            0.6,
+            0.8,
+            1.0
+          ]
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pick": {
+          "enum": [
+            "score",
+            "random"
+          ]
+        }
+      },
+      "required": [
+        "rank",
+        "claim_id",
+        "field_id",
+        "district",
+        "weight",
+        "score",
+        "reason",
+        "pick"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

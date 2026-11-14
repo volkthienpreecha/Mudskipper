@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/api/health.schema.json",
+  "title": "GET /api/health",
+  "description": "Liveness and which run is live.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "../common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "../common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "type": "boolean"
+    },
+    "ok": {
+      "const": true
+    },
+    "time": {
+      "$ref": "../common.schema.json#/$defs/datetime"
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "fixture",
+    "ok",
+    "time"
+  ],
+  "additionalProperties": false
+}

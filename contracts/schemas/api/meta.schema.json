@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/api/meta.schema.json",
+  "title": "GET /api/meta",
+  "description": "Run metadata the app needs on first paint.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "../common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "../common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "$ref": "../common.schema.json#/$defs/datetime"
+    },
+    "git_sha": {
+      "type": "string"
+    },
+    "season": {
+      "$ref": "../common.schema.json#/$defs/season"
+    },
+    "stages": {
+      "$ref": "../common.schema.json#/$defs/stages"
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "../common.schema.json#/$defs/gap"
+      }
+    },
+    "tiles": {
+      "type": "array",
+      "items": {
+        "$ref": "../common.schema.json#/$defs/tile"
+      }
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "$ref": "../common.schema.json#/$defs/count"
+        },
+        "passes": {
+          "$ref": "../common.schema.json#/$defs/count"
+        },
+        "passes_used": {
+          "$ref": "../common.schema.json#/$defs/count"
+        },
+        "observations": {
+          "$ref": "../common.schema.json#/$defs/count"
+        }
+      },
+      "required": [
+        "fields",
+        "passes",
+        "passes_used",
+        "observations"
+      ],
+      "additionalProperties": false
+    },
+    "pol_modes": {
+      "type": "array",
+      "items": {
+        "$ref": "../common.schema.json#/$defs/pol_mode"
+      },
+      "uniqueItems": true
+    },
+    "methods": {
+      "type": "array",
+      "items": {
+        "$ref": "../common.schema.json#/$defs/method"
+      },
+      "uniqueItems": true
+    },
+    "crids": {
+      "type": "array",
+      "items": {
+        "$ref": "../common.schema.json#/$defs/crid"
+      },
+      "uniqueItems": true
+    },
+    "assets": {
+      "type": "object",
+      "properties": {
+        "fields_geojson": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^/tiles/\\S+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fields_pmtiles": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^/tiles/\\S+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overlays_index": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^/tiles/\\S+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "claims_sample": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^/tiles/\\S+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hist": {
+          "type": "object",
+          "properties": {
+            "early": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^/tiles/\\S+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "mid": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^/tiles/\\S+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "late": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^/tiles/\\S+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "early",
+            "mid",
+            "late"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "fields_geojson",
+        "fields_pmtiles",
+        "overlays_index",
+        "claims_sample",
+        "hist"
+      ],
+      "additionalProperties": false
+    },
+    "limits_text": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "fixture",
+    "created_at",
+    "git_sha",
+    "season",
+    "stages",
+    "gaps",
+    "tiles",
+    "counts",
+    "pol_modes",
+    "methods",
+    "crids",
+    "assets",
+    "limits_text"
+  ],
+  "additionalProperties": false
+}

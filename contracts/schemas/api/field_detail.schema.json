@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/api/field_detail.schema.json",
+  "title": "GET /api/fields/:id",
+  "description": "Everything the field card shows.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "../common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "../common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "type": "boolean"
+    },
+    "field": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "../fields.schema.json#/$defs/field_properties"
+        },
+        "geometry": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/area_geometry"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "properties",
+        "geometry"
+      ],
+      "additionalProperties": false
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observation_row"
+      }
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/summary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "fixture",
+    "field",
+    "observations",
+    "summary"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "observation_row": {
+      "type": "object",
+      "properties": {
+        "pass_id": {
+          "$ref": "../common.schema.json#/$defs/pass_id"
+        },
+        "datetime": {
+          "$ref": "../common.schema.json#/$defs/datetime"
+        },
+        "stage": {
+          "$ref": "../common.schema.json#/$defs/stage"
+        },
+        "n_px": {
+          "$ref": "../common.schema.json#/$defs/count"
+        },
+        "valid_frac": {
+          "$ref": "../common.schema.json#/$defs/prob"
+        },
+        "observed": {
+          "$ref": "../observation.schema.json#/$defs/observed"
+        },
+        "inferred": {
+          "$ref": "../observation.schema.json#/$defs/inferred"
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "pass_id",
+        "datetime",
+        "stage",
+        "n_px",
+        "valid_frac",
+        "observed",
+        "inferred",
+        "flags"
+      ],
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "awd": {
+          "$ref": "../field_summary.schema.json#/$defs/awd"
+        },
+        "dsr": {
+          "$ref": "../field_summary.schema.json#/$defs/dsr"
+        }
+      },
+      "required": [
+        "awd",
+        "dsr"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
