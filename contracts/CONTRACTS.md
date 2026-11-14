@@ -35,6 +35,11 @@ JSON examples show shape only; their numbers are illustrative, not results. Real
 | Rounding | Writers MAY round stored floats to 6 decimals. Rule outputs from `core` (probabilities, scores) are written unrounded so both languages can compare them exactly. |
 | Percent shown to people | `floor(100·p + 0.5)` (round half up), the same in Python and TypeScript. |
 | JSON writing | UTF-8, LF line endings, no BOM, keys in the order the schema lists them. Re-running a writer on the same inputs MUST give byte-identical output (T2). |
+| Finite numbers only | No `NaN`, `Infinity` or `-Infinity` anywhere (Python's `json.dumps` writes them by default; pass `allow_nan=False`). A linear power ≤ 0 is clipped to 1e-8 (−80 dB) before converting to dB. The validator rejects non-finite numbers. |
+| Datetime in JS | `new Date(ms).toISOString().slice(0, 19) + "Z"` (whole seconds; `toISOString()` alone adds milliseconds and fails the schema). |
+| String order | Every sort of ids, keys or district names compares UTF-16 code units (JavaScript's default `sort()`, Python's `sorted()` for BMP text). Never `localeCompare`. Ids are ASCII by pattern. |
+| Cross-language equality | "Reproduce exactly" means the parsed JSON values are equal: same strings, same numbers by value (Python writes `1.0` and `2.5e-05`, JavaScript writes `1` and `0.000025`; both parse to the same double). Compare parsed values, never bytes, across languages. |
+| Optional numbers | Treat `seed: 0` as a seed; test for absence with `=== undefined` or `is None`, never by truthiness. |
 
 ### Evidence tags (SPEC evidence rule, T12)
 
@@ -172,7 +177,8 @@ the source of truth.
   `QP` pass MAY use either, so one series can keep one method.
 - **Uncertain rule:** `state` is `uncertain` if `valid_frac < 0.6`, or `p_flooded` is `null`, or
   `0.35 < p_flooded < 0.65`. Otherwise it is `flooded` when `p_flooded ≥ 0.65` and `drained` when
-  `p_flooded ≤ 0.35`.
+  `p_flooded ≤ 0.35`. Apply the rule to the values **as written** (after any rounding), so the file always
+  agrees with itself.
 - `confidence = |2·p_flooded − 1|` (0 is a coin flip, 1 is certain). It is `null` when `p_flooded` is `null`.
 - `flags`: snake_case strings. Known values are `gap_stripe`, `low_valid_frac`, `few_pixels` (n_px < 10),
   `edge_of_swath`, `rfi` and `dual_pol_only`. New flags are an additive change.
@@ -200,24 +206,28 @@ the source of truth.
 3. **Per-field detectability.** Run the simulation (B3.6a) on exactly those clear-look datetimes, with the
    window fixed to `[start, end)`. `p_catch_ge1_if_awd` = P(at least one drained label | AWD). `k_star` =
    the smallest k ≥ 1 with P(at least k drained labels | CF) ≤ `cf_false_flag_max`, or `null` if there is no
-   such k. With `clear_looks = 0`, `p_catch_ge1_if_awd = 0` and `k_star = null`.
+   such k. With `clear_looks = 0`, `p_catch_ge1_if_awd = 0` and `k_star = null`. Here
+   P(at least k) = (Σ_{j ≥ k} count_j) / n_sim (one integer sum, one division), and k ranges over 1…`clear_looks`.
 4. **Verdict**, first match wins:
    - `consistent` if `k_star ≠ null` and `drained_hits ≥ k_star`.
    - `inconsistent` if `clear_looks ≥ 1`, `drained_hits = 0` and `p_catch_ge1_if_awd ≥ 1 − awd_miss_max`.
      (These looks would have caught an AWD field, and none did.)
    - `not_enough_evidence` otherwise.
-5. **Reason** (exact text; `{looks}` is "1 clear look" or "N clear looks"; `{p}` is a percent from C0):
+5. **Reason** (exact text). `{looks}` is "1 clear look" or "N clear looks"; `{all}` is "the only clear look"
+   or "all N clear looks"; `{p}` is `p_catch_ge1_if_awd` as a percent **rounded down**,
+   `floor(100·p + 1e-9)`, so a field just under the 90% bar never reads "90%":
    | Case | Text |
    |---|---|
    | consistent | `Drained on {d} of {looks}, more than a continuously flooded field would show.` |
-   | inconsistent | `Flooded on all {looks}; a field practicing AWD would have been caught drained {p}% of the time.` |
+   | inconsistent | `Flooded on {all}; a field practicing AWD would have been caught drained {p}% of the time.` |
    | n = 0 | `No clear looks inside the AWD window.` |
-   | d = 0, low p | `Flooded on all {looks}, but these dates would catch a field practicing AWD only {p}% of the time.` |
+   | d = 0, low p | `Flooded on {all}, but these dates would catch a field practicing AWD only {p}% of the time.` |
    | k_star null | `{looks} cannot separate AWD from continuous flooding.` |
    | 0 < d < k_star | `Drained on {d} of {looks}; {k} are needed to rule out a single drainage.` |
    The `not_enough_evidence` rows are checked in this order: n = 0, d = 0, k_star null, otherwise.
 6. **DSR signal.** Let `E` be the field's clear looks with stage `early`, sorted by time.
-   - `unknown` if `|E| < dsr_min_early_looks`: `Only {looks} before {mid_start}.` (the date from `aoi.stages`)
+   - `unknown` if `|E| = 0`: `No clear looks before {mid_start}.` (the date from `aoi.stages`)
+   - `unknown` if `|E| < dsr_min_early_looks`: `Only {looks} before {mid_start}.`
    - `transplant_signal` if any look in `E` is flooded: `Standing water on {date}, typical of puddled transplanting.`
      (`{date}` is the date of the first flooded look)
    - `dsr_signal` otherwise: `Dry on all {looks} before {mid_start}, typical of direct seeding.`
@@ -244,6 +254,10 @@ Words follow SPEC D5: "consistent with AWD", "not consistent with AWD", "not eno
 
 - `pass_dates` are the datetimes of all `used` passes, sorted. The season-level simulation treats each as a
   clear look.
+- `params.stage_boundaries` MUST equal `aoi.stages`: the simulation and the observation stages use one
+  calendar.
+- `cf_false_flag_max` and `awd_miss_max` are fixed at 0.1 in v1 (the schema enforces it), which is why
+  `k_star_rule` is a constant string.
 - v1 additions: `per_pass_accuracy` is per stage; `stage_boundaries`, `cf_false_flag_max`, `awd_miss_max`
   and `dsr_min_early_looks` sit in `params`, so the sim and the verdicts read one object; `results.*.dist[j]`
   = P(exactly j drained labels) for j = 0…n, which the Lab charts plot directly.
@@ -251,12 +265,13 @@ Words follow SPEC D5: "consistent with AWD", "not consistent with AWD", "not eno
   `cited` (stated by the source), `derived` (computed from cited figures; `note` shows how), `convention`
   (our own rule, defined in this file) or `needs_citation`. **A real (non-fixture) run MUST NOT contain
   `needs_citation`**; the validator fails it.
-- `sentence` (exact text, k = `results.k_star`, `{x times}` is `once`, `twice` or `k times`):
-  - if `k_star` is 1, 2 or 3: `With {n} passes, a field practicing AWD is caught drained at least {x times}
+- `sentence` (exact text, k = `results.k_star`, `{passes}` is "1 pass" or "N passes", `{x times}` is
+  `once`, `twice` or `k times`):
+  - if `k_star` is not null: `With {passes}, a field practicing AWD is caught drained at least {x times}
     {p_awd}% of the time; a continuously flooded field shows that {p_cf}% of the time.` Here `p_awd` =
-    P(≥k | AWD) and `p_cf` = P(≥k | CF).
-  - otherwise: `With {n} passes, no count of drained looks separates AWD from continuous flooding at a
-    {cf_false_flag_max as %}% false-flag rate.`
+    P(≥k | AWD) and `p_cf` = P(≥k | CF), computed from `dist` counts as in B3.5, as percents (C0).
+  - if `k_star` is null: `With {passes}, no count of drained looks separates AWD from continuous flooding at
+    a 10% false-flag rate.`
 
 #### B3.6a Simulation (normative; core/sim.ts, Python `rules.simulate`)
 
@@ -329,7 +344,7 @@ values. `note` MUST say that a 15 × 15 km tile is not a district and that DSR i
   (`null` if a stage has no clear looks). `rule` states, in one sentence, the expected seasonal shape and
   what makes `pass` true.
 - `opera` is `null` if the cross-check did not run. Pairs are aggregate per tile and date (±2 days;
-  `opera_date` is the matched product date). `note` MUST carry the 30 m / 3 ha caveat.
+  `opera_date`, required, is the matched product date). `note` MUST carry the 30 m / 3 ha caveat.
 
 ### B3.9 `provenance.json`
 
@@ -340,7 +355,9 @@ values. `note` MUST say that a 15 × 15 km tile is not a district and that DSR i
  "decomposition_check":{"reference":"PyPolSARpro freeman, pass 20260822-T135D","max_abs_diff_db":0.03}}
 ```
 
-- `granules` MUST contain every `used` pass's granule (T3), with the same CRID.
+- `granules` MUST contain the granule of **every** pass in `passes.json`, used or excluded (T3: every pass
+  maps to a real granule id), with the same CRID. `subset_sha256` is the hash of the cached subset, or `null`
+  for a pass that was never fetched (an excluded one).
 - `artifacts` lists every other file in the run directory (relative POSIX paths, sorted), except
   `provenance.json` itself, with its sha256. Publish re-writes this list after adding core's outputs.
   The validator checks every hash and fails on any file that is not listed.
@@ -370,7 +387,8 @@ values. `note` MUST say that a 15 × 15 km tile is not a district and that DSR i
 - A field is **decided** if its verdict is not `not_enough_evidence`.
 - `counts.passes` = used passes, `counts.fields` = fields, `counts.tiles` = tiles in `aoi.json`, and
   `pct_fields_with_enough_looks` = percent (C0) of fields that are decided.
-- `hero_tile` = the tile with the highest share of decided fields (ties: first in `aoi.tiles` order).
+- `hero_tile` = among tiles that have at least one field, the one with the highest share of decided fields
+  (ties: first in `aoi.tiles` order). A run with no fields has no story.
 - `hero_field_id` = in the hero tile, the `consistent` field with the most `drained_hits`, then the most
   `clear_looks`, then the largest `area_ha`, then the smallest `field_id`. If no field there is
   consistent, use the same ordering over decided fields; if none is decided, the smallest `field_id`.
@@ -383,11 +401,15 @@ A FeatureCollection of claims. Geometry is a `Point`, `Polygon` or `MultiPolygon
 
 | Property | Rule |
 |---|---|
-| `claim_id` | string, unique in the file, e.g. `SYN-0001`; never a person's name or ID number |
-| `claimed` | non-empty array of `awd` and/or `dsr`: the practice the program pays for |
-| `synthetic` | boolean; the sample file is all `true` |
+| `claimed` | required; non-empty array of `awd` and/or `dsr`: the practice the program pays for (SPEC B6) |
+| `synthetic` | required boolean; the sample file is all `true` (SPEC B6) |
+| `claim_id` | optional (v1 addition), `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`, unique in the upload; never a person's name or ID number. A missing one becomes `#<n>` (1-based position in the upload). A repeated one is rejected (`400 duplicate_claim_id`). |
 | `field_id` | optional hint; used for matching when present and known |
-| `area_ha` | optional claimed area, used only for unmatched claims |
+| `area_ha` | optional claimed area (≥ 0), used only for unmatched claims |
+
+Uploads are ordinary GIS exports, so the schema accepts extra members (`name`, `crs`, `bbox`), extra
+properties (ignored) and positions with an altitude (ignored). Polygon rings MUST be closed (first position
+equals last) with at least 4 positions, otherwise `400 invalid_geometry`.
 
 The sample has exactly 60 SYNTHETIC claims on real field ids of the same run, plus a few points that do not
 match any field, so the unmatched path is visible.
@@ -414,8 +436,10 @@ logged in DECISIONS.md.
 
 ## B6. HTTP API
 
-All responses are JSON with `"v":1`, `"run_id"` (the live run) and `"fixture"` (boolean), except `/tiles/*`.
-Errors are `{"error":{"code":"…","message":"…"}}` with a 4xx/5xx status (schema `api/error`).
+All successful responses are JSON with `"v":1`, `"run_id"` (the live run) and `"fixture"` (boolean), except
+`/tiles/*`. Errors are only `{"error":{"code":"…","message":"…"}}` with a 4xx/5xx status (schema `api/error`).
+Audit error codes: `invalid_json`, `invalid_request` (schema), `too_large` (413, body > 5 MB),
+`too_many_claims`, `duplicate_claim_id`, `invalid_geometry`.
 
 | Method and path | Response schema | Notes |
 |---|---|---|
@@ -435,10 +459,19 @@ Errors are `{"error":{"code":"…","message":"…"}}` with a 4xx/5xx status (sch
 ### Ranking (normative; core/rank.ts, Python `rules.rank`)
 
 1. **Match** claims in input order. If `properties.field_id` names a field in the run, use it. Otherwise take
-   the claim's point (the `Point` itself; for a polygon, the average of the outer ring's vertices, closing
-   vertex excluded, of the part with the largest planar lon/lat area) and use the field whose polygon
-   contains it by even-odd ray casting, holes excluded (smallest `field_id` if several do). A claim with
-   neither is **unmatched**.
+   the claim's point and use the field whose polygon contains it (smallest `field_id` if several do). A claim
+   with neither is **unmatched**. `matched` and `unmatched` in the response count claims (two claims merged
+   onto one field count twice).
+   - **Claim point:** a `Point` is itself. For a polygon, take the part whose outer ring has the largest
+     `|Σ (x_i·y_{i+1} − x_{i+1}·y_i)| / 2` over consecutive positions (planar lon/lat; strictly larger wins,
+     so the first part wins ties). Average its vertices, closing vertex excluded. If that point is inside the
+     outer ring, use it. Otherwise draw the horizontal line through it, collect the x where edges cross it
+     (same edge test as below), sort ascending and use the midpoint of the first two.
+   - **Containment:** inside the outer ring and inside no hole, where "inside a ring" is even-odd ray casting
+     exactly as `(yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi`, toggled over every edge
+     (j = previous index, starting with the last position). Points on edges therefore belong to exactly one
+     of two neighbouring cells. Implementations MAY skip fields whose bounding box does not contain the point
+     first (same result, much less CPU on the Worker).
 2. **Candidates.** One per matched field (claims on the same field merge; `claimed` is the union and
    `claim_id` the first one) and one per unmatched claim.
 3. **Weight.** Matched: the maximum over the claimed practices of
@@ -453,23 +486,27 @@ Errors are `{"error":{"code":"…","message":"…"}}` with a 4xx/5xx status (sch
 5. **Score picks:** sort by score descending, then weight descending, then key ascending (key = `field_id`,
    or `~` + `claim_id` for unmatched); take the first `n_score`.
 6. **Random picks (stratified by district):** take the remaining candidates and group them by district
-   (unmatched claims form the stratum `~unmatched`), with strata sorted by name. Give each stratum
-   `floor(n_random × size / remaining)` picks, then hand out the leftover one at a time by largest
-   remainder (ties by stratum name), never more than a stratum's size. With `rng = mulberry32(seed)`, visit
+   (unmatched claims form the stratum `~unmatched`), with strata sorted by name. With integers only: each
+   stratum gets `quota = floor(n_random × size / remaining)` and `rem = (n_random × size) mod remaining`;
+   then strata sorted by `rem` descending (ties by name) each take one more pick while picks are left, never
+   more than the stratum's size. With `rng = mulberry32(seed)`, visit
    the strata in order. Within each, sort by key and run `q` steps of Fisher–Yates
    (`j = i + floor(rng() × (m − i))`, swap `i` and `j`), taking the first `q`.
 7. **Output** `ranked`: score picks in score order, then random picks in draw order, with `rank` = 1…n.
    `pick` is `score` or `random`. `reason` (exact text):
-   - AWD part: `AWD not consistent ({d} of {looks} drained)` · `AWD not enough evidence ({looks})` ·
-     `AWD consistent ({d} of {looks} drained)`; DSR part: `DSR transplant signal` · `DSR signal unknown` ·
-     `DSR signal`; no summary: `No season summary yet`. Claimed parts are joined with `; ` in the order awd, dsr.
+   - AWD part: `Not consistent with AWD ({d} of {looks} drained)` · `Not enough evidence for AWD ({looks})` ·
+     `Consistent with AWD ({d} of {looks} drained)`; DSR part: `DSR: transplant signal` ·
+     `DSR: signal unknown` · `DSR: DSR signal`; no summary: `No season summary yet`. Claimed parts are joined
+     with `; ` in the order awd, dsr.
    - Unmatched: `Claim does not match a mapped rice field`.
    - Random picks are prefixed with `Random check; `.
 8. **Ids and hashing.** `input_hash` = sha256 of the exact request body bytes. A missing `seed` is the first
    8 hex digits of `input_hash` read as a uint32. `audit_id` = `a_` + the first 16 hex digits of
    sha256(`run_id|input_hash|budget|seed`). The same body against the same run gives the same `audit_id` and
-   the same ranking (T7). `synthetic` is true only if every claim is synthetic. `notice` is always
-   `Ranking for inspection, not a finding about anyone.`
+   the same ranking (T7). The ranking itself depends only on the parsed claims, `budget` and `seed`; only the
+   ids depend on the exact bytes. So the app's in-browser sample ranking MUST pass an explicit `seed` and
+   MUST NOT show an `audit_id` (it is not a stored audit). `synthetic` is true only if every claim is
+   synthetic. `notice` is always `Ranking for inspection, not a finding about anyone.`
 
 ## B7. Wrangler
 
@@ -492,7 +529,7 @@ committed:
   SYNTHETIC), `story.json`.
 - `api/`: one response per endpoint, built from `run/`, including a golden `POST /api/audit` request and
   response.
-- `live.json`: `{"run_id":"fixture","fixture":true}`.
+- `live.json`: `{"v":1,"run_id":"fixture","fixture":true,"updated_at":"2026-11-14T00:00:00Z"}`.
 
 `make fixtures-check` regenerates them in a temporary directory and fails if anything differs from the
 committed copy.
