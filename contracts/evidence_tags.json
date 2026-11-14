@@ -1,0 +1,79 @@
+{
+  "v": 1,
+  "about": "Evidence tag for every number the app can show (SPEC evidence rule, T12). Keys are artifact names; paths use dots, with [] for array items. OBSERVED = radar measurement, INFERRED = our model's reading, ASSUMED = cited parameter (show its source on tap). A number not listed here must not appear in the UI until it is added (additive change, one line in DECISIONS.md).",
+  "tags": {
+    "passes": {
+      "passes[].datetime": "OBSERVED",
+      "passes[].track": "OBSERVED",
+      "passes[].frame": "OBSERVED",
+      "passes[].pixel_m": "OBSERVED",
+      "passes[].valid_fraction_by_tile": "OBSERVED"
+    },
+    "fields": {
+      "features[].properties.area_ha": "INFERRED",
+      "features[].properties.rice_mask_frac": "INFERRED"
+    },
+    "observation": {
+      "n_px": "OBSERVED",
+      "valid_frac": "OBSERVED",
+      "observed.hh_db": "OBSERVED",
+      "observed.hv_db": "OBSERVED",
+      "observed.vv_db": "OBSERVED",
+      "observed.hh_hv_db": "OBSERVED",
+      "observed.ps_db": "OBSERVED",
+      "observed.pd_db": "OBSERVED",
+      "observed.pv_db": "OBSERVED",
+      "inferred.state": "INFERRED",
+      "inferred.p_flooded": "INFERRED",
+      "inferred.confidence": "INFERRED"
+    },
+    "field_summary": {
+      "awd.window.start": "INFERRED_OR_ASSUMED",
+      "awd.window.end": "INFERRED_OR_ASSUMED",
+      "awd.clear_looks": "INFERRED",
+      "awd.drained_hits": "INFERRED",
+      "awd.p_catch_ge1_if_awd": "INFERRED",
+      "awd.k_star": "INFERRED",
+      "awd.verdict": "INFERRED",
+      "dsr.signal": "INFERRED"
+    },
+    "detectability": {
+      "params.*": "ASSUMED",
+      "pass_dates[]": "OBSERVED",
+      "results.*": "INFERRED",
+      "sentence": "INFERRED"
+    },
+    "district_check": {
+      "rows[].gov_dsr_acres": "ASSUMED",
+      "rows[].gov_farmers": "ASSUMED",
+      "rows[].tile_rice_ha": "INFERRED",
+      "rows[].tile_dsr_signal_ha": "INFERRED",
+      "rows[].tile_dsr_signal_frac": "INFERRED"
+    },
+    "checks": {
+      "season_shape.pct_flooded_by_stage.*": "INFERRED",
+      "opera.pairs[].ours_flooded_frac": "INFERRED",
+      "opera.pairs[].opera_water_frac": "INFERRED"
+    },
+    "provenance": {
+      "decomposition_check.max_abs_diff_db": "INFERRED"
+    },
+    "story": {
+      "counts.passes": "OBSERVED",
+      "counts.fields": "INFERRED",
+      "counts.tiles": "ASSUMED",
+      "counts.pct_fields_with_enough_looks": "INFERRED",
+      "headline.text": "FROM_HEADLINE_TAG"
+    },
+    "audit_response": {
+      "ranked[].score": "INFERRED",
+      "ranked[].weight": "ASSUMED"
+    }
+  },
+  "special": {
+    "INFERRED_OR_ASSUMED": "INFERRED when awd.window.source is \"inferred\", ASSUMED when it is \"assumed\" (source: detectability.params.transplant_window).",
+    "FROM_HEADLINE_TAG": "Use story.headline.tag.",
+    "opera_water_frac": "INFERRED, and the label must say it is OPERA's classification, not ours.",
+    "audit weights": "ASSUMED; source is SPEC B6 (ranking weights), shown as such on tap."
+  }
+}
