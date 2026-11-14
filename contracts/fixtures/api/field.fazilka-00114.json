@@ -1,0 +1,294 @@
+{
+  "v": 1,
+  "run_id": "fixture",
+  "fixture": true,
+  "field": {
+    "properties": {
+      "field_id": "fazilka-00114",
+      "tile": "fazilka",
+      "district": "Fazilka",
+      "area_ha": 1.5185,
+      "source": "ftw",
+      "rice_mask_frac": 0.9,
+      "lon": 74.1262943,
+      "lat": 30.3327152
+    },
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            74.1247761,
+            30.3324807
+          ],
+          [
+            74.1278126,
+            30.3324807
+          ],
+          [
+            74.1278126,
+            30.3329498
+          ],
+          [
+            74.1247761,
+            30.3329498
+          ],
+          [
+            74.1247761,
+            30.3324807
+          ]
+        ]
+      ]
+    }
+  },
+  "observations": [
+    {
+      "pass_id": "20260623-T135D",
+      "datetime": "2026-06-23T13:47:34Z",
+      "stage": "early",
+      "n_px": 38,
+      "valid_frac": 0.979,
+      "observed": {
+        "hh_db": -15.34,
+        "hv_db": -22.92,
+        "vv_db": -16.41,
+        "ps_db": -13.07,
+        "pd_db": -24.5,
+        "pv_db": -20.25,
+        "hh_hv_db": 7.58
+      },
+      "inferred": {
+        "state": "flooded",
+        "p_flooded": 0.98,
+        "confidence": 0.96,
+        "method": "fd_gmm_v1"
+      },
+      "flags": []
+    },
+    {
+      "pass_id": "20260705-T135D",
+      "datetime": "2026-07-05T13:47:34Z",
+      "stage": "early",
+      "n_px": 38,
+      "valid_frac": 0.939,
+      "observed": {
+        "hh_db": -11.11,
+        "hv_db": -18.12,
+        "vv_db": -12.1,
+        "ps_db": -9.3,
+        "pd_db": -17.95,
+        "pv_db": -14.4,
+        "hh_hv_db": 7.01
+      },
+      "inferred": {
+        "state": "drained",
+        "p_flooded": 0.243,
+        "confidence": 0.514,
+        "method": "fd_gmm_v1"
+      },
+      "flags": []
+    },
+    {
+      "pass_id": "20260717-T135D",
+      "datetime": "2026-07-17T13:47:34Z",
+      "stage": "mid",
+      "n_px": 152,
+      "valid_frac": 0.907,
+      "observed": {
+        "hh_db": -10.15,
+        "hv_db": -15.82,
+        "hh_hv_db": 5.67
+      },
+      "inferred": {
+        "state": "drained",
+        "p_flooded": 0.1649,
+        "confidence": 0.6702,
+        "method": "hhhv_v1"
+      },
+      "flags": [
+        "dual_pol_only"
+      ]
+    },
+    {
+      "pass_id": "20260810-T135D",
+      "datetime": "2026-08-10T13:47:34Z",
+      "stage": "mid",
+      "n_px": 38,
+      "valid_frac": 0.99,
+      "observed": {
+        "hh_db": -9.18,
+        "hv_db": -15.16,
+        "vv_db": -9.95,
+        "ps_db": -10.36,
+        "pd_db": -12.51,
+        "pv_db": -8.71,
+        "hh_hv_db": 5.98
+      },
+      "inferred": {
+        "state": "drained",
+        "p_flooded": 0.224,
+        "confidence": 0.552,
+        "method": "fd_gmm_v1"
+      },
+      "flags": []
+    },
+    {
+      "pass_id": "20260822-T135D",
+      "datetime": "2026-08-22T13:47:34Z",
+      "stage": "mid",
+      "n_px": 38,
+      "valid_frac": 0.955,
+      "observed": {
+        "hh_db": -10.68,
+        "hv_db": -14.56,
+        "vv_db": -11.11,
+        "ps_db": -11.34,
+        "pd_db": -13.63,
+        "pv_db": -9.35,
+        "hh_hv_db": 3.88
+      },
+      "inferred": {
+        "state": "drained",
+        "p_flooded": 0.0291,
+        "confidence": 0.9418,
+        "method": "fd_gmm_v1"
+      },
+      "flags": []
+    },
+    {
+      "pass_id": "20260903-T135D",
+      "datetime": "2026-09-03T13:47:34Z",
+      "stage": "mid",
+      "n_px": 38,
+      "valid_frac": 0.996,
+      "observed": {
+        "hh_db": -10.11,
+        "hv_db": -16.64,
+        "vv_db": -10.0,
+        "ps_db": -11.65,
+        "pd_db": -11.67,
+        "pv_db": -9.82,
+        "hh_hv_db": 6.53
+      },
+      "inferred": {
+        "state": "drained",
+        "p_flooded": 0.2927,
+        "confidence": 0.4146,
+        "method": "fd_gmm_v1"
+      },
+      "flags": []
+    },
+    {
+      "pass_id": "20260915-T135D",
+      "datetime": "2026-09-15T13:47:34Z",
+      "stage": "late",
+      "n_px": 38,
+      "valid_frac": 0.902,
+      "observed": {
+        "hh_db": -11.33,
+        "hv_db": -14.21,
+        "vv_db": -12.54,
+        "ps_db": -12.28,
+        "pd_db": -14.09,
+        "pv_db": -9.71,
+        "hh_hv_db": 2.88
+      },
+      "inferred": {
+        "state": "drained",
+        "p_flooded": 0.1971,
+        "confidence": 0.6058,
+        "method": "fd_gmm_v1"
+      },
+      "flags": []
+    },
+    {
+      "pass_id": "20260927-T135D",
+      "datetime": "2026-09-27T13:47:34Z",
+      "stage": "late",
+      "n_px": 38,
+      "valid_frac": 0.905,
+      "observed": {
+        "hh_db": -8.44,
+        "hv_db": -15.37,
+        "vv_db": -9.93,
+        "ps_db": -11.29,
+        "pd_db": -11.37,
+        "pv_db": -8.08,
+        "hh_hv_db": 6.93
+      },
+      "inferred": {
+        "state": "drained",
+        "p_flooded": 0.3359,
+        "confidence": 0.3282,
+        "method": "fd_gmm_v1"
+      },
+      "flags": []
+    },
+    {
+      "pass_id": "20261009-T135D",
+      "datetime": "2026-10-09T13:47:34Z",
+      "stage": "late",
+      "n_px": 152,
+      "valid_frac": 0.924,
+      "observed": {
+        "hh_db": -10.39,
+        "hv_db": -15.02,
+        "hh_hv_db": 4.63
+      },
+      "inferred": {
+        "state": "drained",
+        "p_flooded": 0.3081,
+        "confidence": 0.3838,
+        "method": "hhhv_v1"
+      },
+      "flags": [
+        "dual_pol_only"
+      ]
+    },
+    {
+      "pass_id": "20261021-T135D",
+      "datetime": "2026-10-21T13:47:34Z",
+      "stage": "late",
+      "n_px": 38,
+      "valid_frac": 0.227,
+      "observed": {
+        "hh_db": -10.35,
+        "hv_db": -16.29,
+        "vv_db": -11.62,
+        "ps_db": -12.32,
+        "pd_db": -15.35,
+        "pv_db": -9.2,
+        "hh_hv_db": 5.94
+      },
+      "inferred": {
+        "state": "uncertain",
+        "p_flooded": 0.0305,
+        "confidence": 0.939,
+        "method": "fd_gmm_v1"
+      },
+      "flags": [
+        "gap_stripe",
+        "low_valid_frac"
+      ]
+    }
+  ],
+  "summary": {
+    "awd": {
+      "window": {
+        "start": "2026-07-07T13:47:34Z",
+        "end": "2026-09-16T13:47:34Z",
+        "source": "inferred"
+      },
+      "clear_looks": 5,
+      "drained_hits": 5,
+      "p_catch_ge1_if_awd": 0.94975,
+      "k_star": 3,
+      "verdict": "consistent",
+      "reason": "Drained on 5 of 5 clear looks, more than a continuously flooded field would show."
+    },
+    "dsr": {
+      "signal": "transplant_signal",
+      "reason": "Standing water on 2026-06-23, typical of puddled transplanting."
+    }
+  }
+}

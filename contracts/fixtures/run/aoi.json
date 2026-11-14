@@ -1,0 +1,43 @@
+{
+  "v": 1,
+  "run_id": "fixture",
+  "fixture": true,
+  "tiles": [
+    {
+      "id": "fazilka",
+      "district": "Fazilka",
+      "bbox": [
+        74.042,
+        30.2623,
+        74.198,
+        30.3977
+      ]
+    },
+    {
+      "id": "muktsar",
+      "district": "Sri Muktsar Sahib",
+      "bbox": [
+        74.372,
+        30.3323,
+        74.528,
+        30.4677
+      ]
+    }
+  ],
+  "utm_epsg": 32643,
+  "season": {
+    "start": "2026-06-17",
+    "end": "2026-10-23"
+  },
+  "stages": {
+    "mid_start": "2026-07-15",
+    "late_start": "2026-09-10"
+  },
+  "gaps": [
+    {
+      "start": "2026-07-27T22:03:25Z",
+      "end": "2026-08-10T00:55:27Z",
+      "source": "https://nisar-docs.asf.alaska.edu/availability-overview/"
+    }
+  ]
+}

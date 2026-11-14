@@ -1,0 +1,64 @@
+{
+  "v": 1,
+  "run_id": "fixture",
+  "fixture": true,
+  "season_shape": {
+    "pct_flooded_by_stage": {
+      "early": 54.92,
+      "mid": 63.92,
+      "late": 35.59
+    },
+    "pass": true,
+    "rule": "Flooded share should fall from mid season to late season as fields are drained before harvest; pass is true when late < mid."
+  },
+  "opera": {
+    "product": "OPERA_L3_DSWx-NI",
+    "version": "v0.4 (test product)",
+    "n_dates": 3,
+    "pairs": [
+      {
+        "date": "2026-08-22",
+        "tile": "fazilka",
+        "ours_flooded_frac": 0.625,
+        "opera_water_frac": 0.2188,
+        "opera_date": "2026-08-22"
+      },
+      {
+        "date": "2026-08-22",
+        "tile": "muktsar",
+        "ours_flooded_frac": 0.7257,
+        "opera_water_frac": 0.254,
+        "opera_date": "2026-08-22"
+      },
+      {
+        "date": "2026-09-15",
+        "tile": "fazilka",
+        "ours_flooded_frac": 0.5217,
+        "opera_water_frac": 0.1826,
+        "opera_date": "2026-09-15"
+      },
+      {
+        "date": "2026-09-15",
+        "tile": "muktsar",
+        "ours_flooded_frac": 0.5196,
+        "opera_water_frac": 0.1819,
+        "opera_date": "2026-09-15"
+      },
+      {
+        "date": "2026-10-09",
+        "tile": "fazilka",
+        "ours_flooded_frac": 0.2756,
+        "opera_water_frac": 0.0965,
+        "opera_date": "2026-10-09"
+      },
+      {
+        "date": "2026-10-09",
+        "tile": "muktsar",
+        "ours_flooded_frac": 0.2578,
+        "opera_water_frac": 0.0902,
+        "opera_date": "2026-10-09"
+      }
+    ],
+    "note": "SAMPLE values, not a real OPERA comparison. DSWx-NI is a 30 m test product designed for water bodies of at least 3 ha and 200 m width, larger than most fields, so only tile-level aggregates are compared."
+  }
+}

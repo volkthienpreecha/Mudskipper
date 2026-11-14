@@ -1,0 +1,17 @@
+{
+  "v": 1,
+  "run_id": "fixture",
+  "fixture": true,
+  "hero_tile": "fazilka",
+  "hero_field_id": "fazilka-00114",
+  "headline": {
+    "text": "29% of 300 rice fields had enough clear radar looks for a drainage verdict.",
+    "tag": "INFERRED"
+  },
+  "counts": {
+    "passes": 10,
+    "fields": 300,
+    "tiles": 2,
+    "pct_fields_with_enough_looks": 29
+  }
+}

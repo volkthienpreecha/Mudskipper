@@ -1,0 +1,36 @@
+{
+  "v": 1,
+  "run_id": "fixture",
+  "fixture": true,
+  "year": 2026,
+  "rows": [
+    {
+      "district": "Fazilka",
+      "gov_dsr_acres": 155422.77,
+      "gov_farmers": 12063,
+      "tile_rice_ha": 376.69,
+      "tile_dsr_signal_ha": 49.18,
+      "tile_dsr_signal_frac": 0.1305
+    },
+    {
+      "district": "Sri Muktsar Sahib",
+      "gov_dsr_acres": 106038.81,
+      "gov_farmers": 7345,
+      "tile_rice_ha": 329.96,
+      "tile_dsr_signal_ha": 42.52,
+      "tile_dsr_signal_frac": 0.1288
+    },
+    {
+      "district": "Ferozepur",
+      "gov_dsr_acres": 38088.59,
+      "gov_farmers": 1929,
+      "tile_rice_ha": null,
+      "tile_dsr_signal_ha": null,
+      "tile_dsr_signal_frac": null
+    }
+  ],
+  "note": "SAMPLE: tile values come from fixture fields, not from NISAR. Government figures are the Kharif 2026 DSR totals reported by PTI/DT Next. A 15 x 15 km tile is not a district, so compare shares, not acres. DSR is a signal, not proof.",
+  "source_urls": [
+    "https://www.dtnext.in/news/business/punjab-dsr-area-rises-36-to-over-4-lakh-acres-in-kharif-2026-minister"
+  ]
+}
