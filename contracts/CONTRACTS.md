@@ -13,6 +13,8 @@ SPEC Part B and adds the detail Part B leaves open, so that three people can bui
   message the team. Removing or renaming a field means a v2 file next to v1, never an edit in place.
 
 Keywords: **MUST**, **SHOULD** and **MAY** are used as in RFC 2119. "Validator" means `contracts/validate.py`.
+JSON examples show shape only; their numbers are illustrative, not results. Real values live in
+[`fixtures/`](fixtures) (sample) and `artifacts/<run_id>/` (real).
 
 ---
 
@@ -230,7 +232,7 @@ Words follow SPEC D5: "consistent with AWD", "not consistent with AWD", "not eno
  "pass_dates":["2026-06-23T13:47:34Z", "…"],
  "params":{"transplant_window":{"start":"2026-06-05","end":"2026-07-15"},
    "awd_window_days_after_transplant":[14,85],"cycle_days":[4,10],"drained_fraction_of_cycle":[0.3,0.5],
-   "cf_single_drain_prob":0.37,"per_pass_accuracy":{"early":0.94,"mid":0.8,"late":0.8},
+   "cf_single_drain_prob":0.51,"per_pass_accuracy":{"early":0.94,"mid":0.8,"late":0.8},
    "stage_boundaries":{"mid_start":"2026-07-15","late_start":"2026-09-10"},
    "cf_false_flag_max":0.1,"awd_miss_max":0.1,"dsr_min_early_looks":2},
  "param_sources":{"cycle_days":{"citation":"Shah et al., AAAI 2026","url":"https://arxiv.org/abs/2507.08605","status":"cited","note":"…"}, "…":{}},
