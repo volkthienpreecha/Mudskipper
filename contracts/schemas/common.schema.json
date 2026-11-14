@@ -26,7 +26,7 @@
     },
     "pass_id": {
       "type": "string",
-      "pattern": "^[0-9]{8}-T[0-9]{3}[AD]$"
+      "pattern": "^[0-9]{8}-T[0-9]{3}[AD](-[a-z0-9]{1,8})?$"
     },
     "granule_id": {
       "type": "string",

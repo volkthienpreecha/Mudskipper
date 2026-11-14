@@ -25,7 +25,7 @@ Keywords: **MUST**, **SHOULD** and **MAY** are used as in RFC 2119. "Validator" 
 | `run_id` | `^[a-z0-9][a-z0-9_-]{0,31}$`. Real runs use `r01`, `r02`, …; the fixture run is `fixture`. |
 | Tile id | `^[a-z][a-z0-9]{0,15}$`, e.g. `fazilka`, `muktsar`. |
 | `field_id` | `<tile>-<5 digits>`, e.g. `fazilka-00042`. Stable within a run; never derived from a person or a parcel register. |
-| `pass_id` | `YYYYMMDD-T<track, 3 digits><A or D>`, e.g. `20260623-T135D` (UTC acquisition date, relative orbit, direction). |
+| `pass_id` | `YYYYMMDD-T<track, 3 digits><A or D>`, e.g. `20260623-T135D` (UTC acquisition date, relative orbit, direction). A second product of the same acquisition (kept only as an excluded duplicate) adds a short suffix, e.g. `20260915-T135D-ur`. |
 | Datetime | UTC, whole seconds, `Z` suffix: `2026-06-23T13:47:34Z`. |
 | Date | `YYYY-MM-DD`; it means 00:00:00Z on that day. |
 | Units | Backscatter in dB (`10·log10` of linear power, averaged in **linear** first). Areas in hectares. Probabilities in [0, 1]. A field named `pct_*` is in [0, 100]. |
@@ -211,10 +211,9 @@ the source of truth.
    | inconsistent | `Flooded on all {looks}; a field practicing AWD would have been caught drained {p}% of the time.` |
    | n = 0 | `No clear looks inside the AWD window.` |
    | d = 0, low p | `Flooded on all {looks}, but these dates would catch a field practicing AWD only {p}% of the time.` |
-   | k_star null | `{Looks} cannot separate AWD from continuous flooding.` |
+   | k_star null | `{looks} cannot separate AWD from continuous flooding.` |
    | 0 < d < k_star | `Drained on {d} of {looks}; {k} are needed to rule out a single drainage.` |
    The `not_enough_evidence` rows are checked in this order: n = 0, d = 0, k_star null, otherwise.
-   `{Looks}` is `{looks}` with its first letter capitalised.
 6. **DSR signal.** Let `E` be the field's clear looks with stage `early`, sorted by time.
    - `unknown` if `|E| < dsr_min_early_looks`: `Only {looks} before {mid_start}.` (the date from `aoi.stages`)
    - `transplant_signal` if any look in `E` is flooded: `Standing water on {date}, typical of puddled transplanting.`
@@ -434,8 +433,9 @@ Errors are `{"error":{"code":"…","message":"…"}}` with a 4xx/5xx status (sch
 ### Ranking (normative; core/rank.ts, Python `rules.rank`)
 
 1. **Match** claims in input order. If `properties.field_id` names a field in the run, use it. Otherwise take
-   the claim's point (the `Point` itself, or the ring-average of the outer ring of the polygon with the
-   largest area) and use the field whose polygon contains it (smallest `field_id` if several do). A claim with
+   the claim's point (the `Point` itself; for a polygon, the average of the outer ring's vertices, closing
+   vertex excluded, of the part with the largest planar lon/lat area) and use the field whose polygon
+   contains it by even-odd ray casting, holes excluded (smallest `field_id` if several do). A claim with
    neither is **unmatched**.
 2. **Candidates.** One per matched field (claims on the same field merge; `claimed` is the union and
    `claim_id` the first one) and one per unmatched claim.
@@ -444,7 +444,8 @@ Errors are `{"error":{"code":"…","message":"…"}}` with a 4xx/5xx status (sch
    - DSR by signal: `transplant_signal` 1.0, `unknown` 0.6, `dsr_signal` 0.1;
    - a field with no summary counts as 0.6.
    Unmatched: 0.8. **Score** = weight × area, where area is the field's `area_ha`, or for an unmatched claim
-   its `area_ha` property if positive, else its polygon area in UTM, else 1.0.
+   its `area_ha` property if positive, else 1.0. (No trigonometry anywhere in ranking, so Python and
+   TypeScript give identical scores.)
 4. **Budget split.** `n = min(budget, candidates)`, `n_random = floor((n + 2) / 5)` (20%, rounded half up),
    `n_score = n − n_random`.
 5. **Score picks:** sort by score descending, then weight descending, then key ascending (key = `field_id`,
