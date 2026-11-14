@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mudskipper.invalid/schemas/v1/claims.schema.json",
   "title": "claims (FeatureCollection)",
-  "description": "Program claims to rank for inspection: claims.sample.geojson and POST /api/audit. CONTRACTS.md B3.12.",
+  "description": "Program claims to rank for inspection: claims.sample.geojson and POST /api/audit. Accepts ordinary GIS exports (extra members such as name/crs/bbox, extra properties, altitude in positions); see CONTRACTS.md B3.12.",
   "type": "object",
   "properties": {
     "v": {
@@ -30,7 +30,6 @@
     "type",
     "features"
   ],
-  "additionalProperties": false,
   "$defs": {
     "claim": {
       "type": "object",
@@ -47,13 +46,13 @@
         "geometry": {
           "oneOf": [
             {
-              "$ref": "common.schema.json#/$defs/point"
+              "$ref": "#/$defs/point"
             },
             {
-              "$ref": "common.schema.json#/$defs/polygon"
+              "$ref": "#/$defs/polygon"
             },
             {
-              "$ref": "common.schema.json#/$defs/multipolygon"
+              "$ref": "#/$defs/multipolygon"
             }
           ]
         },
@@ -65,8 +64,7 @@
         "type",
         "geometry",
         "properties"
-      ],
-      "additionalProperties": false
+      ]
     },
     "claim_properties": {
       "type": "object",
@@ -95,16 +93,100 @@
         },
         "area_ha": {
           "type": "number",
-          "exclusiveMinimum": 0,
+          "minimum": 0,
           "maximum": 10000
         }
       },
       "required": [
-        "claim_id",
         "claimed",
         "synthetic"
+      ]
+    },
+    "position": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        }
       ],
-      "additionalProperties": false
+      "description": "[lon, lat] or [lon, lat, altitude]; altitude is ignored"
+    },
+    "point": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "Point"
+        },
+        "coordinates": {
+          "$ref": "#/$defs/position"
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ]
+    },
+    "polygon": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "Polygon"
+        },
+        "coordinates": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/position"
+            },
+            "minItems": 4
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ]
+    },
+    "multipolygon": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "MultiPolygon"
+        },
+        "coordinates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/position"
+              },
+              "minItems": 4
+            },
+            "minItems": 1
+          }
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ]
     }
   }
 }
