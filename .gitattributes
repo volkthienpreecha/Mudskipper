@@ -1,0 +1,9 @@
+# Normalise line endings so fixture hashes are identical on every OS.
+* text=auto eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+*.geojson text eol=lf
+*.png binary
+*.gif binary
+*.mp4 binary
+*.pmtiles binary

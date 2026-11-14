@@ -1,0 +1,41 @@
+Mudskipper
+Copyright (C) 2026 The Mudskipper authors (see git history)
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 only (SPDX: GPL-3.0-only). See LICENSE.
+
+Why GPL-3.0-only: the radar pipeline builds on pyNISAR and polsartools, both
+GPL-3.0. Keeping the whole repository under the same terms keeps every lane
+license-compatible. See DECISIONS.md.
+
+-------------------------------------------------------------------------------
+THIRD-PARTY NOTICES
+-------------------------------------------------------------------------------
+Rule: when a lane adds a dependency, dataset or font, it adds a line here in the
+same commit. Keep upstream copyright and license files intact where code or data
+are redistributed.
+
+Software (planned or in use; each lane confirms when it lands)
+  pyNISAR ................ GPL-3.0      https://github.com/Cesarito2021/pyNISAR
+  polsartools ............ GPL-3.0      https://github.com/polsartools/polsartools
+  asf_search ............. BSD-3-Clause https://github.com/asfadmin/Discovery-asf_search
+  Ricemapper (Microsoft) . MIT          https://github.com/microsoft/rice-irrigation-mapping-s1s2
+  Fields of The World .... MIT          https://github.com/fieldsoftheworld/ftw-baselines
+  jsonschema ............. MIT          https://github.com/python-jsonschema/jsonschema
+  PMTiles ................ BSD-3-Clause https://github.com/protomaps/PMTiles
+  MapLibre GL JS ......... BSD-3-Clause https://github.com/maplibre/maplibre-gl-js
+  Hono ................... MIT          https://github.com/honojs/hono
+
+Fonts (self-hosted)
+  Fraunces ............... SIL OFL 1.1  https://github.com/undercasetype/Fraunces
+  IBM Plex Sans / Mono ... SIL OFL 1.1  https://github.com/IBM/plex
+
+Data
+  NISAR L2 GCOV (NASA-ISRO), via the Alaska Satellite Facility DAAC.
+  Sentinel-2 imagery (Copernicus) via Fields of The World.
+  OPERA DSWx (NASA JPL), if the cross-check runs.
+  Punjab Department of Agriculture direct-seeded rice figures (cited in
+  district_check.json).
+
+No NASA or ISRO logos are used. All artwork is original.
