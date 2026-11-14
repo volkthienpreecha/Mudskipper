@@ -79,6 +79,75 @@ class SmallRuleTests(unittest.TestCase):
         self.assertFalse(rules.in_gap("2026-08-10T13:47:34Z", gap))  # real descending pass just after the gap
 
 
+class SentenceTests(unittest.TestCase):
+    def test_k_star_four_still_states_the_count(self):
+        awd, cf = [0, 0, 1, 1, 8], [4, 3, 1, 2, 0]   # P_cf(>=4) = 0 <= 0.1, P_cf(>=3) = 0.2
+        k = rules.k_star_from(cf, 0.1)
+        self.assertEqual(k, 4)
+        self.assertEqual(rules.sentence(4, k, awd, cf, 0.1),
+                         "With 4 passes, a field practicing AWD is caught drained at least 4 times 80% of the time; "
+                         "a continuously flooded field shows that 0% of the time.")
+
+    def test_null_k_star_and_singular(self):
+        self.assertIsNone(rules.k_star_from([0, 10], 0.1))
+        self.assertEqual(rules.sentence(1, None, [0, 10], [0, 10], 0.1),
+                         "With 1 pass, no count of drained looks separates AWD from continuous flooding at a 10% "
+                         "false-flag rate.")
+
+    def test_ge_is_one_sum_one_division(self):
+        counts = [1658, 2342]
+        self.assertEqual(rules.ge(counts, 1), 2342 / 4000)
+
+
+class StoryTests(unittest.TestCase):
+    AOI = {"tiles": [{"id": "a"}, {"id": "b"}]}
+
+    def summary(self, verdict, d=0, n=0):
+        return {"awd": {"verdict": verdict, "drained_hits": d, "clear_looks": n}}
+
+    def test_empty_tile_is_never_hero(self):
+        fields = [{"field_id": "b-00002", "tile": "b", "area_ha": 1}, {"field_id": "b-00001", "tile": "b", "area_ha": 1}]
+        sums = {f["field_id"]: self.summary("not_enough_evidence") for f in fields}
+        out = rules.story(self.AOI, fields, sums, 10, "t")
+        self.assertEqual((out["hero_tile"], out["hero_field_id"]), ("b", "b-00001"))
+        self.assertEqual(out["counts"]["pct_fields_with_enough_looks"], 0)
+
+    def test_hero_prefers_consistent_then_hits_looks_area_id(self):
+        fields = [{"field_id": "a-00001", "tile": "a", "area_ha": 1}, {"field_id": "a-00002", "tile": "a", "area_ha": 3},
+                  {"field_id": "a-00003", "tile": "a", "area_ha": 2}, {"field_id": "b-00001", "tile": "b", "area_ha": 9}]
+        sums = {"a-00001": self.summary("inconsistent", 0, 9), "a-00002": self.summary("consistent", 3, 6),
+                "a-00003": self.summary("consistent", 3, 6), "b-00001": self.summary("not_enough_evidence")}
+        out = rules.story(self.AOI, fields, sums, 10, "t", fixture=True)
+        self.assertEqual(out["hero_field_id"], "a-00002")  # ties on hits and looks; larger area wins
+        self.assertEqual(out["headline"]["text"], "75% of 4 rice fields had enough clear radar looks for a drainage verdict.")
+        self.assertEqual(out["counts"], {"passes": 10, "fields": 4, "tiles": 2, "pct_fields_with_enough_looks": 75})
+
+    def test_no_fields_raises(self):
+        with self.assertRaises(ValueError):
+            rules.story(self.AOI, [], {}, 10, "t")
+
+
+class GeometryTests(unittest.TestCase):
+    L_SHAPE = {"type": "Polygon", "coordinates": [[[0, 0], [10, 0], [10, 1], [1, 1], [1, 10], [0, 10], [0, 0]]]}
+
+    def test_concave_claim_point_is_inside(self):
+        x, y = rules.representative_point(self.L_SHAPE)
+        self.assertTrue(rules.contains(self.L_SHAPE, x, y), (x, y))
+
+    def test_convex_claim_uses_vertex_average(self):
+        sq = {"type": "Polygon", "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]]}
+        self.assertEqual(rules.representative_point(sq), (1.0, 1.0))
+
+    def test_open_ring_rejected(self):
+        with self.assertRaises(rules.GeometryError):
+            rules.representative_point({"type": "Polygon", "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2]]]})
+
+    def test_shared_edge_belongs_to_one_cell(self):
+        left = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}
+        right = {"type": "Polygon", "coordinates": [[[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]]}
+        self.assertEqual(rules.contains(left, 1.0, 0.5) + rules.contains(right, 1.0, 0.5), 1)
+
+
 class SimulationTests(unittest.TestCase):
     def test_deterministic_per_seed(self):  # T6
         lk = looks(DATES)
@@ -139,7 +208,9 @@ class VerdictTests(unittest.TestCase):
         (2, 0, 0.62, 2, "not_enough_evidence", "Flooded on all 2 clear looks, but these dates would catch a field practicing AWD only 62% of the time."),
         (1, 1, 0.45, None, "not_enough_evidence", "1 clear look cannot separate AWD from continuous flooding."),
         (6, 1, 0.97, 3, "not_enough_evidence", "Drained on 1 of 6 clear looks; 3 are needed to rule out a single drainage."),
-        (1, 0, 0.8999, 1, "not_enough_evidence", "Flooded on all 1 clear look, but these dates would catch a field practicing AWD only 90% of the time."),
+        (1, 0, 0.8999, 1, "not_enough_evidence", "Flooded on the only clear look, but these dates would catch a field practicing AWD only 89% of the time."),
+        (1, 0, 0.95, None, "inconsistent", "Flooded on the only clear look; a field practicing AWD would have been caught drained 95% of the time."),
+        (4, 0, 0.29, 2, "not_enough_evidence", "Flooded on all 4 clear looks, but these dates would catch a field practicing AWD only 29% of the time."),
     ]
 
     def test_scripted_cases(self):
@@ -156,6 +227,7 @@ class VerdictTests(unittest.TestCase):
 
     def test_dsr_signal(self):
         f = lambda d, s: (rules.parse_ms(f"{d}T13:47:34Z"), f"{d}T13:47:34Z", "early", s)
+        self.assertEqual(rules.dsr_signal([], 2, "2026-07-15"), ("unknown", "No clear looks before 2026-07-15."))
         self.assertEqual(rules.dsr_signal([f("2026-06-23", "drained")], 2, "2026-07-15"),
                          ("unknown", "Only 1 clear look before 2026-07-15."))
         self.assertEqual(rules.dsr_signal([f("2026-06-23", "drained"), f("2026-07-05", "flooded")], 2, "2026-07-15"),
@@ -256,7 +328,7 @@ class RankTests(unittest.TestCase):
         self.assertEqual([r["score"] for r in score], sorted((r["score"] for r in score), reverse=True))
         top = score[0]
         self.assertEqual(top["weight"], 1.0)
-        self.assertTrue(top["reason"].startswith("AWD not consistent"))
+        self.assertTrue(top["reason"].startswith("Not consistent with AWD ("))
         self.assertEqual(out["notice"], "Ranking for inspection, not a finding about anyone.")
 
     def test_stratified_by_district(self):
@@ -286,6 +358,37 @@ class RankTests(unittest.TestCase):
         self.assertIn("; DSR", merged["reason"])
         self.assertNotIn("DUP", by_claim)
         self.assertEqual(len(out["ranked"]), 5)  # 4 fields + 1 unmatched; budget larger than candidates
+
+    def test_concave_field_claim_matches(self):
+        field = {"type": "Feature", "geometry": GeometryTests.L_SHAPE,
+                 "properties": {"field_id": "fazilka-00001", "tile": "fazilka", "district": "Fazilka", "area_ha": 2}}
+        claim = [{"type": "Feature", "geometry": GeometryTests.L_SHAPE,
+                  "properties": {"claim_id": "L", "claimed": ["awd"], "synthetic": True}}]
+        out = rules.rank(_body([], 5, seed=1, extra=claim), [field], {}, "t", "2026-11-14T00:00:00Z", False)
+        self.assertEqual((out["matched"], out["ranked"][0]["field_id"]), (1, "fazilka-00001"))
+        self.assertEqual(out["ranked"][0]["reason"], "No season summary yet")
+
+    def test_duplicate_claim_id_rejected_and_missing_id_assigned(self):
+        dup = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [10.0, 10.0]},
+                "properties": {"claim_id": "X", "claimed": ["awd"], "synthetic": True}}] * 2
+        with self.assertRaises(rules.RankError) as ctx:
+            self.rank(_body([], 5, seed=1, extra=dup))
+        self.assertEqual(ctx.exception.code, "duplicate_claim_id")
+        anon = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [10.0, 10.0]},
+                 "properties": {"claimed": ["awd"], "synthetic": True}}] * 2
+        out = self.rank(_body([], 5, seed=1, extra=anon))
+        self.assertEqual(sorted(r["claim_id"] for r in out["ranked"]), ["#1", "#2"])
+
+    def test_open_ring_claim_rejected(self):
+        bad = [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1]]]},
+                "properties": {"claimed": ["awd"], "synthetic": True}}]
+        with self.assertRaises(rules.RankError) as ctx:
+            self.rank(_body([], 5, seed=1, extra=bad))
+        self.assertEqual(ctx.exception.code, "invalid_geometry")
+
+    def test_seed_zero_is_a_seed(self):
+        body = _body(self.fields, 10, seed=0)
+        self.assertEqual(self.rank(body)["seed"], 0)
 
     def test_field_id_hint_wins_over_geometry(self):
         hint = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [10.0, 10.0]},
