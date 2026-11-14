@@ -33,7 +33,14 @@
             "$ref": "common.schema.json#/$defs/crid"
           },
           "subset_sha256": {
-            "$ref": "common.schema.json#/$defs/sha256"
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [

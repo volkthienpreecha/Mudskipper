@@ -193,14 +193,12 @@
           "$ref": "common.schema.json#/$defs/stages"
         },
         "cf_false_flag_max": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "maximum": 0.5
+          "const": 0.1,
+          "description": "Fixed by SPEC B3.6 k_star_rule."
         },
         "awd_miss_max": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "maximum": 0.5
+          "const": 0.1,
+          "description": "Fixed in CONTRACTS.md B3.5; mirrors the 10% false-flag rate."
         },
         "dsr_min_early_looks": {
           "type": "integer",

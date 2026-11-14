@@ -101,8 +101,21 @@ def pct(p: float) -> int:
     return int((100 * p + 0.5) // 1)
 
 
+def pct_down(p: float) -> int:
+    """Percent rounded down, for probabilities compared against a threshold (CONTRACTS.md B3.5)."""
+    return int((100 * p + 1e-9) // 1)
+
+
 def looks_text(n: int) -> str:
     return "1 clear look" if n == 1 else f"{n} clear looks"
+
+
+def all_looks_text(n: int) -> str:
+    return "the only clear look" if n == 1 else f"all {n} clear looks"
+
+
+def passes_text(n: int) -> str:
+    return "1 pass" if n == 1 else f"{n} passes"
 
 
 def times_text(k: int) -> str:
@@ -171,12 +184,13 @@ def simulate(looks: Sequence[tuple[str, str]], params: dict, n_sim: int, seed: i
 
 
 def ge(counts: Sequence[int], k: int) -> float:
-    """P(at least k drained labels)."""
+    """P(at least k drained labels) = (sum of counts[j] for j >= k) / n_sim, one integer sum then one division."""
     total = sum(counts)
     return sum(counts[k:]) / total if total else 0.0
 
 
 def k_star_from(cf_counts: Sequence[int], cf_false_flag_max: float) -> int | None:
+    """Smallest k in 1..|L| with P(>= k | CF) <= cf_false_flag_max, else None."""
     for k in range(1, len(cf_counts)):
         if ge(cf_counts, k) <= cf_false_flag_max:
             return k
@@ -203,11 +217,11 @@ def detectability(passes: Sequence[dict], params: dict, n_sim: int, seed: int) -
 
 
 def sentence(n: int, k_star: int | None, awd_counts, cf_counts, cf_false_flag_max: float) -> str:
-    if k_star is not None and 1 <= k_star <= 3:
-        return (f"With {n} passes, a field practicing AWD is caught drained at least {times_text(k_star)} "
+    if k_star is not None:
+        return (f"With {passes_text(n)}, a field practicing AWD is caught drained at least {times_text(k_star)} "
                 f"{pct(ge(awd_counts, k_star))}% of the time; a continuously flooded field shows that "
                 f"{pct(ge(cf_counts, k_star))}% of the time.")
-    return (f"With {n} passes, no count of drained looks separates AWD from continuous flooding at a "
+    return (f"With {passes_text(n)}, no count of drained looks separates AWD from continuous flooding at a "
             f"{pct(cf_false_flag_max)}% false-flag rate.")
 
 
@@ -277,13 +291,13 @@ def awd_reason(verdict: str, n: int, d: int, p_catch: float, k_star: int | None)
     if verdict == "consistent":
         return f"Drained on {d} of {looks}, more than a continuously flooded field would show."
     if verdict == "inconsistent":
-        return (f"Flooded on all {looks}; a field practicing AWD would have been caught drained "
-                f"{pct(p_catch)}% of the time.")
+        return (f"Flooded on {all_looks_text(n)}; a field practicing AWD would have been caught drained "
+                f"{pct_down(p_catch)}% of the time.")
     if n == 0:
         return "No clear looks inside the AWD window."
     if d == 0:
-        return (f"Flooded on all {looks}, but these dates would catch a field practicing AWD only "
-                f"{pct(p_catch)}% of the time.")
+        return (f"Flooded on {all_looks_text(n)}, but these dates would catch a field practicing AWD only "
+                f"{pct_down(p_catch)}% of the time.")
     if k_star is None:
         return f"{looks} cannot separate AWD from continuous flooding."
     return f"Drained on {d} of {looks}; {k_star} are needed to rule out a single drainage."
@@ -292,6 +306,8 @@ def awd_reason(verdict: str, n: int, d: int, p_catch: float, k_star: int | None)
 def dsr_signal(early_looks: Sequence[tuple], min_looks: int, mid_start: str) -> tuple[str, str]:
     """early_looks: (ms, datetime, stage, state), sorted, clear, stage early."""
     n = len(early_looks)
+    if n == 0 and min_looks > 0:
+        return "unknown", f"No clear looks before {mid_start}."
     if n < min_looks:
         return "unknown", f"Only {looks_text(n)} before {mid_start}."
     flooded = [lk for lk in early_looks if lk[3] == STATE_FLOODED]
@@ -310,10 +326,14 @@ def story(aoi: dict, fields: Sequence[dict], summaries: dict, used_passes: int, 
     total = len(fields)
     n_decided = sum(1 for f in fields if decided(f["field_id"]))
     share = n_decided / total if total else 0.0
+    if total == 0:
+        raise ValueError("story needs at least one field")
     best_tile, best_share = None, -1.0
     for tile in aoi["tiles"]:
         tf = [f for f in fields if f["tile"] == tile["id"]]
-        s = (sum(1 for f in tf if decided(f["field_id"])) / len(tf)) if tf else 0.0
+        if not tf:
+            continue  # a tile with no fields can never be the hero tile
+        s = sum(1 for f in tf if decided(f["field_id"])) / len(tf)
         if s > best_share:
             best_tile, best_share = tile["id"], s
     in_tile = sorted((f for f in fields if f["tile"] == best_tile), key=lambda f: f["field_id"])
@@ -325,7 +345,7 @@ def story(aoi: dict, fields: Sequence[dict], summaries: dict, used_passes: int, 
     consistent = [f for f in in_tile if summaries[f["field_id"]]["awd"]["verdict"] == "consistent"]
     decided_f = [f for f in in_tile if decided(f["field_id"])]
     pool = consistent or decided_f
-    hero = min(pool, key=order)["field_id"] if pool else in_tile[0]["field_id"]
+    hero = min(pool, key=order)["field_id"] if pool else in_tile[0]["field_id"]  # in_tile is sorted by field_id
     p = pct(share)
     out = {"v": 1, "run_id": run_id}
     if fixture is not None:
@@ -356,10 +376,27 @@ def planar_area(ring: Sequence[Sequence[float]]) -> float:
     return abs(s) / 2
 
 
+class GeometryError(ValueError):
+    """Claim geometry the ranking cannot use (open ring, too few vertices, unsupported type)."""
+
+
+def check_rings(geometry: dict) -> None:
+    for poly in _rings_of(geometry):
+        for ring in poly:
+            if len(ring) < 4 or ring[0][0] != ring[-1][0] or ring[0][1] != ring[-1][1]:
+                raise GeometryError("polygon rings must be closed and have at least 4 positions")
+
+
 def representative_point(geometry: dict) -> tuple[float, float]:
-    """Point itself, or the vertex average (closing vertex excluded) of the outer ring of the largest polygon."""
+    """CONTRACTS.md B6 step 1: a deterministic point inside the claim.
+
+    Point: the point. Polygon/MultiPolygon: take the part whose outer ring has the largest planar_area (first
+    part wins ties); use the average of its vertices (closing vertex excluded) if that lies inside the outer
+    ring; otherwise the midpoint of the first interior span of the horizontal line through that average.
+    """
     if geometry["type"] == "Point":
         return geometry["coordinates"][0], geometry["coordinates"][1]
+    check_rings(geometry)
     polys = _rings_of(geometry)
     best = polys[0]
     best_area = planar_area(best[0])
@@ -367,16 +404,30 @@ def representative_point(geometry: dict) -> tuple[float, float]:
         a = planar_area(poly[0])
         if a > best_area:
             best, best_area = poly, a
-    ring = best[0][:-1]
+    outer = best[0]
+    ring = outer[:-1]
     sx = 0.0
     sy = 0.0
-    for x, y in ring:
-        sx += x
-        sy += y
-    return sx / len(ring), sy / len(ring)
+    for pt in ring:
+        sx += pt[0]
+        sy += pt[1]
+    cx, cy = sx / len(ring), sy / len(ring)
+    if _in_ring(cx, cy, outer):
+        return cx, cy
+    xs = []
+    j = len(outer) - 1
+    for i in range(len(outer)):
+        xi, yi = outer[i][0], outer[i][1]
+        xj, yj = outer[j][0], outer[j][1]
+        if (yi > cy) != (yj > cy):
+            xs.append((xj - xi) * (cy - yi) / (yj - yi) + xi)
+        j = i
+    xs.sort()
+    return (xs[0] + xs[1]) / 2, cy
 
 
 def _in_ring(x: float, y: float, ring: Sequence[Sequence[float]]) -> bool:
+    """Even-odd ray casting, exactly: (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi."""
     inside = False
     j = len(ring) - 1
     for i in range(len(ring)):
@@ -403,6 +454,14 @@ NO_SUMMARY_WEIGHT = 0.6
 UNMATCHED_STRATUM = "~unmatched"
 
 
+class RankError(ValueError):
+    """A request the ranking rejects; `code` becomes the API error code (HTTP 400)."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
 def _reason_parts(claimed: Sequence[str], summary: dict | None) -> str:
     if summary is None:
         return "No season summary yet"
@@ -410,12 +469,12 @@ def _reason_parts(claimed: Sequence[str], summary: dict | None) -> str:
     if "awd" in claimed:
         a = summary["awd"]
         looks = looks_text(a["clear_looks"])
-        parts.append({"inconsistent": f"AWD not consistent ({a['drained_hits']} of {looks} drained)",
-                      "not_enough_evidence": f"AWD not enough evidence ({looks})",
-                      "consistent": f"AWD consistent ({a['drained_hits']} of {looks} drained)"}[a["verdict"]])
+        parts.append({"inconsistent": f"Not consistent with AWD ({a['drained_hits']} of {looks} drained)",
+                      "not_enough_evidence": f"Not enough evidence for AWD ({looks})",
+                      "consistent": f"Consistent with AWD ({a['drained_hits']} of {looks} drained)"}[a["verdict"]])
     if "dsr" in claimed:
-        parts.append({"transplant_signal": "DSR transplant signal", "unknown": "DSR signal unknown",
-                      "dsr_signal": "DSR signal"}[summary["dsr"]["signal"]])
+        parts.append({"transplant_signal": "DSR: transplant signal", "unknown": "DSR: signal unknown",
+                      "dsr_signal": "DSR: DSR signal"}[summary["dsr"]["signal"]])
     return "; ".join(parts)
 
 
@@ -428,14 +487,27 @@ def rank(body: bytes, fields: Sequence[dict], summaries: dict, run_id: str, crea
     claims = request["claims"]["features"]
     budget = int(request["budget"])
     input_hash = hashlib.sha256(body).hexdigest()
-    seed = int(request["seed"]) if "seed" in request else int(input_hash[:8], 16)
+    seed = int(request["seed"]) if request.get("seed") is not None else int(input_hash[:8], 16)
+
+    ids = []
+    for i, claim in enumerate(claims, start=1):
+        cid = claim["properties"].get("claim_id")
+        ids.append(cid if cid is not None else f"#{i}")
+        if claim["geometry"]["type"] != "Point":
+            try:
+                check_rings(claim["geometry"])
+            except GeometryError as exc:
+                raise RankError("invalid_geometry", f"claim {ids[-1]}: {exc}") from None
+    if len(set(ids)) != len(ids):
+        dup = next(c for c in ids if ids.count(c) > 1)
+        raise RankError("duplicate_claim_id", f"claim_id {dup!r} appears more than once")
 
     by_id = {f["properties"]["field_id"]: f for f in fields}
     ordered = sorted(fields, key=lambda f: f["properties"]["field_id"])
     candidates: dict[str, dict] = {}
     order: list[str] = []
     matched = unmatched = 0
-    for claim in claims:
+    for claim, claim_id in zip(claims, ids):
         props = claim["properties"]
         claimed = [c for c in ("awd", "dsr") if c in props["claimed"]]
         field = by_id.get(props.get("field_id")) if props.get("field_id") else None
@@ -444,9 +516,9 @@ def rank(body: bytes, fields: Sequence[dict], summaries: dict, run_id: str, crea
             field = next((f for f in ordered if contains(f["geometry"], x, y)), None)
         if field is None:
             unmatched += 1
-            key = "~" + props["claim_id"]
+            key = "~" + claim_id
             area = props.get("area_ha")
-            candidates[key] = {"key": key, "claim_id": props["claim_id"], "field_id": None, "district": None,
+            candidates[key] = {"key": key, "claim_id": claim_id, "field_id": None, "district": None,
                                "weight": UNMATCHED_WEIGHT,
                                "area": area if isinstance(area, (int, float)) and area > 0 else 1.0,
                                "reason": "Claim does not match a mapped rice field"}
@@ -458,7 +530,7 @@ def rank(body: bytes, fields: Sequence[dict], summaries: dict, run_id: str, crea
             merged = candidates[fid]
             merged["claimed"] = [c for c in ("awd", "dsr") if c in merged["claimed"] or c in claimed]
         else:
-            candidates[fid] = {"key": fid, "claim_id": props["claim_id"], "field_id": fid,
+            candidates[fid] = {"key": fid, "claim_id": claim_id, "field_id": fid,
                                "district": field["properties"]["district"], "claimed": claimed,
                                "area": field["properties"]["area_ha"]}
             order.append(fid)
