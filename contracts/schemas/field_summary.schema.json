@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/field_summary.schema.json",
+  "title": "field_summary.jsonl line",
+  "description": "Season verdict and DSR signal for one field. CONTRACTS.md B3.5.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "field_id": {
+      "$ref": "common.schema.json#/$defs/field_id"
+    },
+    "awd": {
+      "$ref": "#/$defs/awd"
+    },
+    "dsr": {
+      "$ref": "#/$defs/dsr"
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "field_id",
+    "awd",
+    "dsr"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "awd": {
+      "type": "object",
+      "properties": {
+        "window": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "$ref": "common.schema.json#/$defs/datetime"
+            },
+            "end": {
+              "$ref": "common.schema.json#/$defs/datetime"
+            },
+            "source": {
+              "enum": [
+                "inferred",
+                "assumed"
+              ]
+            }
+          },
+          "required": [
+            "start",
+            "end",
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "clear_looks": {
+          "$ref": "common.schema.json#/$defs/count"
+        },
+        "drained_hits": {
+          "$ref": "common.schema.json#/$defs/count"
+        },
+        "p_catch_ge1_if_awd": {
+          "$ref": "common.schema.json#/$defs/prob"
+        },
+        "k_star": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verdict": {
+          "$ref": "common.schema.json#/$defs/verdict"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      },
+      "required": [
+        "window",
+        "clear_looks",
+        "drained_hits",
+        "p_catch_ge1_if_awd",
+        "k_star",
+        "verdict",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "dsr": {
+      "type": "object",
+      "properties": {
+        "signal": {
+          "$ref": "common.schema.json#/$defs/dsr_signal"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      },
+      "required": [
+        "signal",
+        "reason"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

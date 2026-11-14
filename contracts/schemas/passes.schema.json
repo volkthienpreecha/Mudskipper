@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/passes.schema.json",
+  "title": "passes.json",
+  "description": "Every candidate NISAR GCOV pass, used or excluded. CONTRACTS.md B3.2.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "passes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pass"
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "passes"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "pass": {
+      "type": "object",
+      "properties": {
+        "pass_id": {
+          "$ref": "common.schema.json#/$defs/pass_id"
+        },
+        "granule_id": {
+          "$ref": "common.schema.json#/$defs/granule_id"
+        },
+        "datetime": {
+          "$ref": "common.schema.json#/$defs/datetime"
+        },
+        "direction": {
+          "$ref": "common.schema.json#/$defs/direction"
+        },
+        "track": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 173
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 176
+        },
+        "pol_mode": {
+          "$ref": "common.schema.json#/$defs/pol_mode"
+        },
+        "covariance_terms": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "HHHH",
+              "HVHV",
+              "VHVH",
+              "VVVV",
+              "HHHV",
+              "HHVH",
+              "HHVV",
+              "HVVH",
+              "HVVV",
+              "VHVV"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "crid": {
+          "$ref": "common.schema.json#/$defs/crid"
+        },
+        "maturity": {
+          "enum": [
+            "beta",
+            "provisional",
+            "validated"
+          ]
+        },
+        "pixel_m": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        },
+        "valid_fraction_by_tile": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]{0,15}$"
+          },
+          "additionalProperties": {
+            "$ref": "common.schema.json#/$defs/prob"
+          }
+        },
+        "used": {
+          "type": "boolean"
+        },
+        "excluded_reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "in_data_gap",
+                "outside_season",
+                "direction_not_selected",
+                "track_not_selected",
+                "frame_not_selected",
+                "crid_mismatch",
+                "duplicate_product",
+                "low_valid_fraction",
+                "processing_failed"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pass_id",
+        "granule_id",
+        "datetime",
+        "direction",
+        "track",
+        "frame",
+        "pol_mode",
+        "covariance_terms",
+        "crid",
+        "maturity",
+        "pixel_m",
+        "valid_fraction_by_tile",
+        "used",
+        "excluded_reason"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "used": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "excluded_reason": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "excluded_reason": {
+                "enum": [
+                  "in_data_gap",
+                  "outside_season",
+                  "direction_not_selected",
+                  "track_not_selected",
+                  "frame_not_selected",
+                  "crid_mismatch",
+                  "duplicate_product",
+                  "low_valid_fraction",
+                  "processing_failed"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

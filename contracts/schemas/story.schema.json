@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/story.schema.json",
+  "title": "story.json",
+  "description": "What the Story screen leads with. CONTRACTS.md B3.11.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "hero_tile": {
+      "$ref": "common.schema.json#/$defs/tile_id"
+    },
+    "hero_field_id": {
+      "$ref": "common.schema.json#/$defs/field_id"
+    },
+    "headline": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "tag": {
+          "$ref": "common.schema.json#/$defs/tag"
+        }
+      },
+      "required": [
+        "text",
+        "tag"
+      ],
+      "additionalProperties": false
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "passes": {
+          "$ref": "common.schema.json#/$defs/count"
+        },
+        "fields": {
+          "$ref": "common.schema.json#/$defs/count"
+        },
+        "tiles": {
+          "$ref": "common.schema.json#/$defs/count"
+        },
+        "pct_fields_with_enough_looks": {
+          "$ref": "common.schema.json#/$defs/pct"
+        }
+      },
+      "required": [
+        "passes",
+        "fields",
+        "tiles",
+        "pct_fields_with_enough_looks"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "hero_tile",
+    "hero_field_id",
+    "headline",
+    "counts"
+  ],
+  "additionalProperties": false
+}

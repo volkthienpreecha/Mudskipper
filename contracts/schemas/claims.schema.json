@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/claims.schema.json",
+  "title": "claims (FeatureCollection)",
+  "description": "Program claims to rank for inspection: claims.sample.geojson and POST /api/audit. CONTRACTS.md B3.12.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "type": {
+      "const": "FeatureCollection"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/claim"
+      },
+      "minItems": 1,
+      "maxItems": 5000
+    }
+  },
+  "required": [
+    "type",
+    "features"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "claim": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "Feature"
+        },
+        "id": {
+          "type": [
+            "string",
+            "integer"
+          ]
+        },
+        "geometry": {
+          "oneOf": [
+            {
+              "$ref": "common.schema.json#/$defs/point"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/polygon"
+            },
+            {
+              "$ref": "common.schema.json#/$defs/multipolygon"
+            }
+          ]
+        },
+        "properties": {
+          "$ref": "#/$defs/claim_properties"
+        }
+      },
+      "required": [
+        "type",
+        "geometry",
+        "properties"
+      ],
+      "additionalProperties": false
+    },
+    "claim_properties": {
+      "type": "object",
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+        },
+        "claimed": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "awd",
+              "dsr"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true
+        },
+        "synthetic": {
+          "type": "boolean"
+        },
+        "field_id": {
+          "$ref": "common.schema.json#/$defs/field_id"
+        },
+        "area_ha": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10000
+        }
+      },
+      "required": [
+        "claim_id",
+        "claimed",
+        "synthetic"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

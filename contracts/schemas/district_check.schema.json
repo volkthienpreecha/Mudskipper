@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/district_check.schema.json",
+  "title": "district_check.json",
+  "description": "Government DSR figures next to the tiles' DSR signal. CONTRACTS.md B3.7.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "year": {
+      "type": "integer",
+      "minimum": 2020,
+      "maximum": 2100
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/row"
+      },
+      "minItems": 1
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_urls": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/url"
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "year",
+    "rows",
+    "note",
+    "source_urls"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "row": {
+      "type": "object",
+      "properties": {
+        "district": {
+          "$ref": "common.schema.json#/$defs/district"
+        },
+        "gov_dsr_acres": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gov_farmers": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/count"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tile_rice_ha": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tile_dsr_signal_ha": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tile_dsr_signal_frac": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/prob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "district",
+        "gov_dsr_acres",
+        "gov_farmers",
+        "tile_rice_ha",
+        "tile_dsr_signal_ha",
+        "tile_dsr_signal_frac"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

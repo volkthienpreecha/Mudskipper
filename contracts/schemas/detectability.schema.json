@@ -1,0 +1,341 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/detectability.schema.json",
+  "title": "detectability.json",
+  "description": "What the real pass dates can and cannot detect. CONTRACTS.md B3.6.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "n_sim": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 1000000
+    },
+    "pass_dates": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/datetime"
+      }
+    },
+    "params": {
+      "$ref": "#/$defs/params"
+    },
+    "param_sources": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "transplant_window",
+          "awd_window_days_after_transplant",
+          "cycle_days",
+          "drained_fraction_of_cycle",
+          "cf_single_drain_prob",
+          "per_pass_accuracy",
+          "stage_boundaries",
+          "cf_false_flag_max",
+          "awd_miss_max",
+          "dsr_min_early_looks"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/param_source"
+      },
+      "required": [
+        "transplant_window",
+        "awd_window_days_after_transplant",
+        "cycle_days",
+        "drained_fraction_of_cycle",
+        "cf_single_drain_prob",
+        "per_pass_accuracy",
+        "stage_boundaries",
+        "cf_false_flag_max",
+        "awd_miss_max",
+        "dsr_min_early_looks"
+      ]
+    },
+    "results": {
+      "$ref": "#/$defs/results"
+    },
+    "sentence": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "seed",
+    "n_sim",
+    "pass_dates",
+    "params",
+    "param_sources",
+    "results",
+    "sentence"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "params": {
+      "type": "object",
+      "properties": {
+        "transplant_window": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "$ref": "common.schema.json#/$defs/date"
+            },
+            "end": {
+              "$ref": "common.schema.json#/$defs/date"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        },
+        "awd_window_days_after_transplant": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 200
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 200
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2,
+          "items": false
+        },
+        "cycle_days": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 60
+            },
+            {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 60
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2,
+          "items": false
+        },
+        "drained_fraction_of_cycle": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2,
+          "items": false
+        },
+        "cf_single_drain_prob": {
+          "$ref": "common.schema.json#/$defs/prob"
+        },
+        "per_pass_accuracy": {
+          "type": "object",
+          "properties": {
+            "early": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 1
+            },
+            "mid": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 1
+            },
+            "late": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "early",
+            "mid",
+            "late"
+          ],
+          "additionalProperties": false
+        },
+        "stage_boundaries": {
+          "$ref": "common.schema.json#/$defs/stages"
+        },
+        "cf_false_flag_max": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.5
+        },
+        "awd_miss_max": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.5
+        },
+        "dsr_min_early_looks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      },
+      "required": [
+        "transplant_window",
+        "awd_window_days_after_transplant",
+        "cycle_days",
+        "drained_fraction_of_cycle",
+        "cf_single_drain_prob",
+        "per_pass_accuracy",
+        "stage_boundaries",
+        "cf_false_flag_max",
+        "awd_miss_max",
+        "dsr_min_early_looks"
+      ],
+      "additionalProperties": false
+    },
+    "param_source": {
+      "type": "object",
+      "properties": {
+        "citation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/url"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "cited",
+            "derived",
+            "convention",
+            "needs_citation"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "citation",
+        "url",
+        "status",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "results": {
+      "type": "object",
+      "properties": {
+        "awd": {
+          "type": "object",
+          "properties": {
+            "p_ge1": {
+              "$ref": "common.schema.json#/$defs/prob"
+            },
+            "p_ge2": {
+              "$ref": "common.schema.json#/$defs/prob"
+            },
+            "p_ge3": {
+              "$ref": "common.schema.json#/$defs/prob"
+            },
+            "dist": {
+              "type": "array",
+              "items": {
+                "$ref": "common.schema.json#/$defs/prob"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "p_ge1",
+            "p_ge2",
+            "p_ge3",
+            "dist"
+          ],
+          "additionalProperties": false
+        },
+        "cf": {
+          "type": "object",
+          "properties": {
+            "p_ge1_false": {
+              "$ref": "common.schema.json#/$defs/prob"
+            },
+            "p_ge2_false": {
+              "$ref": "common.schema.json#/$defs/prob"
+            },
+            "dist": {
+              "type": "array",
+              "items": {
+                "$ref": "common.schema.json#/$defs/prob"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "p_ge1_false",
+            "p_ge2_false",
+            "dist"
+          ],
+          "additionalProperties": false
+        },
+        "k_star": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "k_star_rule": {
+          "const": "smallest k with cf false-flag ≤ 0.10"
+        }
+      },
+      "required": [
+        "awd",
+        "cf",
+        "k_star",
+        "k_star_rule"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

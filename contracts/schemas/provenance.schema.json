@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/provenance.schema.json",
+  "title": "provenance.json",
+  "description": "Granules, hashes and the decomposition cross-check. CONTRACTS.md B3.9.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{7,40}|fixture)$"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/datetime"
+    },
+    "granules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "granule_id": {
+            "$ref": "common.schema.json#/$defs/granule_id"
+          },
+          "crid": {
+            "$ref": "common.schema.json#/$defs/crid"
+          },
+          "subset_sha256": {
+            "$ref": "common.schema.json#/$defs/sha256"
+          }
+        },
+        "required": [
+          "granule_id",
+          "crid",
+          "subset_sha256"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+          },
+          "sha256": {
+            "$ref": "common.schema.json#/$defs/sha256"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "decomposition_check": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_abs_diff_db": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "reference",
+        "max_abs_diff_db"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "git_sha",
+    "created_at",
+    "granules",
+    "artifacts",
+    "decomposition_check"
+  ],
+  "additionalProperties": false
+}

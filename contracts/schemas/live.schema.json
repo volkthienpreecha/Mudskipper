@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/live.schema.json",
+  "title": "live.json",
+  "description": "Which run the Worker serves. CONTRACTS.md live.json.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/datetime"
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "fixture"
+  ],
+  "additionalProperties": false
+}
