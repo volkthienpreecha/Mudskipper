@@ -14,7 +14,7 @@
  * `exceededCpu`, `exceededMemory`, `exception`, …). Requests the tail never reports are listed as unmeasured.
  *
  * Local mode runs the same Hono app in this process over the built site directory (a Pages-like ASSETS
- * fetcher: no Range, SPA fallback; KV in memory) and measures `process.cpuUsage()` around each request. The
+ * fetcher: no Range, SPA fallback; KV in memory) and measures `process.threadCpuUsage()` (the JS thread) around each request. The
  * caches are cleared before the first request of every endpoint, so "first" rows are cold-cache numbers (not
  * cold-JIT: V8 has compiled the code by then). Use it to iterate; use remote mode for the numbers of record.
  *
@@ -152,10 +152,10 @@ async function localTarget(siteDir: string): Promise<Target> {
   return {
     async fetch(path, init) {
       const { perfId: _, ...rest } = init;
-      const t0 = process.cpuUsage();
+      const t0 = process.threadCpuUsage(); // the JS thread only: not GC helpers or the crypto threadpool
       const res = await app.request("https://perf.local" + path, rest, env);
       const buf = await res.arrayBuffer(); // the body is produced lazily for streams: count it
-      const d = process.cpuUsage(t0);
+      const d = process.threadCpuUsage(t0);
       const nullBody = res.status === 204 || res.status === 304;
       return { res: new Response(nullBody ? null : buf, { status: res.status, headers: res.headers }), cpu: (d.user + d.system) / 1000 };
     },
