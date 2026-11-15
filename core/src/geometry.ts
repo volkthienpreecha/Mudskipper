@@ -41,7 +41,7 @@ export function planarArea(ring: Ring): number {
   for (let i = 0; i < ring.length - 1; i++) {
     const a = ring[i]!;
     const b = ring[i + 1]!;
-    s += x(a) * y(b) - x(b) * y(a);
+    s += (a[0] as number) * (b[1] as number) - (b[0] as number) * (a[1] as number);
   }
   return Math.abs(s) / 2;
 }
@@ -65,14 +65,18 @@ export function checkRings(geometry: AreaGeometryInput | { readonly type: string
  */
 export function inRing(px: number, py: number, ring: Ring): boolean {
   let inside = false;
-  let j = ring.length - 1;
-  for (let i = 0; i < ring.length; i++) {
-    const xi = x(ring[i]!);
-    const yi = y(ring[i]!);
-    const xj = x(ring[j]!);
-    const yj = y(ring[j]!);
+  const n = ring.length;
+  if (n === 0) return false;
+  const pj = ring[n - 1]!;
+  let xj = pj[0] as number;
+  let yj = pj[1] as number;
+  for (let i = 0; i < n; i++) {
+    const pi = ring[i]!;
+    const xi = pi[0] as number;
+    const yi = pi[1] as number;
     if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
-    j = i;
+    xj = xi;
+    yj = yi;
   }
   return inside;
 }
@@ -81,7 +85,10 @@ export function inRing(px: number, py: number, ring: Ring): boolean {
 export function contains(geometry: AreaGeometryInput, px: number, py: number): boolean {
   for (const poly of ringsOf(geometry)) {
     const outer = poly[0];
-    if (outer && inRing(px, py, outer) && !poly.slice(1).some((hole) => inRing(px, py, hole))) return true;
+    if (!outer || !inRing(px, py, outer)) continue;
+    let inHole = false;
+    for (let h = 1; h < poly.length && !inHole; h++) inHole = inRing(px, py, poly[h]!);
+    if (!inHole) return true;
   }
   return false;
 }
@@ -99,7 +106,8 @@ export function representativePoint(geometry: GeometryInput): [number, number] {
   if (polys.length === 0 || polys[0]!.length === 0) throw new GeometryError("polygon has no rings");
   let best = polys[0]!;
   let bestArea = planarArea(best[0]!);
-  for (const poly of polys.slice(1)) {
+  for (let q = 1; q < polys.length; q++) {
+    const poly = polys[q]!;
     if (poly.length === 0) throw new GeometryError("polygon has no rings");
     const a = planarArea(poly[0]!);
     if (a > bestArea) {
@@ -112,8 +120,9 @@ export function representativePoint(geometry: GeometryInput): [number, number] {
   let sx = 0;
   let sy = 0;
   for (let i = 0; i < n; i++) {
-    sx += x(outer[i]!);
-    sy += y(outer[i]!);
+    const p = outer[i]!;
+    sx += p[0] as number;
+    sy += p[1] as number;
   }
   const cx = sx / n;
   const cy = sy / n;

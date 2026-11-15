@@ -9,7 +9,7 @@
 import type { AuditRequest, AuditResponse, DsrSignal, RankedPick, Verdict } from "./contracts.gen.ts";
 import { looksText } from "./format.ts";
 import { fieldIndex, isFieldIndex, type FieldIndex } from "./field-index.ts";
-import { checkRings, GeometryError, representativePoint, type AreaGeometryInput, type GeometryInput } from "./geometry.ts";
+import { GeometryError, representativePoint, type AreaGeometryInput, type GeometryInput } from "./geometry.ts";
 import { mulberry32 } from "./prng.ts";
 import { sha256Hex } from "./sha.ts";
 import { getSummary, type SummaryLookup } from "./story.ts";
@@ -103,30 +103,45 @@ interface Candidate {
   score: number;
 }
 
+function awdText(a: RankSummary["awd"]): string {
+  switch (a.verdict) {
+    case "inconsistent":
+      return `Not consistent with AWD (${a.drained_hits} of ${looksText(a.clear_looks)} drained)`;
+    case "not_enough_evidence":
+      return `Not enough evidence for AWD (${looksText(a.clear_looks)})`;
+    case "consistent":
+      return `Consistent with AWD (${a.drained_hits} of ${looksText(a.clear_looks)} drained)`;
+    default:
+      throw new RangeError(`unknown verdict ${String(a.verdict)}`);
+  }
+}
+
+function dsrText(signal: DsrSignal): string {
+  switch (signal) {
+    case "transplant_signal":
+      return "DSR: transplant signal";
+    case "unknown":
+      return "DSR: signal unknown";
+    case "dsr_signal":
+      return "DSR: DSR signal";
+    default:
+      throw new RangeError(`unknown DSR signal ${String(signal)}`);
+  }
+}
+
 function reasonParts(claimed: ReadonlyArray<Practice>, summary: RankSummary | undefined): string {
   if (summary === undefined) return "No season summary yet";
-  const parts: string[] = [];
-  if (claimed.includes("awd")) {
-    const a = summary.awd;
-    const looks = looksText(a.clear_looks);
-    const text = {
-      inconsistent: `Not consistent with AWD (${a.drained_hits} of ${looks} drained)`,
-      not_enough_evidence: `Not enough evidence for AWD (${looks})`,
-      consistent: `Consistent with AWD (${a.drained_hits} of ${looks} drained)`,
-    }[a.verdict];
-    if (text === undefined) throw new RangeError(`unknown verdict ${String(a.verdict)}`);
-    parts.push(text);
-  }
-  if (claimed.includes("dsr")) {
-    const text = {
-      transplant_signal: "DSR: transplant signal",
-      unknown: "DSR: signal unknown",
-      dsr_signal: "DSR: DSR signal",
-    }[summary.dsr.signal];
-    if (text === undefined) throw new RangeError(`unknown DSR signal ${String(summary.dsr.signal)}`);
-    parts.push(text);
-  }
-  return parts.join("; ");
+  const awd = claimed.includes("awd") ? awdText(summary.awd) : null;
+  const dsr = claimed.includes("dsr") ? dsrText(summary.dsr.signal) : null;
+  return awd !== null && dsr !== null ? awd + "; " + dsr : (awd ?? dsr ?? "");
+}
+
+/** The claimed practices in PRACTICES order (awd before dsr), without duplicates. */
+function practicesOf(claimed: ReadonlyArray<string>, also?: ReadonlyArray<string>): Practice[] {
+  const out: Practice[] = [];
+  if (claimed.includes("awd") || (also !== undefined && also.includes("awd"))) out.push("awd");
+  if (claimed.includes("dsr") || (also !== undefined && also.includes("dsr"))) out.push("dsr");
+  return out;
 }
 
 function isUint32(n: unknown): n is number {
@@ -157,23 +172,33 @@ const RUN_ID_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
-function checkPosition(p: unknown, where: string): void {
-  if (!Array.isArray(p) || p.length < 2 || p.length > 3 || !p.every(isNum)) {
-    throw new RankError("invalid_request", `${where}: a position is [lon, lat] or [lon, lat, altitude]`);
-  }
-  const [lon, lat] = p as [number, number];
-  if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
-    throw new RankError("invalid_request", `${where}: position out of range (lon -180..180, lat -90..90)`);
+// The checks below run once per uploaded position (up to ~10^5 in a 5 MiB body), so they use indexed loops,
+// and the location in an error message (`claims.features[i].geometry`) is built only when one is thrown.
+const featureAt = (i: number) => `claims.features[${i}]`;
+const geometryAt = (i: number) => `claims.features[${i}].geometry`;
+const isPractice = (c: unknown) => c === "awd" || c === "dsr";
+
+function checkPosition(p: unknown, i: number): void {
+  if (!Array.isArray(p) || p.length < 2 || p.length > 3) throw badPosition(i);
+  // Number.isFinite is false for anything that is not a number, so it is isNum without the typeof.
+  const lon: unknown = p[0];
+  const lat: unknown = p[1];
+  if (!Number.isFinite(lon) || !Number.isFinite(lat) || (p.length === 3 && !Number.isFinite(p[2]))) throw badPosition(i);
+  if ((lon as number) < -180 || (lon as number) > 180 || (lat as number) < -90 || (lat as number) > 90) {
+    throw new RankError("invalid_request", `${geometryAt(i)}: position out of range (lon -180..180, lat -90..90)`);
   }
 }
 
-function checkPolygonCoords(c: unknown, where: string): void {
-  if (!Array.isArray(c) || c.length < 1) throw new RankError("invalid_request", `${where}: a polygon needs at least one ring`);
-  for (const ring of c) {
+const badPosition = (i: number) => new RankError("invalid_request", `${geometryAt(i)}: a position is [lon, lat] or [lon, lat, altitude]`);
+
+function checkPolygonCoords(c: unknown, i: number): void {
+  if (!Array.isArray(c) || c.length < 1) throw new RankError("invalid_request", `${geometryAt(i)}: a polygon needs at least one ring`);
+  for (let r = 0; r < c.length; r++) {
+    const ring: unknown = c[r];
     if (!Array.isArray(ring) || ring.length < 4) {
-      throw new RankError("invalid_request", `${where}: a ring needs at least 4 positions`);
+      throw new RankError("invalid_request", `${geometryAt(i)}: a ring needs at least 4 positions`);
     }
-    for (const p of ring) checkPosition(p, where);
+    for (let k = 0; k < ring.length; k++) checkPosition(ring[k], i);
   }
 }
 
@@ -208,45 +233,47 @@ export function validateAuditRequest(value: unknown): AuditRequest {
   if (claims.fixture !== undefined && typeof claims.fixture !== "boolean") {
     throw new RankError("invalid_request", "claims.fixture must be a boolean");
   }
-  claims.features.forEach((claim: unknown, i: number) => {
-    const where = `claims.features[${i}]`;
-    if (!isObject(claim) || claim.type !== "Feature") throw new RankError("invalid_request", `${where} must be a GeoJSON Feature`);
+  const features: unknown[] = claims.features;
+  for (let i = 0; i < features.length; i++) {
+    const claim = features[i];
+    if (!isObject(claim) || claim.type !== "Feature") throw new RankError("invalid_request", `${featureAt(i)} must be a GeoJSON Feature`);
     if (claim.id !== undefined && typeof claim.id !== "string" && !Number.isInteger(claim.id)) {
-      throw new RankError("invalid_request", `${where}.id must be a string or an integer`);
+      throw new RankError("invalid_request", `${featureAt(i)}.id must be a string or an integer`);
     }
     const g = claim.geometry;
-    if (!isObject(g)) throw new RankError("invalid_request", `${where}.geometry must be a Point, Polygon or MultiPolygon`);
-    if (g.type === "Point") checkPosition(g.coordinates, `${where}.geometry`);
-    else if (g.type === "Polygon") checkPolygonCoords(g.coordinates, `${where}.geometry`);
+    if (!isObject(g)) throw new RankError("invalid_request", `${featureAt(i)}.geometry must be a Point, Polygon or MultiPolygon`);
+    if (g.type === "Point") checkPosition(g.coordinates, i);
+    else if (g.type === "Polygon") checkPolygonCoords(g.coordinates, i);
     else if (g.type === "MultiPolygon") {
-      if (!Array.isArray(g.coordinates) || g.coordinates.length < 1) {
-        throw new RankError("invalid_request", `${where}.geometry: a MultiPolygon needs at least one polygon`);
+      const polys = g.coordinates;
+      if (!Array.isArray(polys) || polys.length < 1) {
+        throw new RankError("invalid_request", `${featureAt(i)}.geometry: a MultiPolygon needs at least one polygon`);
       }
-      for (const poly of g.coordinates) checkPolygonCoords(poly, `${where}.geometry`);
-    } else throw new RankError("invalid_request", `${where}.geometry must be a Point, Polygon or MultiPolygon`);
+      for (let q = 0; q < polys.length; q++) checkPolygonCoords(polys[q], i);
+    } else throw new RankError("invalid_request", `${featureAt(i)}.geometry must be a Point, Polygon or MultiPolygon`);
     const p = claim.properties;
-    if (!isObject(p)) throw new RankError("invalid_request", `${where}.properties must be an object`);
+    if (!isObject(p)) throw new RankError("invalid_request", `${featureAt(i)}.properties must be an object`);
     const claimed = p.claimed;
     if (
       !Array.isArray(claimed) ||
       claimed.length < 1 ||
       claimed.length > 2 ||
-      !claimed.every((c) => c === "awd" || c === "dsr") ||
-      new Set(claimed).size !== claimed.length
+      !isPractice(claimed[0]) ||
+      (claimed.length === 2 && (!isPractice(claimed[1]) || claimed[1] === claimed[0]))
     ) {
-      throw new RankError("invalid_request", `${where}.properties.claimed must be a non-empty list of awd and/or dsr`);
+      throw new RankError("invalid_request", `${featureAt(i)}.properties.claimed must be a non-empty list of awd and/or dsr`);
     }
-    if (typeof p.synthetic !== "boolean") throw new RankError("invalid_request", `${where}.properties.synthetic must be a boolean`);
+    if (typeof p.synthetic !== "boolean") throw new RankError("invalid_request", `${featureAt(i)}.properties.synthetic must be a boolean`);
     if (p.claim_id !== undefined && !(typeof p.claim_id === "string" && CLAIM_ID_RE.test(p.claim_id))) {
-      throw new RankError("invalid_request", `${where}.properties.claim_id must match ${CLAIM_ID_RE.source}`);
+      throw new RankError("invalid_request", `${featureAt(i)}.properties.claim_id must match ${CLAIM_ID_RE.source}`);
     }
     if (p.field_id !== undefined && !(typeof p.field_id === "string" && FIELD_ID_RE.test(p.field_id))) {
-      throw new RankError("invalid_request", `${where}.properties.field_id is not a field id`);
+      throw new RankError("invalid_request", `${featureAt(i)}.properties.field_id is not a field id`);
     }
     if (p.area_ha !== undefined && !(isNum(p.area_ha) && p.area_ha >= 0 && p.area_ha <= 10000)) {
-      throw new RankError("invalid_request", `${where}.properties.area_ha must be a number from 0 to 10000`);
+      throw new RankError("invalid_request", `${featureAt(i)}.properties.area_ha must be a number from 0 to 10000`);
     }
-  });
+  }
   return value as unknown as AuditRequest;
 }
 
@@ -287,23 +314,34 @@ export async function rank(
   // Claim ids, then geometry checks (all claims), then duplicates: the reference's order of errors. Like
   // rules.rank, the first loop also computes every claim's point, so a degenerate ring is invalid_geometry
   // even when a field_id hint would have matched, and wins over a duplicate_claim_id earlier in the upload.
-  const ids: string[] = [];
-  const points: Array<[number, number]> = [];
-  claims.forEach((claim, i) => {
+  // (representativePoint runs checkRings itself for every non-Point geometry.)
+  const nClaims = claims.length;
+  const ids: string[] = new Array(nClaims);
+  const ptx = new Float64Array(nClaims);
+  const pty = new Float64Array(nClaims);
+  for (let i = 0; i < nClaims; i++) {
+    const claim = claims[i]!;
     const cid = claim.properties.claim_id;
-    ids.push(cid === undefined || cid === null ? `#${i + 1}` : cid);
+    const id = cid === undefined || cid === null ? `#${i + 1}` : cid;
+    ids[i] = id;
+    let pt: [number, number];
     try {
-      if (claim.geometry.type !== "Point") checkRings(claim.geometry);
-      points.push(representativePoint(claim.geometry));
+      pt = representativePoint(claim.geometry);
     } catch (err) {
-      if (err instanceof GeometryError) throw new RankError("invalid_geometry", `claim ${ids[ids.length - 1]}: ${err.message}`);
+      if (err instanceof GeometryError) throw new RankError("invalid_geometry", `claim ${id}: ${err.message}`);
       throw err;
     }
-  });
-  const seen = new Map<string, number>();
-  for (const id of ids) seen.set(id, (seen.get(id) ?? 0) + 1);
-  const dup = ids.find((id) => seen.get(id)! > 1);
-  if (dup !== undefined) throw new RankError("duplicate_claim_id", `claim_id '${dup}' appears more than once`);
+    ptx[i] = pt[0];
+    pty[i] = pt[1];
+  }
+  // The first id (in upload order) that appears more than once; a Set finds whether there is one at all.
+  const distinct = new Set<string>(ids);
+  if (distinct.size !== nClaims) {
+    const seen = new Map<string, number>();
+    for (const id of ids) seen.set(id, (seen.get(id) ?? 0) + 1);
+    const dup = ids.find((id) => seen.get(id)! > 1)!;
+    throw new RankError("duplicate_claim_id", `claim_id '${dup}' appears more than once`);
+  }
 
   // Matching goes through a spatial index (exactly the contract's scan, see field-index.ts). Callers that rank
   // often (the Worker) pass one built once per run; for a plain list it is built on the first point lookup.
@@ -317,12 +355,12 @@ export async function rank(
   const order: string[] = [];
   let matched = 0;
   let unmatched = 0;
-  claims.forEach((claim, i) => {
+  for (let i = 0; i < nClaims; i++) {
     const claimId = ids[i]!;
-    const props = claim.properties;
-    const claimed = PRACTICES.filter((c) => props.claimed.includes(c));
+    const props = claims[i]!.properties;
+    const claimed = practicesOf(props.claimed);
     let field = props.field_id ? hinted(props.field_id) : undefined;
-    if (field === undefined) field = locate(points[i]![0], points[i]![1]);
+    if (field === undefined) field = locate(ptx[i]!, pty[i]!);
     if (field === undefined) {
       unmatched += 1;
       const key = "~" + claimId;
@@ -339,13 +377,13 @@ export async function rank(
         score: 0,
       });
       order.push(key);
-      return;
+      continue;
     }
     matched += 1;
     const fid = field.properties.field_id;
     const merged = candidates.get(fid);
     if (merged !== undefined) {
-      merged.claimed = PRACTICES.filter((c) => merged.claimed.includes(c) || claimed.includes(c));
+      merged.claimed = practicesOf(merged.claimed, claimed);
     } else {
       candidates.set(fid, {
         key: fid,
@@ -360,7 +398,7 @@ export async function rank(
       });
       order.push(fid);
     }
-  });
+  }
 
   for (const cand of candidates.values()) {
     if (cand.field_id !== null) {
@@ -368,14 +406,17 @@ export async function rank(
       if (summary === undefined) {
         cand.weight = NO_SUMMARY_WEIGHT;
       } else {
-        const ws: Array<number | undefined> = [];
-        if (cand.claimed.includes("awd")) ws.push(AWD_WEIGHT[summary.awd.verdict]);
-        if (cand.claimed.includes("dsr")) ws.push(DSR_WEIGHT[summary.dsr.signal]);
-        if (ws.length === 0) {
+        const awd = cand.claimed.includes("awd");
+        const dsr = cand.claimed.includes("dsr");
+        const wa: number | undefined = awd ? AWD_WEIGHT[summary.awd.verdict] : undefined;
+        const wd: number | undefined = dsr ? DSR_WEIGHT[summary.dsr.signal] : undefined;
+        if (!awd && !dsr) {
           throw new RankError("invalid_request", `claim ${cand.claim_id}: claimed must name awd and/or dsr`);
         }
-        if (ws.some((w) => w === undefined)) throw new RangeError(`summary of ${cand.field_id} has an unknown verdict or signal`);
-        cand.weight = Math.max(...(ws as number[])) as RankedPick["weight"];
+        if ((awd && wa === undefined) || (dsr && wd === undefined)) {
+          throw new RangeError(`summary of ${cand.field_id} has an unknown verdict or signal`);
+        }
+        cand.weight = (awd && dsr ? Math.max(wa!, wd!) : Math.max(awd ? wa! : wd!)) as RankedPick["weight"];
       }
       cand.reason = reasonParts(cand.claimed, summary);
     }
