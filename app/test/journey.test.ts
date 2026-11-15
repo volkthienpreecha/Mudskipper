@@ -82,7 +82,10 @@ test('visible animation runs automatically and ignores the former stored pause s
     assert.equal(await page.locator('#journey').evaluate(e=>e.classList.contains('is-pinned')),true);
     await page.emulateMedia({reducedMotion:'reduce'});
     await page.waitForFunction(()=>document.querySelector('#riceParticles')?.getAttribute('data-motion')==='static');
-    await page.waitForFunction(()=>[...document.querySelectorAll('.ms-scroll-sequence')].every(e=>!e.classList.contains('is-scroll-pinned')));
+    await page.waitForFunction(()=>['ms-claim-sequence','ms-how-sequence','ms-method-sequence'].every(id=>{
+      const host=document.getElementById(id)!;
+      return !host.classList.contains('is-scroll-pinned') && host.querySelectorAll('[data-scroll-stage]:not([inert])').length===3;
+    }));
     for(const id of ['ms-claim-sequence','ms-how-sequence','ms-method-sequence']){
       assert.equal(await page.locator('#'+id+' [data-scroll-stage]:not([inert])').count(),3);
     }
