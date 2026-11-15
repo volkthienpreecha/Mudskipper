@@ -1,7 +1,9 @@
 import type { DemoDataset, DemoField } from './data';
 import type { FieldDetail } from '@mudskipper/core/contracts';
-import { mountAstryxButton, mountAstryxTabs } from './astryx-controls';
+import { mountAstryxButton } from './astryx-controls';
 import './components.css';
+import './component-scroll.css';
+import { bindScrollSequence } from './scroll-sequences';
 
 type Options = {
   dataset: DemoDataset;
@@ -18,8 +20,8 @@ const state = (value: string) => ({ f: 'Flooded', d: 'Drained', u: 'Uncertain', 
 const arrow = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.5"/></svg>';
 const ERROR = (error: unknown) => error instanceof Error ? error.message : String(error);
 
-/** Native adaptations of Animata's fluid-tab, timeline and animated-beam interaction ideas.
- * Reference: https://animata.design/components (MIT). No React or motion runtime is required.
+/** Native adaptations of Animata's timeline and animated-beam interaction ideas.
+ * Reference: https://animata.design/components (MIT).
  */
 export function mountComponents(options: Options) {
   const roots = {
@@ -32,8 +34,6 @@ export function mountComponents(options: Options) {
   let fields: DemoField[] = [];
   let selected: DemoField;
   let pass = 0;
-  let step = 0;
-  let scene: Scene = 'early';
   let generation = 0;
   let alive = true;
   let detailLoading = false;
@@ -45,7 +45,9 @@ export function mountComponents(options: Options) {
   let checks: unknown = null;
   let checksError = '';
   let checkedRun = '';
-  let walkthroughTabs: ReturnType<typeof mountAstryxTabs> | undefined;
+  let storyScroll: (() => void) | undefined;
+  let howScroll: (() => void) | undefined;
+  let methodScroll: (() => void) | undefined;
   let apiAction: ReturnType<typeof mountAstryxButton> | undefined;
   const loadedDetails = new Set<string>();
   const endpointItems = [
@@ -59,6 +61,22 @@ export function mountComponents(options: Options) {
   const runLabel = () => `${dataset.fixture ? 'Sample run' : 'Run'} ${dataset.run_id}`;
   const fieldDistrict = () => Object.values(dataset.tiles).find((tile) => tile.fields.some((field) => field.id === selected.id))?.district ?? '';
   const valid = (version: number, id?: string) => alive && generation === version && (!id || selected.id === id);
+  // Data changes redraw measurements, not the reader's position in the scroll story.
+  const sequenceState = (root: HTMLElement) => {
+    const host = root.querySelector<HTMLElement>('.ms-scroll-sequence');
+    return { pinned: host?.classList.contains('is-scroll-pinned') ?? false, index: host?.dataset.scrollIndex ?? '0', progress: host?.style.getPropertyValue('--sequence-progress') ?? '0' };
+  };
+  const restoreSequence = (host: HTMLElement, saved: ReturnType<typeof sequenceState>) => {
+    host.classList.toggle('is-scroll-pinned', saved.pinned);
+    host.dataset.scrollIndex = saved.index;
+    host.style.setProperty('--sequence-progress', saved.progress);
+    host.querySelectorAll<HTMLElement>('[data-scroll-stage]').forEach((stage, index) => {
+      const hidden = saved.pinned && index !== Number(saved.index);
+      stage.inert = hidden;
+      stage.setAttribute('aria-hidden', String(hidden));
+      stage.classList.toggle('is-scroll-active', !hidden);
+    });
+  };
   const bindTabs = (root: HTMLElement, selector: string, activate: (button: HTMLButtonElement) => void) => {
     const tabs = [...root.querySelectorAll<HTMLButtonElement>(selector)];
     tabs.forEach((button, index) => {
@@ -80,7 +98,6 @@ export function mountComponents(options: Options) {
       };
     });
   };
-  const fluidTabs = (name: string, items: [string, string][], value: string) => `<div class="ms-tabs" role="tablist" aria-label="${name}">${items.map(([id, title]) => `<button type="button" role="tab" id="ms-${name}-${id}" aria-controls="ms-${name}-panel" aria-selected="${value === id}" tabindex="${value === id ? 0 : -1}" data-value="${id}">${title}</button>`).join('')}</div>`;
   const passButtons = (prefix: string) => `<div class="ms-pass-strip" style="--pass-count:${dataset.passes.length}" role="group" aria-label="Choose a satellite pass">${dataset.passes.map((day, index) => `<button type="button" class="ms-pass ms-state-${selected.s[index]}${pass === index ? ' is-current' : ''}" data-${prefix}-pass="${index}" aria-pressed="${pass === index}" aria-label="${date(day)}, ${state(selected.s[index])}"><span class="ms-pass-mark" aria-hidden="true"></span><span>${date(day)}</span></button>`).join('')}</div>`;
 
   function fieldMapMarkup(interactive = true): string {
@@ -103,10 +120,32 @@ export function mountComponents(options: Options) {
   }
 
   function renderStory(): void {
-    if (!roots.story) return;
+    const root = roots.story;
+    if (!root) return;
+    const saved = sequenceState(root);
+    storyScroll?.();
     const currentState = selected.s[pass];
-    roots.story.innerHTML = `<div class="ms-evidence-flow"><div class="ms-flow-source"><span class="ms-micro">The question</span><p>Was this field<br><em>drained?</em></p><div class="ms-flow-field">${fieldMapMarkup(false)}</div><span class="ms-source-caption">${esc(selected.id)} · ${esc(fieldDistrict())}</span></div><div class="ms-flow-bridge" aria-hidden="true"><svg viewBox="0 0 440 240" preserveAspectRatio="none"><path class="ms-beam-track" d="M0 120H100Q120 120 120 100V50Q120 30 140 30H230Q250 30 250 50V100Q250 120 270 120H440M120 120v70q0 20 20 20h90q20 0 20-20v-70"/><path class="ms-beam-motion" d="M0 120H100Q120 120 120 100V50Q120 30 140 30H230Q250 30 250 50V100Q250 120 270 120H440"/><path class="ms-beam-motion ms-beam-alt" d="M0 120H120v70q0 20 20 20h90q20 0 20-20v-70h190"/></svg><div class="ms-radar-node"><svg viewBox="0 0 64 64" fill="none"><path d="m19 20 25 25m-15-25 15 15M21 43l-8 8m15-20-8 8m15-15-7 7M21 18l11-11 25 25-11 11Z" stroke="currentColor" stroke-width="1.5"/><path d="M12 25c14 0 25 11 25 25M12 34c9 0 16 7 16 16M12 43c4 0 7 3 7 7" stroke="var(--water)" stroke-width="1.5"/></svg><span>NISAR passes</span></div><span class="ms-bridge-note">Matched by<br>field and date</span></div><div class="ms-flow-result"><span class="ms-micro">The satellite evidence</span><div class="ms-result-state ms-state-${currentState}"><span class="ms-state-dot"></span><strong>${state(currentState)}</strong></div><p class="ms-result-date">${date(dataset.passes[pass])} · HH ${selected.hh[pass] === null ? 'not supplied' : `${selected.hh[pass]!.toFixed(2)} dB`}</p>${passButtons('flow')}<span class="ms-source-caption">${esc(runLabel())} · ${count(dataset.passes.length)} available dates</span></div></div><ol class="ms-story-notes"><li><span>01</span><div><h3>Drainage claims</h3><p>Draining rice fields can reduce methane. Payments need field evidence.</p></div></li><li><span>02</span><div><h3>Through monsoon clouds</h3><p>NISAR radar observes fields through cloud cover.</p></div></li><li><span>03</span><div><h3>Inspection priorities</h3><p>Compare inferred field states and choose where to inspect.</p></div></li></ol>`;
-    roots.story.querySelectorAll<HTMLButtonElement>('[data-flow-pass]').forEach((button) => button.onclick = () => choosePass(Number(button.dataset.flowPass), 'flow'));
+    root.innerHTML = `<div class="ms-scroll-sequence ms-claim-sequence" id="ms-claim-sequence"><div data-scroll-pin class="ms-claim-composition"><div class="ms-claim-narration">
+      <article data-scroll-stage="0" data-stage-name="Drainage claims"><span class="ms-stage-number">01</span><h3>Drainage claims</h3><p>Draining rice fields can reduce methane. Payments need field evidence.</p></article>
+      <article data-scroll-stage="1" data-stage-name="Through monsoon clouds"><span class="ms-stage-number">02</span><h3>Through monsoon clouds</h3><p>NISAR radar observes fields through cloud cover.</p></article>
+      <article data-scroll-stage="2" data-stage-name="Inspection priorities"><span class="ms-stage-number">03</span><h3>Inspection priorities</h3><p>Compare inferred field states and choose where to inspect.</p></article>
+    </div><div class="ms-evidence-flow"><div class="ms-flow-source"><span class="ms-micro">The question</span><p>Was this field<br><em>drained?</em></p><div class="ms-flow-field">${fieldMapMarkup(false)}</div><span class="ms-source-caption">${esc(selected.id)} · ${esc(fieldDistrict())}</span></div><div class="ms-flow-bridge" aria-hidden="true"><svg viewBox="0 0 440 240" preserveAspectRatio="none"><path class="ms-beam-track" d="M0 120H100Q120 120 120 100V50Q120 30 140 30H230Q250 30 250 50V100Q250 120 270 120H440M120 120v70q0 20 20 20h90q20 0 20-20v-70"/><path class="ms-beam-motion" d="M0 120H100Q120 120 120 100V50Q120 30 140 30H230Q250 30 250 50V100Q250 120 270 120H440"/><path class="ms-beam-motion ms-beam-alt" d="M0 120H120v70q0 20 20 20h90q20 0 20-20v-70h190"/></svg><div class="ms-radar-node"><svg viewBox="0 0 64 64" fill="none"><path d="m19 20 25 25m-15-25 15 15M21 43l-8 8m15-20-8 8m15-15-7 7M21 18l11-11 25 25-11 11Z" stroke="currentColor" stroke-width="1.5"/><path d="M12 25c14 0 25 11 25 25M12 34c9 0 16 7 16 16M12 43c4 0 7 3 7 7" stroke="var(--water)" stroke-width="1.5"/></svg><span>NISAR passes</span></div><span class="ms-bridge-note">Matched by<br>field and date</span></div><div class="ms-flow-result"><span class="ms-micro">The satellite evidence</span><div class="ms-result-state ms-state-${currentState}"><span class="ms-state-dot"></span><strong>${state(currentState)}</strong></div><p class="ms-result-date">${date(dataset.passes[pass])} · HH ${selected.hh[pass] === null ? 'not supplied' : `${selected.hh[pass]!.toFixed(2)} dB`}</p>${passButtons('flow')}<span class="ms-source-caption">${esc(runLabel())} · ${count(dataset.passes.length)} available dates</span></div></div></div></div>`;
+    root.querySelectorAll<HTMLButtonElement>('[data-flow-pass]').forEach((button) => button.onclick = () => choosePass(Number(button.dataset.flowPass), 'flow'));
+    const sequence = root.querySelector<HTMLElement>('#ms-claim-sequence')!;
+    restoreSequence(sequence, saved);
+    const syncVisual = (_progress: number, index: number) => {
+      const pinned = sequence.classList.contains('is-scroll-pinned');
+      ['.ms-flow-source', '.ms-flow-bridge', '.ms-flow-result'].forEach((selector, i) => {
+        const item = sequence.querySelector<HTMLElement>(selector);
+        if (!item) return;
+        const hidden = pinned && i !== index;
+        if (hidden && item.contains(document.activeElement)) sequence.focus({ preventScroll: true });
+        item.inert = hidden;
+        if (selector !== '.ms-flow-bridge') item.setAttribute('aria-hidden', String(pinned && i !== index));
+      });
+    };
+    syncVisual(Number(saved.progress), Number(saved.index));
+    storyScroll = bindScrollSequence(sequence, { onProgress: syncVisual });
   }
 
   function graphMarkup(): string {
@@ -132,26 +171,28 @@ export function mountComponents(options: Options) {
     return `<svg class="ms-hh-chart" viewBox="0 0 570 240" role="img" aria-label="HH backscatter for ${esc(selected.id)}: ${esc(measured.map(({ value, index }) => `${date(dataset.passes[index])} ${value.toFixed(2)} dB`).join('; '))}${dataset.gaps.length ? '. Shaded bands mark gaps in satellite data.' : ''}">${gaps}${[0, .5, 1].map((fraction) => `<path d="M52 ${190 - fraction * 150}H532" stroke="var(--line)" stroke-dasharray="3 5"/><text x="39" y="${195 - fraction * 150}" fill="var(--dim)" text-anchor="end" font-size="12">${(low + fraction * (high - low)).toFixed(0)}</text>`).join('')}<text x="21" y="22" fill="var(--dim)" font-size="11">dB</text><path class="ms-signal-trace" d="${path}" fill="none" stroke="var(--water)" stroke-width="2" pathLength="1"/><path d="M${x(pass)} 28V198" stroke="var(--ink)" opacity=".35"/>${measured.map(({ value, index }) => `<circle class="ms-chart-point ms-state-${selected.s[index]}" cx="${x(index)}" cy="${y(value)}" r="${index === pass ? 6 : 3.5}"/>`).join('')}<text x="52" y="225" fill="var(--dim)" font-size="12">${date(dataset.passes[0])}</text><text x="532" y="225" fill="var(--dim)" font-size="12" text-anchor="end">${date(dataset.passes.at(-1)!)}</text></svg>`;
   }
 
-  function renderHow(focus?: string): void {
+  function renderHow(): void {
     const root = roots.how;
     if (!root) return;
     const activeId = root.contains(document.activeElement) ? document.activeElement?.id : '';
     const activeField = root.contains(document.activeElement) ? document.activeElement?.getAttribute('data-guide-field') : null;
-    walkthroughTabs?.destroy();
-    const titles = [['0', 'Pick a field'], ['1', 'Read the passes'], ['2', 'Open the evidence']] as [string, string][];
+    const saved = sequenceState(root);
+    howScroll?.();
+    const titles = ['Pick a field', 'Read the passes', 'Open the evidence'];
     const current = selected.s[pass];
     const descriptions = ['Choose a mapped field.', 'Select a date to see its radar measurement.', 'Review the measurements, then open the field on the map.'];
+    const stages = titles.map((title, stageIndex) => {
     let view = '';
-    if (step === 0) view = `<div class="ms-guide-map"><div class="ms-guide-map-heading"><span>${esc(fieldDistrict())}</span><span>${date(dataset.passes[pass])}</span></div>${fieldMapMarkup()}<p class="ms-map-instruction">Select a field boundary or choose a field below.</p><label class="ms-field-select">Field <select id="ms-guide-field">${Object.values(dataset.tiles).map((tile) => `<optgroup label="${esc(tile.district)}">${tile.fields.slice(0, 20).map((field) => `<option value="${esc(field.id)}" ${field.id === selected.id ? 'selected' : ''}>${esc(field.id)}</option>`).join('')}${!tile.fields.slice(0, 20).some((field) => field.id === selected.id) && tile.fields.some((field) => field.id === selected.id) ? `<option value="${esc(selected.id)}" selected>${esc(selected.id)}</option>` : ''}</optgroup>`).join('')}</select></label></div>`;
-    else if (step === 1) view = `<div class="ms-guide-series"><div class="ms-large-reading"><span class="ms-micro">HH backscatter · ${date(dataset.passes[pass])}</span><p>${selected.hh[pass] === null ? '<span class="ms-reading-unavailable">No HH value</span>' : `${selected.hh[pass]!.toFixed(2)}<span>dB</span>`}</p><span class="ms-inline-state ms-state-${current}"><i></i>${state(current)}</span></div>${graphMarkup()}${passButtons('guide')}</div>`;
+    if (stageIndex === 0) view = `<div class="ms-guide-map"><div class="ms-guide-map-heading"><span>${esc(fieldDistrict())}</span><span>${date(dataset.passes[pass])}</span></div>${fieldMapMarkup()}<p class="ms-map-instruction">Select a field boundary or choose a field below.</p><label class="ms-field-select">Field <select id="ms-guide-field">${Object.values(dataset.tiles).map((tile) => `<optgroup label="${esc(tile.district)}">${tile.fields.slice(0, 20).map((field) => `<option value="${esc(field.id)}" ${field.id === selected.id ? 'selected' : ''}>${esc(field.id)}</option>`).join('')}${!tile.fields.slice(0, 20).some((field) => field.id === selected.id) && tile.fields.some((field) => field.id === selected.id) ? `<option value="${esc(selected.id)}" selected>${esc(selected.id)}</option>` : ''}</optgroup>`).join('')}</select></label></div>`;
+    else if (stageIndex === 1) view = `<div class="ms-guide-series"><div class="ms-large-reading"><span class="ms-micro">HH backscatter · ${date(dataset.passes[pass])}</span><p>${selected.hh[pass] === null ? '<span class="ms-reading-unavailable">No HH value</span>' : `${selected.hh[pass]!.toFixed(2)}<span>dB</span>`}</p><span class="ms-inline-state ms-state-${current}"><i></i>${state(current)}</span></div>${graphMarkup()}${passButtons('guide')}</div>`;
     else view = `<div class="ms-guide-report"><div class="ms-report-heading"><svg viewBox="0 0 44 52" fill="none" aria-hidden="true"><path d="M8 2h20l10 10v38H8Z" stroke="currentColor" stroke-width="1.5"/><path d="M28 2v12h10M15 25h16M15 32h16M15 39h10" stroke="currentColor" stroke-width="1.5"/></svg><div><span class="ms-micro">Field evidence</span><h3>${esc(selected.id)}</h3></div></div><dl class="ms-report-facts"><div><dt>Dataset</dt><dd>${esc(runLabel())}</dd></div><div><dt>District</dt><dd>${esc(fieldDistrict())}</dd></div><div><dt>Field area</dt><dd>${selected.ha.toFixed(2)} ha</dd></div><div><dt>Available observations</dt><dd>${selected.s.split('').filter((value) => value !== '-').length} of ${dataset.passes.length} dates</dd></div></dl><div class="ms-report-pass"><div><span>${date(dataset.passes[pass])}</span><strong class="ms-state-${current}">${state(current)}</strong></div><p>HH backscatter <b>${selected.hh[pass] === null ? 'Not supplied' : `${selected.hh[pass]!.toFixed(2)} dB`}</b></p><p>Classifier confidence <b>${selected.c[pass] === null ? 'Not supplied' : `${(selected.c[pass]! * 100).toFixed(0)}%`}</b></p></div><button type="button" class="ms-text-action" id="ms-open-field">Open this field on the map ${arrow}</button><p class="ms-action-status" id="ms-open-status" role="status"></p></div>`;
-    root.innerHTML = `<div id="ms-walk-tabs"></div><div class="ms-walkthrough"><div class="ms-walk-copy"><div class="ms-walk-description"><span class="ms-stage-number" aria-hidden="true">0${step + 1}</span><h3>${titles[step][1]}</h3><p>${descriptions[step]}</p></div><button type="button" class="ms-next" id="ms-guide-next">${step < 2 ? 'Next step' : 'Back to field selection'} ${arrow}</button></div><div class="ms-product-window"><div class="ms-window-bar"><span class="ms-window-brand">Mudskipper</span><span>${esc(runLabel())}</span></div><div class="ms-walk-panel" id="ms-walk-panel" role="tabpanel" tabindex="0" aria-labelledby="ms-walk-${step}">${view}</div><div class="ms-window-footer"><span>${esc(selected.id)}</span><span class="ms-inline-state ms-state-${current}"><i></i>${state(current)}</span></div></div></div>`;
-    walkthroughTabs = mountAstryxTabs(root.querySelector<HTMLElement>('#ms-walk-tabs')!, {
-      items: titles.map(([value, label]) => ({ value, label, id: `ms-walk-${value}`, panelId: 'ms-walk-panel' })),
-      value: String(step), label: 'Field walkthrough',
-      onChange(value) { step = Number(value); renderHow(`#ms-walk-${step}`); },
-    });
-    root.querySelector<HTMLButtonElement>('#ms-guide-next')!.onclick = () => { step = (step + 1) % 3; renderHow(`#ms-walk-${step}`); };
+
+      return `<article data-scroll-stage="${stageIndex}" data-stage-name="${title}" class="ms-walkthrough ms-walk-stage"><div class="ms-walk-copy"><div class="ms-walk-description"><span class="ms-stage-number">0${stageIndex + 1}</span><h3 id="ms-walk-title-${stageIndex}">${title}</h3><p>${descriptions[stageIndex]}</p></div></div><div class="ms-product-window"><div class="ms-window-bar"><span class="ms-window-brand">Mudskipper</span><span>${esc(runLabel())}</span></div><div class="ms-walk-panel" id="ms-walk-panel-${stageIndex}" role="region" aria-labelledby="ms-walk-title-${stageIndex}">${view}</div><div class="ms-window-footer"><span>${esc(selected.id)}</span><span class="ms-inline-state ms-state-${current}"><i></i>${state(current)}</span></div></div></article>`;
+    }).join('');
+    root.innerHTML = `<div class="ms-scroll-sequence ms-how-sequence" id="ms-how-sequence"><div data-scroll-pin><div class="ms-sequence-stages">${stages}</div></div></div>`;
+    const sequence = root.querySelector<HTMLElement>('#ms-how-sequence')!;
+    restoreSequence(sequence, saved);
+    howScroll = bindScrollSequence(sequence);
     root.querySelectorAll<HTMLButtonElement>('[data-guide-pass]').forEach((button) => button.onclick = () => choosePass(Number(button.dataset.guidePass), 'guide'));
     root.querySelector<HTMLSelectElement>('#ms-guide-field')?.addEventListener('change', (event) => { chooseField((event.target as HTMLSelectElement).value); root.querySelector<HTMLSelectElement>('#ms-guide-field')?.focus(); });
     const fieldPaths = [...root.querySelectorAll<SVGPathElement>('[data-guide-field]')];
@@ -172,12 +213,11 @@ export function mountComponents(options: Options) {
       };
     });
     root.querySelector<HTMLButtonElement>('#ms-open-field')?.addEventListener('click', () => void openField());
-    if (focus) root.querySelector<HTMLElement>(focus)?.focus();
-    else if (activeId) root.querySelector<HTMLElement>(`#${CSS.escape(activeId)}`)?.focus();
+    if (activeId) root.querySelector<HTMLElement>(`#${CSS.escape(activeId)}`)?.focus();
     else if (activeField) root.querySelector<SVGPathElement>(`[data-guide-field="${CSS.escape(activeField)}"]`)?.focus();
   }
 
-  function radarScene(): string {
+  function radarScene(scene: Scene): string {
     if (scene === 'cross') return `<svg class="ms-science-scene ms-cross-scene" viewBox="0 0 600 390" role="img" aria-label="Conceptual comparison of radar field states, independent water mapping and district context"><defs><pattern id="ms-cross-grid" width="34" height="34" patternUnits="userSpaceOnUse"><path d="M34 0H0V34" fill="none" stroke="var(--line)"/></pattern></defs><g transform="translate(160 25) rotate(12 170 100)"><rect width="280" height="180" rx="4" fill="#e0dcfc" stroke="var(--line)"/><path d="M0 0h280v180H0Z" fill="url(#ms-cross-grid)"/><path class="ms-cross-patch" d="m33 29 69-9 28 42-41 47-55-15Zm105 20 69-16 37 53-25 45-66-10Z" fill="var(--water)" fill-opacity=".4"/></g><path class="ms-comparison-connect" d="M300 187v90M205 181l-55 113m245-112 55 112" fill="none" stroke="var(--water)" stroke-dasharray="5 7"/><g transform="translate(80 200) rotate(-8 160 80)"><rect width="300" height="150" rx="4" fill="#f4e6d6" stroke="var(--dim)" stroke-opacity=".4"/><path d="M0 75 70 44l77 31 70-40 83 40v75H0Z" fill="var(--water)" fill-opacity=".2"/><path d="M0 75 70 44l77 31 70-40 83 40" fill="none" stroke="var(--water)" stroke-width="2"/><text x="18" y="128" font-size="13" fill="var(--ink)">Independent water mapping</text></g><g transform="translate(361 222)"><rect width="172" height="115" rx="4" fill="#c4b9df" stroke="var(--line)"/><path d="m30 65 14-27 28 7 23-20 39 20-10 33-44 8-50-8Z" fill="none" stroke="var(--mud)" stroke-width="1.5"/><text x="18" y="100" font-size="12" fill="var(--ink)">District context</text></g><text x="181" y="56" fill="var(--ink)" font-size="13">Field states from radar</text></svg>`;
     const canopy = scene === 'canopy';
     const stalks = Array.from({ length: canopy ? 15 : 8 }, (_, index) => {
@@ -186,13 +226,18 @@ export function mountComponents(options: Options) {
       const height = canopy ? 74 + index % 3 * 13 : 20 + index % 3 * 5;
       return `<g class="ms-rice-stalk" style="--stalk-order:${index}"><path d="M${x} ${base}q-7-${height / 2} 0-${height}m0 ${height * .7}q-25-4-22-24m23 6q23-4 22-25" fill="none" stroke="#7876bf" stroke-width="${canopy ? 2.5 : 1.7}"/></g>`;
     }).join('');
-    return `<svg class="ms-science-scene" viewBox="0 0 600 390" role="img" aria-label="Conceptual radar path: ${canopy ? 'radar reflects between standing water and rice stems back toward the satellite' : 'open water reflects radar away from the satellite'}"><defs><linearGradient id="ms-water-plane" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5145d7" stop-opacity=".26"/><stop offset="1" stop-color="#5145d7" stop-opacity=".06"/></linearGradient><pattern id="ms-water-ripple" width="48" height="18" patternUnits="userSpaceOnUse"><path d="M0 9q12-4 24 0t24 0" fill="none" stroke="var(--water)" stroke-opacity=".25"/></pattern></defs><ellipse cx="310" cy="307" rx="220" ry="25" fill="#d8dff0"/><path d="m82 244 240-84 215 84-234 98Z" fill="#b8aed3"/><path d="m82 244 221 87 234-87v17l-234 98-221-98Z" fill="#d6c1a5"/><path d="m99 240 222-77 198 79-216 88Z" fill="url(#ms-water-plane)" stroke="var(--water)" stroke-opacity=".6"/><path d="m99 240 222-77 198 79-216 88Z" fill="url(#ms-water-ripple)"/>${stalks}<g class="ms-satellite" transform="translate(100 32) rotate(25 40 25)"><path d="M32 11h26v30H32ZM5 12h23v28H5Zm57 0h23v28H62Z" fill="#d8d5f7" stroke="var(--dim)"/><path d="M14 12v28m12-28v28m45-28v28m10-28v28M5 26h23m34 0h23" stroke="var(--dim)" stroke-opacity=".4"/><path d="M44 41v13m-8 0h16" stroke="var(--ink)"/></g><path class="ms-radar-ray ms-ray-in" d="M154 97 302 242" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="7 8"/>${canopy ? '<path class="ms-radar-ray ms-ray-out" d="m302 242 31-53-179-92" fill="none" stroke="var(--water)" stroke-width="2" stroke-dasharray="7 8"/><circle class="ms-bounce-ring" cx="302" cy="242" r="18" fill="none" stroke="var(--water)"/><circle class="ms-bounce-ring ms-bounce-second" cx="333" cy="189" r="13" fill="none" stroke="var(--water)"/><text x="366" y="146" fill="var(--water)" font-size="13">Water + stems</text><text x="366" y="166" fill="var(--dim)" font-size="12">A return path to the satellite</text>' : '<path class="ms-radar-ray ms-ray-out" d="m302 242 178-139" fill="none" stroke="var(--water)" stroke-width="2" stroke-dasharray="7 8"/><circle class="ms-bounce-ring" cx="302" cy="242" r="18" fill="none" stroke="var(--water)"/><text x="374" y="80" fill="var(--water)" font-size="13">Open water</text><text x="374" y="100" fill="var(--dim)" font-size="12">Reflection away from the satellite</text>'}<text x="78" y="373" fill="var(--dim)" font-size="12">Conceptual radar path · not to scale</text></svg>`;
+    return `<svg class="ms-science-scene" viewBox="0 0 600 390" role="img" aria-label="Conceptual radar path: ${canopy ? 'radar reflects between standing water and rice stems back toward the satellite' : 'open water reflects radar away from the satellite'}"><defs><linearGradient id="ms-water-plane-${scene}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5145d7" stop-opacity=".26"/><stop offset="1" stop-color="#5145d7" stop-opacity=".06"/></linearGradient><pattern id="ms-water-ripple-${scene}" width="48" height="18" patternUnits="userSpaceOnUse"><path d="M0 9q12-4 24 0t24 0" fill="none" stroke="var(--water)" stroke-opacity=".25"/></pattern></defs><ellipse cx="310" cy="307" rx="220" ry="25" fill="#d8dff0"/><path d="m82 244 240-84 215 84-234 98Z" fill="#b8aed3"/><path d="m82 244 221 87 234-87v17l-234 98-221-98Z" fill="#d6c1a5"/><path d="m99 240 222-77 198 79-216 88Z" fill="url(#ms-water-plane-${scene})" stroke="var(--water)" stroke-opacity=".6"/><path d="m99 240 222-77 198 79-216 88Z" fill="url(#ms-water-ripple-${scene})"/>${stalks}<g class="ms-satellite" transform="translate(100 32) rotate(25 40 25)"><path d="M32 11h26v30H32ZM5 12h23v28H5Zm57 0h23v28H62Z" fill="#d8d5f7" stroke="var(--dim)"/><path d="M14 12v28m12-28v28m45-28v28m10-28v28M5 26h23m34 0h23" stroke="var(--dim)" stroke-opacity=".4"/><path d="M44 41v13m-8 0h16" stroke="var(--ink)"/></g><path class="ms-radar-ray ms-ray-in" d="M154 97 302 242" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="7 8"/>${canopy ? '<path class="ms-radar-ray ms-ray-out" d="m302 242 31-53-179-92" fill="none" stroke="var(--water)" stroke-width="2" stroke-dasharray="7 8"/><circle class="ms-bounce-ring" cx="302" cy="242" r="18" fill="none" stroke="var(--water)"/><circle class="ms-bounce-ring ms-bounce-second" cx="333" cy="189" r="13" fill="none" stroke="var(--water)"/><text x="366" y="146" fill="var(--water)" font-size="13">Water + stems</text><text x="366" y="166" fill="var(--dim)" font-size="12">A return path to the satellite</text>' : '<path class="ms-radar-ray ms-ray-out" d="m302 242 178-139" fill="none" stroke="var(--water)" stroke-width="2" stroke-dasharray="7 8"/><circle class="ms-bounce-ring" cx="302" cy="242" r="18" fill="none" stroke="var(--water)"/><text x="374" y="80" fill="var(--water)" font-size="13">Open water</text><text x="374" y="100" fill="var(--dim)" font-size="12">Reflection away from the satellite</text>'}<text x="78" y="373" fill="var(--dim)" font-size="12">Conceptual radar path · not to scale</text></svg>`;
   }
 
   function renderMethod(): void {
     const root = roots.method;
     if (!root) return;
     const activeId = root.contains(document.activeElement) ? document.activeElement?.id : '';
+    const saved = sequenceState(root);
+    methodScroll?.();
+    const scenes: Scene[] = ['early', 'canopy', 'cross'];
+    const stages = scenes.map((scene, index) => {
+      const controlId = scene === 'early' ? 'ms-method-pass' : 'ms-method-pass-canopy';
     const content = {
       early: ['Before the canopy', 'Open water can reflect radar away from the satellite.'],
       canopy: ['When rice stands in water', 'Radar can bounce between water and rice stems before returning to the satellite.'],
@@ -204,16 +249,21 @@ export function mountComponents(options: Options) {
       const seasonCheck = checksObject?.season_shape as { pass?: boolean; rule?: string } | undefined;
       const opera = checksObject?.opera as { product?: string; n_dates?: number } | undefined;
       comparison = `<div class="ms-method-comparison"><h4>Checks from this run</h4>${dataset.kind === 'snapshot' ? `<p>Source file <b>${esc(dataset.source?.file ?? dataset.run_id)}</b></p><p>Field states and HH are supplied by this archived snapshot.</p>` : checksObject ? `<p>Season shape <b>${seasonCheck ? seasonCheck.pass ? 'Passed' : 'Did not pass' : 'Not supplied'}</b></p><p>Independent comparison <b>${opera ? `${esc(opera.product)} · ${count(opera.n_dates ?? 0)} dates` : 'Not supplied'}</b></p>${seasonCheck?.rule ? `<p class="ms-fine">${esc(seasonCheck.rule)}</p>` : ''}` : checksError ? `<p role="status">${esc(checksError)}</p><button type="button" class="ms-text-action" id="ms-retry-checks">Retry checks ${arrow}</button>` : '<p>Loading published checks…</p>'}<a class="ms-text-action" href="#analysis">Explore checks and sources ${arrow}</a></div>`;
-    } else comparison = `<div class="ms-method-reading"><span class="ms-micro">Actual field measurement</span><div class="ms-measure-head"><strong>${selected.hh[pass] === null ? '—' : selected.hh[pass]!.toFixed(2)}<small>${selected.hh[pass] === null ? '' : ' dB'}</small></strong><span>${date(dataset.passes[pass])}<br>${esc(selected.id)}</span></div>${graphMarkup()}<label class="ms-signal-control" for="ms-method-pass"><span>Move through the season</span><input id="ms-method-pass" type="range" min="0" max="${dataset.passes.length - 1}" step="1" value="${pass}" aria-valuetext="${date(dataset.passes[pass])}, ${selected.hh[pass] === null ? 'HH not supplied' : `${selected.hh[pass]} dB`}"></label><p class="ms-fine">HH backscatter · ${esc(runLabel())}</p></div>`;
-    root.innerHTML = `<div class="ms-method-lab"><div class="ms-method-header">${fluidTabs('science', [['early', 'Early season'], ['canopy', 'Rice canopy'], ['cross', 'Cross-checks']], scene)}</div><div class="ms-method-panel" id="ms-science-panel" role="tabpanel" tabindex="0" aria-labelledby="ms-science-${scene}"><div class="ms-scene-side">${radarScene()}<p class="ms-scene-mobile-note ms-fine">Conceptual illustration${scene === 'cross' ? '' : ' · not to scale'}</p><div class="ms-scene-caption"><h3>${content[0]}</h3><p>${content[1]}</p></div></div>${comparison}</div></div>`;
-    bindTabs(root, '[role="tab"]', (button) => { scene = button.dataset.value as Scene; renderMethod(); if (scene === 'cross') void loadChecks(); });
+    } else comparison = `<div class="ms-method-reading"><span class="ms-micro">Actual field measurement</span><div class="ms-measure-head"><strong>${selected.hh[pass] === null ? '—' : selected.hh[pass]!.toFixed(2)}<small>${selected.hh[pass] === null ? '' : ' dB'}</small></strong><span>${date(dataset.passes[pass])}<br>${esc(selected.id)}</span></div>${graphMarkup()}<label class="ms-signal-control" for="${controlId}"><span>Move through the season</span><input id="${controlId}" class="ms-method-pass" type="range" min="0" max="${dataset.passes.length - 1}" step="1" value="${pass}" aria-valuetext="${date(dataset.passes[pass])}, ${selected.hh[pass] === null ? 'HH not supplied' : `${selected.hh[pass]} dB`}"></label><p class="ms-fine">HH backscatter · ${esc(runLabel())}</p></div>`;
+
+      return `<article data-scroll-stage="${index}" data-stage-name="${scene}" class="ms-method-panel ms-method-stage" id="ms-science-${scene}" role="region" aria-labelledby="ms-method-title-${scene}"><div class="ms-scene-side">${radarScene(scene)}<div class="ms-scene-caption"><span class="ms-stage-number">0${index + 1}</span><h3 id="ms-method-title-${scene}">${content[0]}</h3><p>${content[1]}</p></div></div>${comparison}</article>`;
+    }).join('');
+    root.innerHTML = `<div class="ms-scroll-sequence ms-method-sequence" id="ms-method-sequence"><div data-scroll-pin><div class="ms-sequence-stages">${stages}</div></div></div>`;
+    const sequence = root.querySelector<HTMLElement>('#ms-method-sequence')!;
+    restoreSequence(sequence, saved);
+    methodScroll = bindScrollSequence(sequence);
     root.querySelector<HTMLButtonElement>('#ms-retry-checks')?.addEventListener('click', () => { checkedRun = ''; checksError = ''; renderMethod(); void loadChecks(); });
-    root.querySelector<HTMLInputElement>('#ms-method-pass')?.addEventListener('input', (event) => {
-      pass = Number((event.target as HTMLInputElement).value);
-      const focus = document.activeElement?.id === 'ms-method-pass';
+    root.querySelectorAll<HTMLInputElement>('.ms-method-pass').forEach((control) => control.addEventListener('input', () => {
+      pass = Number(control.value);
+      const focusId = document.activeElement?.id === control.id ? control.id : '';
       renderStory(); renderHow(); renderMethod();
-      if (focus) root.querySelector<HTMLInputElement>('#ms-method-pass')?.focus();
-    });
+      if (focusId) root.querySelector<HTMLInputElement>(`#${CSS.escape(focusId)}`)?.focus();
+    }));
     if (activeId) root.querySelector<HTMLElement>(`#${CSS.escape(activeId)}`)?.focus();
   }
 
@@ -368,12 +418,12 @@ export function mountComponents(options: Options) {
     loadedDetails.clear();
     renderStory(); renderHow(); renderMethod(); renderApi();
     void loadField();
-    if (scene === 'cross') void loadChecks();
+    void loadChecks();
   }
 
   updateDataset(dataset);
   return {
     updateDataset,
-    destroy() { alive = false; generation++; apiRequest++; walkthroughTabs?.destroy(); apiAction?.destroy(); Object.values(roots).forEach((root) => root?.replaceChildren()); },
+    destroy() { alive = false; generation++; apiRequest++; storyScroll?.(); howScroll?.(); methodScroll?.(); apiAction?.destroy(); Object.values(roots).forEach((root) => root?.replaceChildren()); },
   };
 }

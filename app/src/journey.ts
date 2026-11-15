@@ -7,7 +7,6 @@ const preview = document.querySelector<HTMLElement>('#preview');
 const readout = document.querySelector<HTMLElement>('.journey-readout');
 const chapters = [...document.querySelectorAll<HTMLElement>('.journey-chapter')];
 const stage = document.querySelector<HTMLElement>('.journey-stage');
-const sceneButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-scene-jump]')];
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const desktop = matchMedia('(min-width:1000px) and (min-height:680px)');
 const clamp = (n: number) => Math.max(0,Math.min(1,n));
@@ -41,7 +40,7 @@ function showPass(index:number) {
   if(polygon){polygon.style.fill=colors[state];polygon.style.stroke=colors[state];}
   passes.forEach((pass,i)=>pass.classList.toggle('is-observed',i===index));
 }
-function rich() { return desktop.matches && !reduced.matches && parseFloat(getComputedStyle(document.documentElement).fontSize)<=24; }
+function rich() { return desktop.matches && !reduced.matches && !document.documentElement.classList.contains('motion-paused') && parseFloat(getComputedStyle(document.documentElement).fontSize)<=24; }
 function activate(index:number,pinned:boolean) {
   active=index;
   if(journey) journey.dataset.chapter=String(index);
@@ -50,7 +49,6 @@ function activate(index:number,pinned:boolean) {
     chapter.inert=pinned && i!==index;
     chapter.setAttribute('aria-hidden',String(pinned && i!==index));
   });
-  sceneButtons.forEach((button,i)=>button.setAttribute('aria-pressed',String(i===index)));
 }
 function paint(progress:number) {
   if(!journey) return;
@@ -108,16 +106,6 @@ function render(){
   if(!pinned){activate(0,false);if(observations)showPass(observations.passes.length-1);}
 }
 function schedule(){if(scheduled || document.hidden)return;scheduled=true;requestAnimationFrame(render);}
-for(const button of sceneButtons)button.addEventListener('click',()=>{
-  const index=Number(button.dataset.sceneJump);
-  if(!journey) return;
-  if(!rich()){chapters[index]?.scrollIntoView({block:'center'});return;}
-  const progress=[.08,.52,.94][index];
-  const nav=document.querySelector('nav[aria-label="Main"]')?.getBoundingClientRect().height ?? 73;
-  const box=journey.getBoundingClientRect();
-  scrollTo({top:scrollY+box.top-nav+progress*(box.height-(innerHeight-nav)),behavior:'instant'});
-  paint(progress);
-});
 addEventListener('scroll',schedule,{passive:true});
 addEventListener('resize',schedule,{passive:true});
 addEventListener('pageshow',schedule);

@@ -18,11 +18,20 @@ async function open(reducedMotion: 'reduce' | 'no-preference' = 'no-preference')
   const page = await context.newPage();
   await page.goto(server.origin + '/?dataset=snapshot');
   await page.locator('#pvPasses .pcol').first().waitFor();
+  await page.locator('#ms-how-sequence').waitFor();
   return page;
 }
-async function chapter(page: Page, index: number) {
-  await page.locator(`[data-scene-jump="${index}"]`).click();
-  await page.waitForFunction(i => document.querySelector('#journey')?.getAttribute('data-chapter') === String(i), index);
+async function scrollProgress(page:Page,id:string,progress:number) {
+  await page.locator('#'+id).evaluate((e,p)=>{
+    const nav=document.querySelector('nav[aria-label="Main"]')!.getBoundingClientRect().height;
+    const box=e.getBoundingClientRect();
+    scrollTo({top:scrollY+box.top-nav+p*(box.height-(innerHeight-nav)),behavior:'instant'});
+  },progress);
+  await page.waitForTimeout(100);
+}
+async function chapter(page:Page,index:number) {
+  await scrollProgress(page,'journey',[.08,.52,.94][index]);
+  await page.waitForFunction(i=>document.querySelector('#journey')?.getAttribute('data-chapter')===String(i),index);
 }
 
 test('scroll story follows real pass dates and states without taking over document scroll', async () => {
@@ -56,30 +65,23 @@ test('scroll story follows real pass dates and states without taking over docume
   } finally { await page.context().close(); }
 });
 
-test('Pause animations freezes the orbit and scroll scene, then resumes at current position', async () => {
-  const page = await open();
+test('Pause freezes rice particles and exposes every narrative stage in normal flow',async()=>{
+  const page=await open();
   try {
-    await chapter(page, 0);
+    await page.waitForFunction(()=>Number(document.querySelector<HTMLCanvasElement>('#riceParticles')?.dataset.frame)>3);
     await page.locator('#motionToggle').click();
-    const progress = await page.locator('#journey').evaluate(e => (e as HTMLElement).style.getPropertyValue('--journey-progress'));
-    const date = await page.locator('#journeyAcquisition').innerText();
-    await page.locator('#journey').evaluate(e=>{
-      const nav=document.querySelector('nav[aria-label="Main"]')!.getBoundingClientRect().height;
-      const box=e.getBoundingClientRect();
-      scrollTo({top:scrollY+box.top-nav+.94*(box.height-(innerHeight-nav)),behavior:'instant'});
-    });
-    await page.waitForTimeout(100);
-    assert.equal(await page.locator('#journey').evaluate(e => (e as HTMLElement).style.getPropertyValue('--journey-progress')), progress);
-    assert.equal(await page.locator('#journeyAcquisition').innerText(), date);
-    assert.equal(await page.locator('.horizon-drift').evaluate(e => getComputedStyle(e).animationPlayState), 'paused');
-    assert.equal(await page.locator('.horizon-drift').evaluate(e => getComputedStyle(e).animationName), 'horizon-breathe');
-    const pausedTime = await page.locator('.horizon-drift').evaluate(e => e.getAnimations()[0].currentTime);
+    await page.waitForFunction(()=>!document.querySelector('#journey')?.classList.contains('is-pinned'));
+    const frame=await page.locator('#riceParticles').getAttribute('data-frame');
     await page.waitForTimeout(180);
-    assert.equal(await page.locator('.horizon-drift').evaluate(e => e.getAnimations()[0].currentTime), pausedTime, 'Pause must preserve the animation timeline');
+    assert.equal(await page.locator('#riceParticles').getAttribute('data-frame'),frame);
+    for(const id of ['ms-claim-sequence','ms-how-sequence','ms-method-sequence']){
+      assert.equal(await page.locator('#'+id+' [data-scroll-stage]:not([inert])').count(),3);
+      assert.equal(await page.locator('#'+id).evaluate(e=>e.classList.contains('is-scroll-pinned')),false);
+    }
+    assert.equal(await page.locator('.journey-chapter:not([inert])').count(),3);
     await page.locator('#motionToggle').click();
-    await page.waitForFunction(prior => document.querySelector<HTMLElement>('#journey')?.style.getPropertyValue('--journey-progress') !== prior, progress);
-    assert.equal(await page.locator('.horizon-drift').evaluate(e => getComputedStyle(e).animationPlayState), 'running');
-  } finally { await page.context().close(); }
+    await page.waitForFunction(prior=>document.querySelector('#riceParticles')?.getAttribute('data-frame')!==prior,frame);
+  } finally {await page.context().close();}
 });
 
 test('whole scene pins on desktop and the final evidence fits the viewport', async () => {
@@ -100,7 +102,7 @@ test('reduced motion and phone layouts preserve all chapters and the complete li
   const page = await open('reduce');
   try {
     assert.notEqual(await page.locator('.journey-pin').evaluate(e => getComputedStyle(e).position), 'sticky');
-    assert.equal(await page.locator('.horizon-drift').evaluate(e => getComputedStyle(e).animationName), 'none');
+    assert.equal(await page.locator('#riceParticles').getAttribute('data-motion'),'static');
     assert.equal(await page.locator('.journey-chapter').count(), 3);
     assert.equal(await page.locator('#pvPasses .pcol').count(), 9);
     for (const width of [390,320]) {
@@ -113,11 +115,11 @@ test('reduced motion and phone layouts preserve all chapters and the complete li
   } finally { await page.context().close(); }
 });
 
-test('water contours change pixels, freeze on pause and offscreen, and resume on return', async () => {
+test('rice grains change pixels, freeze on pause and offscreen, and resume on return', async () => {
   const page=await open();
   try {
-    const canvas=page.locator('#waterContours');
-    await page.waitForFunction(()=>Number(document.querySelector<HTMLCanvasElement>('#waterContours')?.dataset.frame)>3);
+    const canvas=page.locator('#riceParticles');
+    await page.waitForFunction(()=>Number(document.querySelector<HTMLCanvasElement>('#riceParticles')?.dataset.frame)>3);
     const pixels=await canvas.evaluate(e=>(e as HTMLCanvasElement).toDataURL());
     await page.mouse.move(240,420);
     await page.waitForTimeout(250);
@@ -127,32 +129,104 @@ test('water contours change pixels, freeze on pause and offscreen, and resume on
     await page.waitForTimeout(180);
     assert.equal(await canvas.getAttribute('data-frame'),frozen);
     await page.locator('#motionToggle').click();
-    await page.waitForFunction(prior=>document.querySelector('#waterContours')?.getAttribute('data-frame')!==prior,frozen);
+    await page.waitForFunction(prior=>document.querySelector('#riceParticles')?.getAttribute('data-frame')!==prior,frozen);
     await chapter(page,1);
-    await page.waitForFunction(()=>document.querySelector<HTMLCanvasElement>('#waterContours')?.dataset.motion==='offscreen');
+    await page.waitForFunction(()=>document.querySelector<HTMLCanvasElement>('#riceParticles')?.dataset.motion==='offscreen');
     const offscreen=await canvas.getAttribute('data-frame');
     await page.waitForTimeout(180);
     assert.equal(await canvas.getAttribute('data-frame'),offscreen);
     await page.evaluate(()=>scrollTo({top:0,behavior:'instant'}));
-    await page.waitForFunction(prior=>document.querySelector('#waterContours')?.getAttribute('data-frame')!==prior,offscreen);
+    await page.waitForFunction(prior=>document.querySelector('#riceParticles')?.getAttribute('data-frame')!==prior,offscreen);
   } finally {await page.context().close();}
 });
 
-test('each animated stage has accessible controls and hides inactive chapter links', async()=>{
+test('all scroll chapters expose one accessible stage and no stage-selector buttons',async()=>{
   const page=await open();
   try {
-    for(const i of [0,1,2]){
-      await chapter(page,i);
-      await page.waitForTimeout(350);
-      assert.equal(await page.locator('.journey-chapter:not([inert])').count(),1);
-      const results=await new AxeBuilder({page}).include('#journey').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']).analyze();
-      assert.deepEqual(results.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],`Animated stage ${i}`);
+    assert.equal(await page.locator('[data-scene-jump],#ms-walk-tabs,.ms-method-header [role="tab"],#ms-guide-next').count(),0);
+    for(const id of ['ms-claim-sequence','ms-how-sequence','ms-method-sequence']){
+      for(const index of [0,1,2]){
+        await scrollProgress(page,id,[.1,.5,.9][index]);
+        await page.waitForTimeout(380);
+        assert.equal(await page.locator('#'+id).getAttribute('data-scroll-index'),String(index));
+        assert.equal(await page.locator('#'+id+' [data-scroll-stage]:not([inert])').count(),1);
+        const result=await new AxeBuilder({page}).include('#'+id).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']).analyze();
+        assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],`${id} ${index}`);
+      }
     }
-    await page.locator('[data-scene-jump="0"]').focus();
-    await page.keyboard.press('Enter');
-    assert.equal(await page.locator('#journey').getAttribute('data-chapter'),'0');
-    await page.locator('#motionToggle').click();
-    await page.locator('[data-scene-jump="2"]').click();
-    assert.equal(await page.locator('#journey').getAttribute('data-chapter'),'2','Explicit scene navigation remains usable while paused');
+    assert.deepEqual(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return ids.filter((id,i)=>ids.indexOf(id)!==i)}),[]);
   } finally {await page.context().close();}
+});
+
+test('field and acquisition selection preserve focus, selected identity and scroll stage across redraws',async()=>{
+  const page=await open();
+  try {
+    await scrollProgress(page,'ms-how-sequence',.1);
+    await page.locator('#ms-guide-field').focus();
+    const y=await page.evaluate(()=>scrollY);
+    await page.locator('#ms-guide-field').selectOption({index:1});
+    const id=await page.locator('#ms-guide-field').inputValue();
+    assert.equal(await page.evaluate(()=>document.activeElement?.id),'ms-guide-field');
+    assert.ok(Math.abs(await page.evaluate(()=>scrollY)-y)<3);
+    await scrollProgress(page,'ms-how-sequence',.5);
+    const pass=page.locator('[data-guide-pass="2"]');
+    await pass.click();
+    assert.equal(await page.locator('#ms-how-sequence').getAttribute('data-scroll-index'),'1');
+    assert.equal(await page.evaluate(()=>document.activeElement?.getAttribute('data-guide-pass')),'2');
+    await scrollProgress(page,'ms-how-sequence',.9);
+    assert.ok((await page.locator('#ms-open-field').locator('..').innerText()).includes(id));
+    await page.locator('#ms-open-field').click();
+    await page.waitForFunction(id=>document.querySelector('#fcard .fc-id')?.textContent===id,id);
+  } finally {await page.context().close();}
+});
+
+test('centered hero and wordmark use the supplied sky, and season reveals do not alter the data',async()=>{
+  const page=await open();
+  try {
+    assert.equal((await page.locator('h1').innerText()).replace(/\s+/g,' '),'Check rice-field drainage from space.');
+    for(const selector of ['h1','nav[aria-label="Main"]>ul']){
+      const center=await page.locator(selector).evaluate(e=>{const r=e.getBoundingClientRect();return r.left+r.width/2});
+      assert.ok(Math.abs(center-720)<2,`${selector} is centered`);
+    }
+    const image=await page.request.get(server.origin+'/img/rice-sky.png');
+    assert.equal(image.status(),200);assert.equal((await image.body()).subarray(1,4).toString(),'PNG');
+    await scrollProgress(page,'brandInterlude',.1);
+    const first=await page.locator('#brandName').evaluate(e=>getComputedStyle(e).transform);
+    await scrollProgress(page,'brandInterlude',.6);
+    assert.notEqual(await page.locator('#brandName').evaluate(e=>getComputedStyle(e).transform),first);
+    const center=await page.locator('#brandName').evaluate(e=>{const r=e.getBoundingClientRect();return r.left+r.width/2});
+    assert.ok(Math.abs(center-720)<3);
+    const data=await page.locator('#seasonTable tbody').innerText();
+    await scrollProgress(page,'season',.1);const crop=await page.locator('#seasonSvg').evaluate(e=>getComputedStyle(e).clipPath);
+    await scrollProgress(page,'season',.9);assert.notEqual(await page.locator('#seasonSvg').evaluate(e=>getComputedStyle(e).clipPath),crop);
+    assert.equal(await page.locator('#seasonTable tbody').innerText(),data);
+    await page.locator('#seasonTable summary').click();
+    await page.waitForFunction(()=>!document.querySelector('#season')?.classList.contains('is-scroll-pinned'));
+    assert.equal(await page.locator('#seasonSvg').evaluate(e=>getComputedStyle(e).clipPath),'none');
+  } finally {await page.context().close();}
+});
+
+
+test('season legend and focused table control remain in view on short desktops',async()=>{
+ const page=await open();
+ try{
+  for(const [width,height] of [[1000,780],[1440,900]]){
+   await page.setViewportSize({width,height});
+   await scrollProgress(page,'season',.7);
+   await page.locator('#seasonTable summary').focus();
+   await page.waitForTimeout(100);
+   const visible=await page.locator('#seasonTable summary').evaluate(e=>{const r=e.getBoundingClientRect();const n=document.querySelector('nav[aria-label="Main"]')!.getBoundingClientRect().height;return r.top>=n && r.bottom<=innerHeight});
+   assert.equal(visible,true,`Season table focus visible at ${width}×${height}`);
+  }
+ }finally{await page.context().close()}
+});
+
+test('scrolling away from a focused claim retains focus on the sequence',async()=>{
+ const page=await open();
+ try{
+  await scrollProgress(page,'ms-claim-sequence',.9);
+  await page.locator('[data-flow-pass="2"]').focus();
+  await scrollProgress(page,'ms-claim-sequence',.1);
+  assert.equal(await page.evaluate(()=>document.activeElement?.id),'ms-claim-sequence');
+ }finally{await page.context().close()}
 });

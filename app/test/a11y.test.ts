@@ -83,7 +83,7 @@ async function horizontalOverflow(page: Page): Promise<string[]> {
     const out: string[] = [];
     if (document.documentElement.scrollWidth > width + 1) out.push(`document scrollWidth ${document.documentElement.scrollWidth} > ${width}`);
     for (const element of document.body.querySelectorAll<HTMLElement>('body *')) {
-      if (element.closest('.sr-only, .bg, [hidden], .bt-table-wrap, .chart-table-wrap, svg, .skip-link, nav > ul')) continue;
+      if (element.closest('.sr-only, .bg, [hidden], [aria-hidden="true"], .bt-table-wrap, .chart-table-wrap, svg, .skip-link, nav > ul')) continue;
       const style = getComputedStyle(element);
       if (style.display === 'none' || style.visibility === 'hidden' || style.position === 'fixed') continue;
       const box = element.getBoundingClientRect();

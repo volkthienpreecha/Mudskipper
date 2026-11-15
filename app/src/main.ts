@@ -8,4 +8,6 @@ import "./blue-theme.css";
 import "./journey.css";
 import "./journey.ts";
 
-import "./water-contours.ts";
+import "./rice-particles.ts";
+import "./rice-story.css";
+import "./page-scroll.ts";
