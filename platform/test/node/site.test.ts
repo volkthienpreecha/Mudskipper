@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { APP_CSP, buildSite, installApp } from "../../scripts/build-site.ts";
+import { APP_CSP, buildSite, finishSite, installApp } from "../../scripts/build-site.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT } from "../../scripts/lib/run.ts";
 import { smoke } from "../../scripts/smoke.ts";
 import { LIMITS_TEXT } from "../../src/limits.ts";
@@ -17,16 +17,15 @@ const headers = readFileSync(join(out, "_headers"), "utf8");
 const b64 = (s: string) => createHash("sha256").update(s, "utf8").digest("base64");
 
 describe("build-site (placeholder)", () => {
-  it("routes Functions only on /api, /api/* and /tiles/*", () => {
-    expect(JSON.parse(readFileSync(join(out, "_routes.json"), "utf8"))).toEqual({
-      version: 1,
-      include: ["/api", "/api/*", "/tiles/*"],
-      exclude: [],
-    });
+  it("runs Functions on pages and the API, never on static files (K-321)", () => {
+    const routes = JSON.parse(readFileSync(join(out, "_routes.json"), "utf8")) as { version: number; include: string[]; exclude: string[] };
+    expect(routes.version).toBe(1);
+    expect(routes.include).toEqual(["/*"]);
+    expect(routes.exclude).toEqual(expect.arrayContaining(["/data/*", "/fonts/*", "/og.png", "/favicon.svg"]));
   });
 
-  it("has no top-level 404.html, so Pages falls back to index.html (SPA)", () => {
-    expect(existsSync(join(out, "404.html"))).toBe(false);
+  it("has a top-level 404.html, so unknown paths are real 404s (no SPA fallback, K-321)", () => {
+    expect(existsSync(join(out, "404.html"))).toBe(true);
   });
 
   it("fills every template slot and shows SAMPLE DATA, the headline and the Limits text verbatim", () => {
@@ -122,10 +121,38 @@ describe.skipIf(process.env["SKIP_PAGES_DEV"] === "1")("wrangler pages dev + smo
     expect(res.checks.length).toBeGreaterThanOrEqual(20);
   });
 
-  it("static paths never reach the Function (no API security headers on /)", async () => {
+  it("pages keep their static headers through the page middleware (no API headers on /)", async () => {
     const r = await fetch(`http://127.0.0.1:${port}/`);
     expect(r.headers.get("content-security-policy")).toContain("script-src 'sha256-");
-    expect(r.headers.get("access-control-expose-headers")).toBeNull(); // only the Function sets this
+    expect(r.headers.get("access-control-expose-headers")).toBeNull(); // only the API sets this
+    expect(r.headers.get("vary")).toBe("Accept");
+  });
+
+  it("negotiates Markdown and answers unknown paths with real 404s under the real Pages runtime", async () => {
+    const md = await fetch(`http://127.0.0.1:${port}/`, { headers: { accept: "text/markdown" } });
+    expect(md.status).toBe(200);
+    expect(md.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(md.headers.get("vary")).toBe("Accept");
+    expect(await md.text()).toMatch(/^# Mudskipper/);
+    const html = await fetch(`http://127.0.0.1:${port}/`, { headers: { accept: "text/html" } });
+    expect(html.headers.get("content-type")).toContain("text/html");
+    await html.text();
+    const missing = await fetch(`http://127.0.0.1:${port}/some-path-that-does-not-exist`, { headers: { accept: "text/markdown" } });
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(await missing.text()).toContain("Page not found");
+    const missingHtml = await fetch(`http://127.0.0.1:${port}/nope/deeper`);
+    expect(missingHtml.status).toBe(404);
+    expect(await missingHtml.text()).toContain("<h1>Page not found</h1>");
+    for (const p of ["/about", "/contact", "/privacy", "/developers", "/openapi.json", "/llms.txt", "/.well-known/api-catalog"]) {
+      const r = await fetch(`http://127.0.0.1:${port}${p}`);
+      expect(r.status, p).toBe(200);
+      await r.arrayBuffer();
+    }
+    const api404 = await fetch(`http://127.0.0.1:${port}/api/nope`);
+    expect(api404.status).toBe(404);
+    expect(api404.headers.get("content-type")).toContain("application/json");
+    await api404.text();
   });
 });
 
@@ -151,7 +178,11 @@ describe.runIf(existsSync(join(REPO_ROOT, "app", "package.json")))("build-site w
   it("publish's production step re-installs the app with the same page assembly (link preview kept, /data untouched)", () => {
     const before = readFileSync(join(appOut, "data", "live.json"), "utf8");
     installApp(appOut, "https://mudskipper-nisar.pages.dev");
-    expect(readFileSync(join(appOut, "index.html"), "utf8")).toContain('property="og:image"');
+    finishSite(appOut, built.bundle, { siteUrl: "https://mudskipper-nisar.pages.dev", useApp: true });
+    const html = readFileSync(join(appOut, "index.html"), "utf8");
+    expect(html).toContain('property="og:image"');
+    expect(html.match(/rel="service-desc"/g)).toHaveLength(1); // assembled once, not twice
+    expect(readFileSync(join(appOut, "openapi.json"), "utf8")).toContain('"url": "https://mudskipper-nisar.pages.dev"');
     expect(readFileSync(join(appOut, "data", "live.json"), "utf8")).toBe(before);
   });
 
@@ -163,5 +194,10 @@ describe.runIf(existsSync(join(REPO_ROOT, "app", "package.json")))("build-site w
     expect(APP_CSP).not.toContain("'unsafe-eval'");
     expect(appHeaders).toMatch(/\/assets\/\*\n {2}Cache-Control: public, max-age=31536000, immutable/);
     expect(readFileSync(join(appOut, "sitemap.xml"), "utf8")).toContain("<loc>https://mudskipper-nisar.pages.dev/lab</loc>");
+    // every route the app's code names gets its own page with its own canonical URL, and the app still boots
+    const lab = readFileSync(join(appOut, "lab.html"), "utf8");
+    expect(lab).toContain('<link rel="canonical" href="https://mudskipper-nisar.pages.dev/lab">');
+    expect(lab).toMatch(/<script type="module" crossorigin src="\/assets\//);
+    expect(JSON.parse(readFileSync(join(appOut, "site.json"), "utf8")).app_prefixes).toEqual(["/field/"]);
   });
 });

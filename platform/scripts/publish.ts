@@ -46,7 +46,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { buildApp, buildSite, countFiles, installApp, MAX_FILES } from "./build-site.ts";
+import { buildApp, buildSite, countFiles, finishSite, installApp, MAX_FILES } from "./build-site.ts";
 import { carryRun, liveRunOf } from "./lib/carry.ts";
 import { loadD1 } from "./load-d1.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT, missingPublished, readRun } from "./lib/run.ts";
@@ -195,6 +195,7 @@ async function main() {
           runDir,
           fixtures: values.fixtures,
           appApiBase: stageUrl,
+          siteUrl: stageUrl, // the preview's own URLs (canonical, sitemap, OpenAPI servers); production gets its own in step 8
           ...(values.fixtures ? {} : { updatedAt: new Date().toISOString().slice(0, 19) + "Z" }),
         });
         console.log(`   ${built.app}, ${built.files} files, bundle ${built.bundle.manifest.bundle_hash.slice(0, 12)}`);
@@ -230,11 +231,13 @@ async function main() {
       name: `8. production: app against ${PRODUCTION_URL}, carry the previous run, deploy --branch main`,
       production: true,
       run: async () => {
-        if (built!.app === "app/dist") {
+        const useApp = built!.app === "app/dist";
+        if (useApp) {
           buildApp(PRODUCTION_URL);
-          installApp(site, PRODUCTION_URL); // the same page assembly the smoked preview got
-          console.log("   app rebuilt for the production origin (/data unchanged)");
+          installApp(site, PRODUCTION_URL);
         }
+        finishSite(site, built!.bundle, { siteUrl: PRODUCTION_URL, useApp }); // the same page assembly the smoked preview got
+        console.log(`   ${useApp ? "app rebuilt and " : ""}pages reassembled for the production origin (/data unchanged)`);
         const previous = await liveRunOf(PRODUCTION_URL).catch(() => null);
         if (values["no-carry"] || !previous || previous.run_id === runId) {
           console.log(`   carry: none (${values["no-carry"] ? "--no-carry" : previous ? `production already serves ${runId}` : "nothing live"})`);
