@@ -116,10 +116,18 @@ class Schemas:
 
 
 # ------------------------------------------------------------------------------------------------ loading
+def _no_nonfinite(token: str):
+    raise ValueError(f"non-finite number {token} (CONTRACTS.md C0: finite numbers only)")
+
+
+def parse(text: str):
+    return json.loads(text, parse_constant=_no_nonfinite)
+
+
 def load_json(path: pathlib.Path, rep: Report, where: str):
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return parse(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
         rep.error(where, f"cannot parse: {exc}")
         return None
 
@@ -136,8 +144,8 @@ def load_jsonl(path: pathlib.Path, rep: Report, where: str):
             rep.error(f"{where}:{i}", "blank line")
             continue
         try:
-            rows.append((i, json.loads(line)))
-        except json.JSONDecodeError as exc:
+            rows.append((i, parse(line)))
+        except ValueError as exc:
             rep.error(f"{where}:{i}", f"cannot parse: {exc}")
     return rows
 
@@ -337,10 +345,16 @@ def _validate_run(run: pathlib.Path, schemas: Schemas, rep: Report, stage: str, 
     prov = data.get("provenance.json")
     if prov:
         granules = {g["granule_id"]: g for g in prov["granules"]}
-        for p in used:
+        for p in passes:
             g = granules.get(p["granule_id"])
-            if rep.check(g is not None, "provenance.json", f"T3: used pass {p['pass_id']} has no granule entry"):
+            if rep.check(g is not None, "provenance.json", f"T3: pass {p['pass_id']} has no granule entry"):
                 rep.check(g["crid"] == p["crid"], "provenance.json", f"CRID differs for {p['granule_id']}")
+                if p["used"]:
+                    rep.check(g["subset_sha256"] is not None, "provenance.json",
+                              f"used pass {p['pass_id']} needs the subset_sha256 of its cached subset")
+        known = {p["granule_id"] for p in passes}
+        for gid in granules:
+            rep.check(gid in known, "provenance.json", f"granule {gid} is not in passes.json")
         rep.check(prov["git_sha"] != "fixture" or is_fixture, "provenance.json", "git_sha 'fixture' in a real run")
         listed = {}
         for a in prov["artifacts"]:
@@ -583,7 +597,8 @@ def check_checks(ck, obs_rows, tiles, season, rep):
 
 def check_claims(claims, field_by_id, is_fixture, rep):
     where = "claims.sample.geojson"
-    ids = [c["properties"]["claim_id"] for c in claims["features"]]
+    ids = [c["properties"].get("claim_id") for c in claims["features"]]
+    rep.check(None not in ids, where, "every sample claim needs a claim_id")
     rep.check(len(ids) == len(set(ids)), where, "claim_id must be unique")
     rep.check(all(c["properties"]["synthetic"] for c in claims["features"]), where, "sample claims must all be synthetic")
     rep.check(len(claims["features"]) == 60, where, f"the sample has exactly 60 claims (has {len(claims['features'])})")
@@ -638,8 +653,8 @@ def _validate_api(root: pathlib.Path, schemas: Schemas, rep: Report):
 
     def run_json(name):
         try:
-            return json.loads((run / name).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            return parse((run / name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
             return None
 
     for api_name, run_name in (("story.json", "story.json"), ("passes.json", "passes.json"),
@@ -655,9 +670,9 @@ def _validate_api(root: pathlib.Path, schemas: Schemas, rep: Report):
     summaries = {}
     try:
         for line in (run / "field_summary.jsonl").read_text(encoding="utf-8").splitlines():
-            s = json.loads(line)
+            s = parse(line)
             summaries[s["field_id"]] = s
-    except (OSError, json.JSONDecodeError):
+    except (OSError, ValueError):
         pass
     if "fields.json" in docs:
         page = docs["fields.json"]
