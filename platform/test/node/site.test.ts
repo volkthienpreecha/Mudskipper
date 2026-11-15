@@ -5,7 +5,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { APP_CSP, buildSite, installApp } from "../../scripts/build-site.ts";
+import { APP_CSP, SECURITY_CONTACT, buildSite, installApp, securityTxt } from "../../scripts/build-site.ts";
+import { HSTS, PERMISSIONS_POLICY } from "../../src/http/headers.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT } from "../../scripts/lib/run.ts";
 import { smoke } from "../../scripts/smoke.ts";
 import { LIMITS_TEXT } from "../../src/limits.ts";
@@ -79,6 +80,35 @@ describe("build-site (placeholder)", () => {
     expect(headers).toContain("/data/live.json\n  Cache-Control: no-cache");
   });
 
+  it("_headers adds HSTS, CORP, a wide Permissions-Policy and framing denial on every static path (K-341)", () => {
+    const all = /^\/\*\n((?: {2}.+\n)+)/m.exec(headers)![1]!;
+    expect(all).toContain(`Strict-Transport-Security: ${HSTS}`);
+    expect(HSTS).toBe("max-age=31536000; includeSubDomains");
+    expect(all).toContain("Cross-Origin-Resource-Policy: same-site");
+    expect(all).toContain(`Permissions-Policy: ${PERMISSIONS_POLICY}`);
+    for (const f of ["camera=()", "microphone=()", "geolocation=()", "usb=()", "browsing-topics=()"]) expect(PERMISSIONS_POLICY).toContain(f);
+    expect(all).toContain("X-Frame-Options: DENY");
+    expect(all).toContain("Cross-Origin-Opener-Policy: same-origin");
+    expect(all).toMatch(/Content-Security-Policy: [^\n]*frame-ancestors 'none'/);
+    // the public /data bundle stays readable from other origins: CORP is detached there
+    expect(headers).toContain("/data/*\n  ! Cross-Origin-Resource-Policy");
+  });
+
+  it("publishes an RFC 9116 security.txt that expires within a year and names the advisory form", () => {
+    const txt = readFileSync(join(out, ".well-known", "security.txt"), "utf8");
+    expect(txt).toContain(`Contact: ${SECURITY_CONTACT}`);
+    expect(SECURITY_CONTACT).toBe("https://github.com/volkthienpreecha/Mudskipper/security/advisories/new");
+    expect(txt).toContain("Canonical: https://mudskipper-nisar.pages.dev/.well-known/security.txt");
+    expect(txt).not.toMatch(/@/); // no personal email addresses
+    const now = new Date("2026-11-15T12:34:56Z");
+    const expires = /^Expires: (.+)$/m.exec(securityTxt("https://x.example", now))![1]!;
+    expect(expires).toMatch(/^\d{4}-\d{2}-\d{2}T00:00:00Z$/); // RFC 3339, as RFC 9116 requires
+    const ahead = Date.parse(expires) - now.getTime();
+    expect(ahead).toBeGreaterThan(300 * 86_400_000);
+    expect(ahead).toBeLessThan(365 * 86_400_000);
+    for (const line of txt.trim().split("\n")) expect(line).toMatch(/^(Contact|Expires|Policy|Preferred-Languages|Canonical): \S/);
+  });
+
   it("stays inside the Pages limits", () => {
     expect(site.files).toBeLessThan(20_000);
     expect(site.app).toBe("placeholder");
@@ -129,6 +159,31 @@ describe.skipIf(process.env["SKIP_PAGES_DEV"] === "1")("wrangler pages dev + smo
   });
 });
 
+describe("vercel.json (the teammate's Vercel copy of the app)", () => {
+  const vercel = JSON.parse(readFileSync(join(REPO_ROOT, "vercel.json"), "utf8")) as {
+    rewrites: { source: string; destination: string }[];
+    headers: { source: string; headers: { key: string; value: string }[] }[];
+  };
+  const all = Object.fromEntries(vercel.headers.find((h) => h.source === "/(.*)")!.headers.map((h) => [h.key, h.value]));
+
+  it("sends the same document security headers as the Pages deployment (K-342)", () => {
+    expect(all["Content-Security-Policy"]).toBe(APP_CSP);
+    expect(all["Permissions-Policy"]).toBe(PERMISSIONS_POLICY);
+    expect(all["X-Frame-Options"]).toBe("DENY");
+    expect(all["X-Content-Type-Options"]).toBe("nosniff");
+    expect(all["Cross-Origin-Opener-Policy"]).toBe("same-origin");
+    expect(all["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
+  });
+
+  it("keeps its routing: /api and /tiles proxied to production, the rest to the SPA", () => {
+    expect(vercel.rewrites.map((r) => r.destination)).toEqual([
+      "https://mudskipper-nisar.pages.dev/api/:path*",
+      "https://mudskipper-nisar.pages.dev/tiles/:path*",
+      "/index.html",
+    ]);
+  });
+});
+
 describe.runIf(existsSync(join(REPO_ROOT, "app", "package.json")))("build-site with Volk's app", () => {
   const appOut = mkdtempSync(join(tmpdir(), "mudskipper-app-site-"));
   const built = buildSite({ runDir: FIXTURE_RUN, out: appOut, fixtures: true, appApiBase: "https://staging.mudskipper-nisar.pages.dev" });
@@ -161,6 +216,7 @@ describe.runIf(existsSync(join(REPO_ROOT, "app", "package.json")))("build-site w
       expect(APP_CSP).toContain(d);
     }
     expect(APP_CSP).not.toContain("'unsafe-eval'");
+    expect(APP_CSP).toContain("frame-src 'none'"); // workers may come from blob:, frames never (K-341)
     expect(appHeaders).toMatch(/\/assets\/\*\n {2}Cache-Control: public, max-age=31536000, immutable/);
     expect(readFileSync(join(appOut, "sitemap.xml"), "utf8")).toContain("<loc>https://mudskipper-nisar.pages.dev/lab</loc>");
   });
