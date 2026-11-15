@@ -554,7 +554,7 @@ function drawFields() {
   paint();
 }
 async function goTile(t, fromSelection = false) {
-  if (!DATA.tiles[t]) return;
+  if (!Object.hasOwn(DATA.tiles, t)) return;
   if (!fromSelection) selectionVersion++;
   const token = ++navVersion;
   const switching = view === "fields";
@@ -1162,7 +1162,7 @@ async function restoreLocation() {
     if (index >= 0) pass = index;
     const entry = id ? fieldEntry(id) : null;
     if (entry) await select(entry.index, entry.tile, false);
-    else if (q.get("tile") && DATA.tiles[q.get("tile")])
+    else if (q.get("tile") && Object.hasOwn(DATA.tiles, q.get("tile")))
       await goTile(q.get("tile"));
     else if (view !== "country") await goCountry(false);
     if (ownRestore !== restoreVersion) return;
