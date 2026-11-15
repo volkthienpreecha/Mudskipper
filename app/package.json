@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test test/data.test.ts",
-    "test:a11y": "node --test --test-concurrency=1 test/a11y.test.ts"
+    "test:a11y": "node --test --test-concurrency=1 test/a11y.test.ts test/journey.test.ts"
   },
   "dependencies": {
     "@astryxdesign/core": "0.7.16",

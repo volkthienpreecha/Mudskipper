@@ -91,7 +91,7 @@ html { scroll-padding-top: calc(var(--nav-h, 72px) + 16px); scroll-padding-botto
   .motion-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
 }
 /* Paused: no looping or long animation anywhere, the same as the reduced-motion setting. */
-html.motion-paused *, html.motion-paused *::before, html.motion-paused *::after { animation: none !important; transition: none !important; }
+html.motion-paused *:not(.horizon-drift):not(.orbital-swath), html.motion-paused *::before, html.motion-paused *::after { animation: none !important; transition: none !important; }
 html.motion-paused .slide { transform: none !important; }
 html.motion-paused .rv, html.motion-paused .cell { opacity: 1; transform: none; }
 html.motion-paused .step, html.motion-paused .card { opacity: 1 !important; transform: none !important; }

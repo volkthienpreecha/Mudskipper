@@ -1,0 +1,158 @@
+/* Night-blue identity; the working surfaces stay opaque and quiet.
+   Atmosphere and scroll scenes are owned by journey.css. */
+:root {
+  color-scheme: light;
+  --night: oklch(23.73% .0828 263.73);
+  --cobalt: oklch(46.23% .1704 263.83);
+  --mist: oklch(78.12% .0879 257.18);
+  --ice: oklch(95.73% .0165 250.84);
+  --bg: oklch(98.7% .0062 255.47);
+  --bg2: oklch(96.9% .012 255);
+  --surface: oklch(98.7% .0062 255.47);
+  --ink: oklch(26.4% .0731 262.88);
+  --dim: oklch(46.4% .0585 258.63);
+  --faint: oklch(51.23% .0542 257.29);
+  --line: oklch(87.06% .0309 254.33);
+  --control-line: oklch(62.44% .0484 256.82);
+  --water: var(--cobalt);
+  --violet: var(--cobalt); /* Compatibility with imported control styles. */
+  --mud: oklch(52.29% .1466 32.1);
+  --haze: oklch(51.23% .0542 257.29);
+}
+
+html, body, .bg { background: var(--bg); color: var(--ink); }
+::selection { background: var(--mist); color: var(--night); }
+button, a, input, select, summary { -webkit-tap-highlight-color: transparent; }
+input { accent-color: var(--cobalt); }
+
+/* Navigation remains one solid, legible instrument strip. */
+html nav { background: var(--surface) !important; border-color: var(--line); }
+html nav :is(a, ul a) { color: var(--dim); }
+html nav :is(a:hover, a:focus-visible) { color: var(--ink); }
+html nav .ddm { background: var(--surface) !important; border-color: var(--line); }
+html .nav-toggle, html .motion-toggle {
+  color: var(--ink) !important;
+  background: var(--surface) !important;
+  border-color: var(--control-line) !important;
+  border-radius: 6px;
+}
+html .motion-toggle[aria-pressed="true"] {
+  background: var(--ink) !important;
+  color: var(--surface) !important;
+  border-color: var(--ink) !important;
+}
+
+/* Ice-blue alternation marks a change of task without an ornamental card grid. */
+html :is(#story, #how, #analysis) { background: var(--bg); border-color: var(--line); }
+html :is(#map, #season, #method, #api) { background: var(--bg2); border-color: var(--line); }
+html :is(#map, #season, #how, #method, #analysis, #api) :is(h2, h3) { color: var(--ink); }
+html footer { background: var(--ice) !important; border-color: var(--line); color: var(--dim); }
+
+html .btn-primary { background: var(--cobalt) !important; color: var(--surface) !important; }
+html .btn-primary:hover { background: var(--night) !important; }
+html .btn-ghost, html .radar-switch {
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  border-color: var(--control-line) !important;
+}
+html .btn-ghost:hover, html .radar-switch:not(:disabled):hover { background: var(--ice) !important; }
+
+/* Data surfaces use the same three ink roles as the explanatory components. */
+html .mapapp, html .timeline {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html :is(.fcard, .seg, .map-date, .tour-cap, .season-tip) {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+html .seg { padding: 4px; border-radius: 8px; }
+html .segbtn { border-radius: 5px; }
+html .segbtn.on { background: var(--cobalt); color: var(--surface); }
+html .segbtn:not(.on):hover, html .chip:hover { background: var(--ice); }
+html :is(.field-search, .dataset-control select, .fc-picker select, .map-controls, .map-back) {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--control-line);
+}
+html .field-search button:hover { background: var(--ice); color: var(--ink); }
+html .map-attr { background: var(--surface) !important; color: var(--ink) !important; }
+html .ic { background: var(--ice); }
+html .ic.f { color: var(--cobalt); }
+html .ic.d { color: var(--mud); }
+html .ic.u { color: var(--haze); }
+html #seasonSvg .gap-label-bg { fill: var(--surface); }
+html #seasonSvg .ax.gap-label { fill: var(--ink); stroke: var(--surface); }
+
+/* Higher specificity also applies when the lazy-loaded demos arrive later. */
+html .ms-demo :is(.ms-evidence-flow, .ms-radar-node, .ms-product-window, .ms-method-lab,
+  .ms-method-panel, .ms-api-console, .ms-console) {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: none;
+}
+html .ms-demo :is(.ms-console-request, .ms-window-bar, .ms-tabs) { background: var(--ice); border-color: var(--line); }
+html .ms-demo .ms-response { background: var(--surface); color: var(--ink); scrollbar-color: var(--control-line) var(--surface); }
+html .ms-demo .ms-endpoints button { background: var(--surface); }
+html .ms-demo .ms-endpoints button:hover, html .ms-demo .ms-endpoints button[aria-selected="true"] {
+  background: var(--ice);
+  color: var(--ink);
+}
+html .ms-demo .ms-tabs button[aria-selected="true"] { background: var(--cobalt); color: var(--surface); }
+html .ms-demo .ms-field-select select { background: var(--ice); border-color: var(--control-line); }
+html .ms-demo .ms-field.ms-state-- { fill: var(--ice); }
+html .ms-demo .ms-result-state .ms-state-dot { box-shadow: none; }
+html .ms-demo .ms-state-u .ms-pass-mark {
+  background: repeating-linear-gradient(135deg, var(--haze) 0 2px, var(--ice) 2px 5px);
+}
+html .ms-demo .ms-walk-copy .ms-tabs button[aria-selected="true"]::before { box-shadow: none; }
+
+/* Actual Astryx controls, opaque at rest as well as when selected. */
+html #ms-walk-tabs .astryx-tab {
+  background: var(--ice);
+  color: var(--ink);
+  border-color: var(--control-line);
+  border-radius: 5px;
+}
+html #ms-walk-tabs .astryx-tab[aria-selected="true"],
+html .astryx-island .astryx-tab[aria-selected="true"],
+html .astryx-island .astryx-button {
+  background: var(--cobalt);
+  color: var(--surface);
+  border-color: var(--cobalt);
+}
+html .astryx-island .astryx-button:hover { background: var(--night); }
+
+/* Analysis retains semantic states while sharing the new instrument palette. */
+html #backendTools :is(.bt-action, input[type="number"], input[type="text"], select) {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--control-line);
+}
+html #backendTools :is(.bt-field-workbench, .bt-run-coverage) { background: var(--surface); border-color: var(--line); }
+html #backendTools .bt-run-coverage { border-left-color: var(--cobalt); }
+html #backendTools .bt-tabs button[aria-selected="true"] { color: var(--cobalt); }
+html #backendTools :is(.bt-axis, .bt-bin) { color: var(--dim); }
+html #backendTools .bt-probability-passes button:is(:hover, [aria-pressed="true"]) { background: var(--ice); }
+html #backendTools :is(.bt-probability-track, .bt-stage-track) { background: var(--ice); }
+html #backendTools .bt-probability-track::after { border-color: var(--control-line); background: transparent; }
+html #backendTools .bt-coverage-track { background: var(--ice); }
+html #backendTools :is(.bt-state-legend > .is-u, .bt-archive-states .is-u) { color: var(--haze); }
+html #backendTools .bt-season-stack > .is-u {
+  background: repeating-linear-gradient(135deg, var(--haze) 0 2px, var(--ice) 2px 5px);
+}
+html #backendTools .bt-season-stack > .is-n, html #backendTools .bt-fill-neutral { background: var(--dim); }
+html #backendTools .bt-over-threshold .bt-bar-track { background: var(--ice); border-top-color: var(--control-line); }
+html #backendTools button.audit-row:hover { background: var(--ice); }
+
+@media (prefers-contrast: more) {
+  :root {
+    --dim: oklch(35% .06 263);
+    --faint: oklch(40% .055 263);
+    --line: oklch(65% .04 256);
+    --control-line: oklch(48% .045 256);
+  }
+}

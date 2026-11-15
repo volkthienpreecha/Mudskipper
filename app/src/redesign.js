@@ -6,6 +6,7 @@ import {
   createBackend,
 } from "./data.ts";
 import { mountBackendTools } from "./backend.ts";
+import { setJourneyField } from "./journey.ts";
 import "./integration.css";
 const backendOrigin = import.meta.env.VITE_API_BASE_URL || "https://mudskipper-nisar.pages.dev";
 const client = createBackend(backendOrigin);
@@ -1184,7 +1185,7 @@ function heroMap(f, t) {
       Math.max(...xs) - Math.min(...xs),
       (Math.max(...ys) - Math.min(...ys)) * 2.6,
     ) * 2.4;
-  const col = { f: "#635bff", d: "#cf4628", u: "#9aa3a8", "-": "#9aa3a8" }[
+  const col = { f: "#244fb6", d: "#cf4628", u: "#9aa3a8", "-": "#9aa3a8" }[
     f.s[f.s.length - 1]
   ];
   m.setAttribute("preserveAspectRatio", "xMidYMid slice");
@@ -1249,6 +1250,7 @@ async function heroField(i, t = tile) {
         `<div class="pcol" role="listitem" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}"><span class="${c === "-" ? "u" : c}" aria-hidden="true">${stateGlyph(c)}</span><em aria-hidden="true">${fmt(DATA.passes[j]).replace(" ", "<br>")}</em><span class="sr-only">${fmt(DATA.passes[j])}: ${stateLabel(c)}</span></div>`,
     )
     .join("");
+  setJourneyField(f.s, DATA.passes);
 }
 
 // replace the placeholder hero button handlers with real ones
