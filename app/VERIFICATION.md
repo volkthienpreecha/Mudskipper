@@ -1,6 +1,6 @@
 # Frontend verification
 
-Target: Ishaan's imported redesign (source78e3045) with Apple-first system typography and explicit, coherent snapshot/API dataset selection. Earlier MapLibre dashboard evidence is archived in legacy/solid-dashboard/previous-VERIFICATION.md.
+Target: Ishaan's imported redesign (source78e3045) with Apple-first system typography and explicit, coherent snapshot/API dataset selection. Earlier MapLibre dashboard evidence is in git history at commit f964c52 (`app/legacy/solid-dashboard/previous-VERIFICATION.md`).
 
 Verified locally under Node24.12:
 

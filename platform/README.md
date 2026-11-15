@@ -274,6 +274,20 @@ CPU at p50 and inside the budget at p95; the remaining single-digit maxima are f
 1102 (every outcome `ok`), and audits are rare and rate-limited (K-316). The real fix is Workers Paid
 (30 s CPU), which is the owner's decision.
 
+**Audits, second pass (K-351 to K-353).** Validation and ranking now do less per claim, and `rank.bin` (version 2)
+is read through core's `columnarFieldIndex`, so a cold isolate maps the buffer instead of building 5,000 field
+objects. Same rankings bit for bit. Preview `optimize`, fixture run, CPU p50 / p95 (ms), before → after:
+
+| POST /api/audit | before | after |
+|---|---:|---:|
+| 60 claims | 6 / 15 | 5 / 12 |
+| 500 claims | 11 / 21 | 11 / 14 |
+| 2,000 claims | 27 / 55 | 26 / 35 |
+| 5,000 claims | 57 / 88 | 43 / 60 |
+| 5 MiB of polygons | 89 / 134 | 44 / 53 |
+
+Parsing the upload (JSON.parse) is now the largest single cost of a big audit, so K-320 still holds.
+
 **Headroom.** Memory per isolate at the 5,000-field cap with 20 passes (`make_rehearsal.py --cap 5000 --series
 both`): the decoded ranking input 6.2 MB, 17 MB with every field geometry built, 41 MB with the `/tiles` byte cache
 full (24 MB budget) — of 128 MB. Assets per deployment: x01 4,696 files with the app (4,599 field cards, 46 field

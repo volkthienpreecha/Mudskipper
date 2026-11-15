@@ -1,5 +1,4 @@
 """The labeled grid (geo/grid.py): alignment, areas, rice filter, cap, ids."""
-import numpy as np
 import pytest
 import shapely
 

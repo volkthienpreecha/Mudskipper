@@ -49,6 +49,7 @@ export {
   checkRings,
   inRing,
   contains,
+  containsFlat,
   representativePoint,
   bboxOf,
   bboxMayContain,
@@ -60,8 +61,18 @@ export {
   type PointGeometry,
   type PolygonGeometry,
   type MultiPolygonGeometry,
+  type FlatPolygons,
 } from "./geometry.ts";
-export { fieldIndex, isFieldIndex, type FieldGrid, type FieldIndex, type FieldIndexOptions, type IndexedField } from "./field-index.ts";
+export {
+  columnarFieldIndex,
+  fieldIndex,
+  isFieldIndex,
+  type FieldColumns,
+  type FieldGrid,
+  type FieldIndex,
+  type FieldIndexOptions,
+  type IndexedField,
+} from "./field-index.ts";
 export { sha256Hex } from "./sha.ts";
 export {
   AUDIT_ID_RE,

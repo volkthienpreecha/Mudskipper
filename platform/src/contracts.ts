@@ -44,8 +44,6 @@ export interface Doc {
 export const DOC_NAMES = ["meta", "story", "passes", "detectability", "states", "checks", "provenance"] as const;
 export type DocName = (typeof DOC_NAMES)[number];
 
-export const VERDICTS: readonly C.Verdict[] = ["consistent", "inconsistent", "not_enough_evidence"];
-export const TILE_ID = /^[a-z][a-z0-9]{0,15}$/;
 export const FIELD_ID = /^[a-z][a-z0-9]{0,15}-[0-9]{5}$/;
 export const RUN_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 export const AUDIT_ID = /^a_[0-9a-f]{16}$/;

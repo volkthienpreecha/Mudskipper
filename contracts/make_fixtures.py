@@ -233,9 +233,6 @@ def build_fields(tile):
 
 
 # ------------------------------------------------------------------------------------------------ hidden truth
-DAY = 1.0
-
-
 def truth_model(field_id):
     """A field's hidden water history: a function day -> drained? Never written to disk."""
     rng = rules.Mulberry32(rules.derive(SEED, "truth:" + field_id))

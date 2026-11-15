@@ -272,6 +272,11 @@ function headersFile(b: BundleResult, csp: string | null): string {
     "/assets/*",
     "  Cache-Control: public, max-age=31536000, immutable",
     "",
+    // The app's photos keep their names across deploys (no content hash), so not immutable: a day fresh, then
+    // revalidated in the background for a week, instead of a conditional request on every page view.
+    "/img/*",
+    "  Cache-Control: public, max-age=86400, stale-while-revalidate=604800",
+    "",
     "/og.png",
     "  Cache-Control: public, max-age=86400",
     "",

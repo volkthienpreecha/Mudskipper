@@ -249,6 +249,7 @@ describe.runIf(existsSync(join(REPO_ROOT, "app", "package.json")))("build-site w
     expect(APP_CSP).not.toContain("'unsafe-eval'");
     expect(APP_CSP).toContain("frame-src 'none'"); // workers may come from blob:, frames never (K-341)
     expect(appHeaders).toMatch(/\/assets\/\*\n {2}Cache-Control: public, max-age=31536000, immutable/);
+    expect(appHeaders).toMatch(/\/img\/\*\n {2}Cache-Control: public, max-age=86400, stale-while-revalidate=604800/);
     expect(readFileSync(join(appOut, "sitemap.xml"), "utf8")).toContain("<loc>https://mudskipper-nisar.pages.dev/lab</loc>");
     // every route the app's code names gets its own page with its own canonical URL, and the app still boots
     const lab = readFileSync(join(appOut, "lab.html"), "utf8");
