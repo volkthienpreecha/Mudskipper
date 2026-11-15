@@ -16,3 +16,5 @@ Verified locally under Node24.12:
 Whole-branch review found three navigation defects, all repaired and independently rechecked: stale cross-district selections, country URL restoration and the /lab tool alias. Production URL/browser verification is performed after CI and deployment.
 
 Apple HIG refinement: five viewport widths (1440,1024,768,390,375), 200% text at desktop/phone, 901px enlarged navigation containment, mobile menu/Escape, non-overlapping map overlays, 44px controls and field-pass targets, reduced motion and increased contrast. Legal pages use the same system stack. See HIG_REVIEW.md.
+
+Accessibility: WCAG 2.2 AA work, its automated checks (`npm run test:a11y -w @mudskipper/app`, also in CI) and measured results are in ACCESSIBILITY.md.
