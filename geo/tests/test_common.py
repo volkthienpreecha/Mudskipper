@@ -10,7 +10,8 @@ import common as c
 from common import rules
 
 
-def test_committed_tiles_obey_the_rules():
+def test_official_tiles_are_the_pipelines():
+    """K-117: geo/tiles.json holds the radar pipeline's tiles as 15 km UTM squares inside its boxes."""
     doc = json.loads((c.GEO_DIR / "tiles.json").read_text(encoding="utf-8"))
     tiles = c.load_tiles()
     assert [t.id for t in tiles] == ["fazilka", "muktsar"]
@@ -18,6 +19,18 @@ def test_committed_tiles_obey_the_rules():
     for t, d in zip(tiles, doc["tiles"]):
         assert t.x0 % c.SNAP_M == 0 and t.y0 % c.SNAP_M == 0
         assert t.size == 15_000
+        assert t.bbox == d["bbox"]
+        box = d["pipeline_box"]
+        assert box[0] <= d["center_lonlat"][0] <= box[2] and box[1] <= d["center_lonlat"][1] <= box[3]
+        assert d["inside_district"] >= 0.98
+
+
+def test_rice_dense_alternative_obeys_the_search_rules():
+    doc = json.loads((c.GEO_DIR / "tiles.rice-dense.json").read_text(encoding="utf-8"))
+    tiles = c.load_tiles(c.GEO_DIR / "tiles.rice-dense.json")
+    assert [t.id for t in tiles] == ["fazilka", "muktsar"]
+    for t, d in zip(tiles, doc["tiles"]):
+        assert t.x0 % c.SNAP_M == 0 and t.y0 % c.SNAP_M == 0 and t.size == 15_000
         assert t.bbox == d["bbox"]
         assert d["rice_share"]["globalrice20_2024"] >= 0.5 and d["rice_share"]["zhao_2024"] >= 0.5
     assert {(f["track"], f["direction"], f["frame"]) for f in doc["frames"]} == {(135, "descending", 73), (84, "ascending", 17)}

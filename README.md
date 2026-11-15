@@ -119,8 +119,7 @@ python platform/scripts/run_transfer.py list
 make publish RUN_ID=r01v1                                  # compute, validate, deploy (platform/README.md)
 ```
 
-Shared now: `geo-r01` (geo's recommended rice-dense tiles, 4,599 FTW fields) and `geo-pipeline-tiles` (FTW
-fields for the pipeline's current tiles, 2,329 fields). See DECISIONS.md K-113, K-114.
+Shared now: `geo-r01`, the official study tiles (the pipeline's, 2,329 FTW fields; DECISIONS K-117), and `geo-rice-dense`, the rice-dense alternative (4,599 FTW fields). `geo-pipeline-tiles` is the same as `geo-r01`.
 
 ## For judges
 
