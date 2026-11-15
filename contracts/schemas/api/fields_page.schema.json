@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/api/fields_page.schema.json",
+  "title": "GET /api/fields",
+  "description": "One page of fields with their summary columns.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "../common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "../common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "type": "boolean"
+    },
+    "page": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "page_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "total": {
+      "$ref": "../common.schema.json#/$defs/count"
+    },
+    "filters": {
+      "type": "object",
+      "properties": {
+        "tile": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/tile_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verdict": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/verdict"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tile",
+        "verdict"
+      ],
+      "additionalProperties": false
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/field_row"
+      }
+    },
+    "next_page": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 2
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "fixture",
+    "page",
+    "page_size",
+    "total",
+    "filters",
+    "fields",
+    "next_page"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "field_row": {
+      "type": "object",
+      "properties": {
+        "field_id": {
+          "$ref": "../common.schema.json#/$defs/field_id"
+        },
+        "tile": {
+          "$ref": "../common.schema.json#/$defs/tile_id"
+        },
+        "district": {
+          "$ref": "../common.schema.json#/$defs/district"
+        },
+        "area_ha": {
+          "type": "number",
+          "minimum": 0.5
+        },
+        "source": {
+          "$ref": "../common.schema.json#/$defs/field_source"
+        },
+        "rice_mask_frac": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 1
+        },
+        "lon": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "awd_verdict": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/verdict"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clear_looks": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/count"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "drained_hits": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/count"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "p_catch": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/prob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dsr_signal": {
+          "anyOf": [
+            {
+              "$ref": "../common.schema.json#/$defs/dsr_signal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "field_id",
+        "tile",
+        "district",
+        "area_ha",
+        "source",
+        "rice_mask_frac",
+        "lon",
+        "lat",
+        "awd_verdict",
+        "clear_looks",
+        "drained_hits",
+        "p_catch",
+        "dsr_signal"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

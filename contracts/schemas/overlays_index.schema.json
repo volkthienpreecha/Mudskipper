@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/overlays_index.schema.json",
+  "title": "overlays/index.json",
+  "description": "Georeferenced overlay images. CONTRACTS.md B3.10.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "overlays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "pass_id": {
+            "$ref": "common.schema.json#/$defs/pass_id"
+          },
+          "tile": {
+            "$ref": "common.schema.json#/$defs/tile_id"
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^overlays/[0-9]{8}-T[0-9]{3}[AD](-[a-z0-9]{1,8})?_[a-z][a-z0-9]{0,15}\\.png$"
+          },
+          "coordinates": {
+            "type": "array",
+            "items": {
+              "$ref": "common.schema.json#/$defs/position"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          }
+        },
+        "required": [
+          "pass_id",
+          "tile",
+          "url",
+          "coordinates"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "overlays"
+  ],
+  "additionalProperties": false
+}

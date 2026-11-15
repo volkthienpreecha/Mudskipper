@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/api/checks.schema.json",
+  "title": "GET /api/checks",
+  "description": "checks.json plus the fixture flag and the district table (null if not built).",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "../common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "../common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "type": "boolean"
+    },
+    "season_shape": {
+      "$ref": "../checks.schema.json#/$defs/season_shape"
+    },
+    "opera": {
+      "anyOf": [
+        {
+          "$ref": "../checks.schema.json#/$defs/opera"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "district": {
+      "anyOf": [
+        {
+          "$ref": "../district_check.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "fixture",
+    "season_shape",
+    "opera",
+    "district"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/observation.schema.json",
+  "title": "observations.jsonl line",
+  "description": "One field on one used pass. CONTRACTS.md B3.4.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "field_id": {
+      "$ref": "common.schema.json#/$defs/field_id"
+    },
+    "pass_id": {
+      "$ref": "common.schema.json#/$defs/pass_id"
+    },
+    "n_px": {
+      "$ref": "common.schema.json#/$defs/count"
+    },
+    "valid_frac": {
+      "$ref": "common.schema.json#/$defs/prob"
+    },
+    "observed": {
+      "$ref": "#/$defs/observed"
+    },
+    "stage": {
+      "$ref": "common.schema.json#/$defs/stage"
+    },
+    "inferred": {
+      "$ref": "#/$defs/inferred"
+    },
+    "flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,31}$"
+      },
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "field_id",
+    "pass_id",
+    "n_px",
+    "valid_frac",
+    "observed",
+    "stage",
+    "inferred",
+    "flags"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "observed": {
+      "type": "object",
+      "properties": {
+        "hh_db": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/db"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hv_db": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/db"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vv_db": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/db"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ps_db": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/db"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pd_db": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/db"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pv_db": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/db"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hh_hv_db": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": -60,
+              "maximum": 60
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "hh_db",
+        "hv_db",
+        "hh_hv_db"
+      ],
+      "additionalProperties": false
+    },
+    "inferred": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "common.schema.json#/$defs/state"
+        },
+        "p_flooded": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/prob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/prob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "$ref": "common.schema.json#/$defs/method"
+        }
+      },
+      "required": [
+        "state",
+        "p_flooded",
+        "confidence",
+        "method"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

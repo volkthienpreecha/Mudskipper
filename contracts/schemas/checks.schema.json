@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/checks.schema.json",
+  "title": "checks.json",
+  "description": "Season-shape and OPERA cross-checks. CONTRACTS.md B3.8.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "season_shape": {
+      "$ref": "#/$defs/season_shape"
+    },
+    "opera": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/opera"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "season_shape",
+    "opera"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "season_shape": {
+      "type": "object",
+      "properties": {
+        "pct_flooded_by_stage": {
+          "type": "object",
+          "properties": {
+            "early": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/pct"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "mid": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/pct"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "late": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/pct"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "early",
+            "mid",
+            "late"
+          ],
+          "additionalProperties": false
+        },
+        "pass": {
+          "type": "boolean"
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "pct_flooded_by_stage",
+        "pass",
+        "rule"
+      ],
+      "additionalProperties": false
+    },
+    "opera": {
+      "type": "object",
+      "properties": {
+        "product": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "n_dates": {
+          "$ref": "common.schema.json#/$defs/count"
+        },
+        "pairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "$ref": "common.schema.json#/$defs/date"
+              },
+              "tile": {
+                "$ref": "common.schema.json#/$defs/tile_id"
+              },
+              "ours_flooded_frac": {
+                "$ref": "common.schema.json#/$defs/prob"
+              },
+              "opera_water_frac": {
+                "$ref": "common.schema.json#/$defs/prob"
+              },
+              "opera_date": {
+                "$ref": "common.schema.json#/$defs/date"
+              }
+            },
+            "required": [
+              "date",
+              "tile",
+              "ours_flooded_frac",
+              "opera_water_frac",
+              "opera_date"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "product",
+        "version",
+        "n_dates",
+        "pairs",
+        "note"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

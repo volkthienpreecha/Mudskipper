@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/api/passes.schema.json",
+  "title": "GET /api/passes",
+  "description": "passes.json plus the fixture flag.",
+  "allOf": [
+    {
+      "$ref": "../passes.schema.json"
+    }
+  ],
+  "required": [
+    "fixture"
+  ]
+}

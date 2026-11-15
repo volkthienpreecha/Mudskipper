@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/aoi.schema.json",
+  "title": "aoi.json",
+  "description": "Study tiles, season, stage boundaries and data gaps. CONTRACTS.md B3.1.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "tiles": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/tile"
+      },
+      "minItems": 1,
+      "maxItems": 4
+    },
+    "utm_epsg": {
+      "type": "integer",
+      "anyOf": [
+        {
+          "minimum": 32601,
+          "maximum": 32660
+        },
+        {
+          "minimum": 32701,
+          "maximum": 32760
+        }
+      ]
+    },
+    "season": {
+      "$ref": "common.schema.json#/$defs/season"
+    },
+    "stages": {
+      "$ref": "common.schema.json#/$defs/stages"
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/gap"
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "tiles",
+    "utm_epsg",
+    "season",
+    "stages",
+    "gaps"
+  ],
+  "additionalProperties": false
+}

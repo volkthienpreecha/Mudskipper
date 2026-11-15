@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/fields.schema.json",
+  "title": "fields.geojson",
+  "description": "Rice field polygons (FeatureCollection with v/run_id as foreign members). CONTRACTS.md B3.3.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "type": {
+      "const": "FeatureCollection"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/feature"
+      },
+      "minItems": 1,
+      "maxItems": 5000
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "type",
+    "features"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "Feature"
+        },
+        "id": {
+          "type": [
+            "string",
+            "integer"
+          ]
+        },
+        "geometry": {
+          "$ref": "common.schema.json#/$defs/area_geometry"
+        },
+        "properties": {
+          "$ref": "#/$defs/field_properties"
+        }
+      },
+      "required": [
+        "type",
+        "geometry",
+        "properties"
+      ],
+      "additionalProperties": false
+    },
+    "field_properties": {
+      "type": "object",
+      "properties": {
+        "field_id": {
+          "$ref": "common.schema.json#/$defs/field_id"
+        },
+        "tile": {
+          "$ref": "common.schema.json#/$defs/tile_id"
+        },
+        "district": {
+          "$ref": "common.schema.json#/$defs/district"
+        },
+        "area_ha": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 10000
+        },
+        "source": {
+          "$ref": "common.schema.json#/$defs/field_source"
+        },
+        "rice_mask_frac": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 1
+        },
+        "lon": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        }
+      },
+      "required": [
+        "field_id",
+        "tile",
+        "district",
+        "area_ha",
+        "source",
+        "rice_mask_frac",
+        "lon",
+        "lat"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
