@@ -1037,7 +1037,7 @@ function seasonChart() {
     <path class="area" d="${area(FD, (j) => share[j].f + share[j].d + share[j].u)}" fill="url(#uHatch)"/>
     <path class="edge" d="M${days.map((d, j) => `${x(d)},${y(F(j))}`).join("L")}"/>
     <path class="edge" d="M${days.map((d, j) => `${x(d)},${y(FD(j))}`).join("L")}"/>
-    ${gaps.map(({ g0, g1 }) => `<rect class="band" x="${x(g0)}" y="0" width="${x(g1) - x(g0)}" height="${H - B}"/><text class="ax gap-label" x="${(x(g0) + x(g1)) / 2}" y="16" text-anchor="middle">No data</text>`).join("")}
+    ${gaps.map(({ g0, g1 }) => `<rect class="band" x="${x(g0)}" y="0" width="${x(g1) - x(g0)}" height="${H - B}"/><rect class="gap-label-bg" x="${(x(g0) + x(g1)) / 2 - 36}" y="2" width="72" height="20" rx="4"/><text class="ax gap-label" x="${(x(g0) + x(g1)) / 2}" y="16" text-anchor="middle">No data</text>`).join("")}
     ${days.map((d, j) => `<circle cx="${x(d)}" cy="${y(F(j))}" r="2.5" fill="#0E1A1F" stroke="var(--water)"/><text class="ax" x="${x(d)}" y="${H - 8}" text-anchor="middle">${fmt(DATA.passes[j])}</text>`).join("")}
     <line class="cursor" id="sCur" y1="0" y2="${H - B}"/>`;
   const cur = $("sCur"),
