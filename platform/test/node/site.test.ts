@@ -162,6 +162,7 @@ describe.runIf(existsSync(join(REPO_ROOT, "app", "package.json")))("build-site w
     }
     expect(APP_CSP).not.toContain("'unsafe-eval'");
     expect(appHeaders).toMatch(/\/assets\/\*\n {2}Cache-Control: public, max-age=31536000, immutable/);
+    expect(appHeaders).toMatch(/\/img\/\*\n {2}Cache-Control: public, max-age=86400, stale-while-revalidate=604800/);
     expect(readFileSync(join(appOut, "sitemap.xml"), "utf8")).toContain("<loc>https://mudskipper-nisar.pages.dev/lab</loc>");
   });
 });
