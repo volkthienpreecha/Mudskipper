@@ -24,9 +24,9 @@ class SchemaTests(unittest.TestCase):
     def test_expected_set(self):
         names = {str(p.relative_to(ROOT)) for p in self.schemas}
         artifacts = {"aoi", "passes", "fields", "observation", "field_summary", "detectability", "district_check",
-                     "checks", "provenance", "overlays_index", "story", "claims", "live", "common"}
+                     "checks", "provenance", "overlays_index", "story", "claims", "live", "common", "states"}
         api = {"health", "meta", "story", "passes", "fields_page", "field_detail", "detectability", "checks",
-               "provenance", "audit_request", "audit_response", "error"}
+               "provenance", "states", "audit_request", "audit_response", "error"}
         expected = {f"{n}.schema.json" for n in artifacts} | {f"api/{n}.schema.json" for n in api}
         self.assertEqual(names, expected)
 

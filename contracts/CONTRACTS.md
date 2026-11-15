@@ -91,6 +91,7 @@ artifacts/<run_id>/   gitignored: one run's files, published to R2/D1
 | `detectability.json` | `detectability` | publish (core) | app | published |
 | `field_summary.jsonl` | `field_summary` (per line) | publish (core) | app | published |
 | `story.json` | `story` | publish (core) | app | published |
+| `states.json` | `states` | publish (core) | app | published |
 
 "Stage" is how far a run has got. A **pipeline** run has Ishaan's and geo's files. A **published** run also
 has core's outputs. The validator picks the stage automatically (published if `field_summary.jsonl` exists)
@@ -395,6 +396,20 @@ values. `note` MUST say that a 15 × 15 km tile is not a district and that DSR i
 - `headline.text` = `{pct}% of {fields} rice fields had enough clear radar looks for a drainage verdict.`
   `headline.tag = "INFERRED"`.
 
+### B3.13 `states.json` (written by core; v1 addition)
+
+The map's season animation needs every field's state on every pass, and B6 had no way to get it. This file
+is compact enough to load in one request (5,000 fields × 10 passes ≈ 55 kB, much less gzipped):
+
+```json
+{"v":1,"run_id":"r01","pass_ids":["20260623-T135D","…"],"field_ids":["fazilka-00001","…"],
+ "states":["FFDU-DFFDD","…"]}
+```
+
+`pass_ids` are the used passes sorted by datetime (then `pass_id`); `field_ids` are all fields sorted; and
+`states[i]` has one character per pass for `field_ids[i]`: `F` flooded, `D` drained, `U` uncertain, `-` no
+observation. Python reference: `rules.states`.
+
 ### B3.12 `claims.sample.geojson` (geo) and uploaded claims
 
 A FeatureCollection of claims. Geometry is a `Point`, `Polygon` or `MultiPolygon`. Properties:
@@ -450,6 +465,7 @@ Audit error codes: `invalid_json`, `invalid_request` (schema), `too_large` (413,
 | `GET /api/fields?tile=&verdict=&page=` | `api/fields_page` | 1-based `page`, `page_size` 500, ordered by `field_id`; summary columns `null` until published |
 | `GET /api/fields/:id` | `api/field_detail` | field properties + geometry, observations by time, summary |
 | `GET /api/detectability` | `api/detectability` | `detectability.json` + `fixture` |
+| `GET /api/states` | `api/states` | `states.json` + `fixture` (v1 addition, B3.13): the map's per-pass colors |
 | `GET /api/checks` | `api/checks` | `checks.json` + `fixture` + `district` (= `district_check.json` or `null`; v1 addition: the Evidence page needs both) |
 | `GET /api/provenance` | `api/provenance` | `provenance.json` + `fixture` |
 | `POST /api/audit` | request `api/audit_request` → `api/audit_response` | body ≤ 5 MB, ≤ 5,000 claims, `budget` 1–500 |

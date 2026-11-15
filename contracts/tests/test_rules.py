@@ -148,6 +148,19 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(rules.contains(left, 1.0, 0.5) + rules.contains(right, 1.0, 0.5), 1)
 
 
+class StatesTests(unittest.TestCase):
+    def test_grid(self):
+        passes = [{"pass_id": "b", "datetime": "2026-07-05T00:00:00Z", "used": True},
+                  {"pass_id": "a", "datetime": "2026-06-23T00:00:00Z", "used": True},
+                  {"pass_id": "x", "datetime": "2026-06-24T00:00:00Z", "used": False}]
+        obs = [{"field_id": "t-00002", "pass_id": "a", "inferred": {"state": "drained"}},
+               {"field_id": "t-00001", "pass_id": "b", "inferred": {"state": "uncertain"}},
+               {"field_id": "t-00001", "pass_id": "a", "inferred": {"state": "flooded"}}]
+        out = rules.states(["t-00002", "t-00001"], passes, obs, "r")
+        self.assertEqual(out, {"v": 1, "run_id": "r", "pass_ids": ["a", "b"], "field_ids": ["t-00001", "t-00002"],
+                               "states": ["FU", "D-"]})
+
+
 class SimulationTests(unittest.TestCase):
     def test_deterministic_per_seed(self):  # T6
         lk = looks(DATES)

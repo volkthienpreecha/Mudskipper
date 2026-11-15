@@ -316,6 +316,28 @@ def dsr_signal(early_looks: Sequence[tuple], min_looks: int, mid_start: str) -> 
     return "dsr_signal", f"Dry on all {looks_text(n)} before {mid_start}, typical of direct seeding."
 
 
+# ----------------------------------------------------------------------------------------------- states
+STATE_CODE = {STATE_FLOODED: "F", STATE_DRAINED: "D", STATE_UNCERTAIN: "U"}
+
+
+def states(field_ids: Sequence[str], passes: Sequence[dict], observations: Iterable[dict], run_id: str,
+           fixture: bool | None = None) -> dict:
+    """CONTRACTS.md B3.13: one character per field per used pass, for the map's season animation."""
+    used = sorted((p for p in passes if p["used"]), key=lambda p: (parse_ms(p["datetime"]), p["pass_id"]))
+    col = {p["pass_id"]: i for i, p in enumerate(used)}
+    ids = sorted(field_ids)
+    row = {fid: i for i, fid in enumerate(ids)}
+    grid = [["-"] * len(used) for _ in ids]
+    for o in observations:
+        if o["pass_id"] in col and o["field_id"] in row:
+            grid[row[o["field_id"]]][col[o["pass_id"]]] = STATE_CODE[o["inferred"]["state"]]
+    out = {"v": 1, "run_id": run_id}
+    if fixture is not None:
+        out["fixture"] = fixture
+    out.update({"pass_ids": [p["pass_id"] for p in used], "field_ids": ids, "states": ["".join(r) for r in grid]})
+    return out
+
+
 # ----------------------------------------------------------------------------------------------- story
 def story(aoi: dict, fields: Sequence[dict], summaries: dict, used_passes: int, run_id: str,
           fixture: bool | None = None) -> dict:

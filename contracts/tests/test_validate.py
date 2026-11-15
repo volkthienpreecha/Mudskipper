@@ -149,6 +149,10 @@ class RejectsBrokenRuns(Base):
         self.assertFails(self.validate_root(), "sha256 mismatch for story.json", "notes.txt is not listed in artifacts",
                          "unexpected file in run directory")
 
+    def test_states_recomputed(self):
+        self.edit_json("states.json", lambda d: d["states"].__setitem__(0, "-" * len(d["states"][0])))
+        self.assertFails(self.validate_root(), "states disagrees with passes/observations")
+
     def test_story_rule(self):
         self.edit_json("story.json", lambda d: d.update(hero_field_id="muktsar-00001"))
         self.assertFails(self.validate_root(), "hero_field_id = 'muktsar-00001', rule gives")

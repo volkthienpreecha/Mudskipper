@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/states.schema.json",
+  "title": "states.json",
+  "description": "Every field's state on every used pass, for the map animation. CONTRACTS.md B3.13.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.schema.json#/$defs/v"
+    },
+    "run_id": {
+      "$ref": "common.schema.json#/$defs/run_id"
+    },
+    "fixture": {
+      "$ref": "common.schema.json#/$defs/fixture"
+    },
+    "pass_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/pass_id"
+      },
+      "uniqueItems": true
+    },
+    "field_ids": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/field_id"
+      },
+      "uniqueItems": true,
+      "maxItems": 5000
+    },
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[FDU-]*$"
+      },
+      "maxItems": 5000
+    }
+  },
+  "required": [
+    "v",
+    "run_id",
+    "pass_ids",
+    "field_ids",
+    "states"
+  ],
+  "additionalProperties": false
+}
