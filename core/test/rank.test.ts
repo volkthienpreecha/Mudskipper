@@ -415,4 +415,17 @@ describe("review regressions (rules.py parity)", () => {
     expect(err.code).toBe("invalid_geometry");
     expect(err.message).toContain("claim z");
   });
+
+  it("an unknown top-level member gets a fixed message that never quotes the upload", () => {
+    const req = { ...JSON.parse(body(FIELDS.slice(0, 1), 1, 1)), "<img src=x onerror=alert(1)>": 1 };
+    let caught: unknown;
+    try {
+      validateAuditRequest(req);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(RankError);
+    expect((caught as RankError).code).toBe("invalid_request");
+    expect((caught as RankError).message).toBe("request has an unknown top-level member (allowed: claims, budget, seed)");
+  });
 });

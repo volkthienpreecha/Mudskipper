@@ -195,7 +195,10 @@ function checkPolygonCoords(c: unknown, where: string): void {
 export function validateAuditRequest(value: unknown): AuditRequest {
   if (!isObject(value)) throw new RankError("invalid_request", "request body must be a JSON object");
   for (const key of Object.keys(value)) {
-    if (key !== "claims" && key !== "budget" && key !== "seed") throw new RankError("invalid_request", `unknown member ${key}`);
+    // A fixed message: member names come from the upload, and errors never quote the uploaded body.
+    if (key !== "claims" && key !== "budget" && key !== "seed") {
+      throw new RankError("invalid_request", "request has an unknown top-level member (allowed: claims, budget, seed)");
+    }
   }
   const { claims, budget, seed } = value;
   if (!(Number.isInteger(budget) && (budget as number) >= 1 && (budget as number) <= MAX_BUDGET)) {
