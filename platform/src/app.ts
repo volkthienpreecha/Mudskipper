@@ -7,7 +7,8 @@
  * checked against contracts/fixtures/api in the tests.
  */
 import { Hono, type Context } from "hono";
-import { parseFieldsQuery, QueryError } from "@mudskipper/core";
+import { MAX_BODY_BYTES, MAX_CLAIMS, parseFieldsQuery, QueryError } from "@mudskipper/core";
+import { PAGE_SIZE } from "./limits.ts";
 import { DOC_NAMES, AUDIT_ID, type DocName, type Live } from "./contracts.ts";
 import type { AppEnv } from "./env.ts";
 import { auditId, defaultSeed } from "./crypto.ts";
@@ -51,6 +52,16 @@ export const ROUTES: { path: string; methods: string[]; description: string }[] 
 ];
 
 const DOC_ROUTES: Record<string, DocName> = Object.fromEntries(DOC_NAMES.map((n) => [`/api/${n}`, n]));
+
+const ROUTE_PATTERNS = [
+  { re: /^\/api\/?$/, methods: ["GET"] },
+  ...ROUTES.map((r) => ({ re: new RegExp("^" + r.path.replace(/:id/g, "[^/]+").replace("/*", "/.+") + "$"), methods: r.methods })),
+];
+
+/** The methods a known route answers, or null for a path no route serves. */
+function allowedMethods(path: string): string[] | null {
+  return ROUTE_PATTERNS.find((r) => r.re.test(path))?.methods ?? null;
+}
 
 function isoSeconds(d: Date): string {
   return d.toISOString().slice(0, 19) + "Z";
@@ -107,35 +118,45 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     applySecurityHeaders(c.res.headers);
   });
 
-  // CORS preflight for POST /api/audit from other origins (the app in local dev).
-  app.options("*", () =>
-    new Response(null, {
+  // CORS preflight for POST /api/audit from other origins (the app in local dev). Only known routes answer;
+  // anything else is the same JSON 404 a GET gets.
+  app.options("*", (c) => {
+    const methods = allowedMethods(new URL(c.req.url).pathname);
+    if (!methods) throw notFound(`No route ${new URL(c.req.url).pathname}. See /api for the list.`);
+    return new Response(null, {
       status: 204,
       headers: {
-        "access-control-allow-methods": "GET, HEAD, POST, OPTIONS",
-        "access-control-allow-headers": "content-type, if-none-match, range",
+        "access-control-allow-methods": [...methods, ...(methods.includes("GET") ? ["HEAD"] : []), "OPTIONS"].join(", "),
+        "access-control-allow-headers": "content-type, if-none-match, if-match, range",
         "access-control-max-age": "86400",
       },
-    }),
-  );
+    });
+  });
 
-  const index = () =>
-    json(
+  // The index carries the C0 header like every other response, and this deployment's audit limits.
+  const index = async (c: Context<AppEnv>) => {
+    const live = await backendOf(c).repo.live();
+    return json(
       {
-        v: 1,
+        ...header(live.run_id, live.fixture),
         name: "Mudskipper API",
         description: "NISAR radar evidence of rice-field drainage, field by field. NASA Space Apps 2026.",
         contract: "https://github.com/volkthienpreecha/Mudskipper/blob/main/contracts/CONTRACTS.md#b6-http-api",
+        limits: { audit_max_claims: MAX_CLAIMS, audit_max_body_bytes: MAX_BODY_BYTES, fields_page_size: PAGE_SIZE },
         endpoints: ROUTES,
       },
       200,
-      "public, max-age=300",
+      CACHE.live,
     );
+  };
   app.get("/api", index);
   app.get("/api/", index);
 
+  // ok only when the live run's data is actually there: version() reads its manifest (503 no_live_run if not).
   app.get("/api/health", async (c) => {
-    const live = await backendOf(c).repo.live();
+    const backend = backendOf(c);
+    const live = await backend.repo.live();
+    await backend.repo.version(live);
     return json({ ...header(live.run_id, live.fixture), ok: true, time: isoSeconds(now()) }, 200, CACHE.none);
   });
 
@@ -233,15 +254,8 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
   app.get("/tiles/*", async (c) => serveTile(c.req.raw, c.env, backendOf(c).tiles));
 
   // Known paths with the wrong method: 405 with Allow. Everything else under /api or /tiles: 404.
-  const allowed = (path: string): string[] | null => {
-    for (const r of ROUTES) {
-      const re = new RegExp("^" + r.path.replace(/:id/g, "[^/]+").replace("/*", "/.+") + "$");
-      if (re.test(path)) return r.methods;
-    }
-    return null;
-  };
   app.all("*", (c) => {
-    const methods = allowed(new URL(c.req.url).pathname);
+    const methods = allowedMethods(new URL(c.req.url).pathname);
     if (methods && !methods.includes(c.req.method)) {
       const allow = methods.includes("GET") ? [...methods, "HEAD", "OPTIONS"] : [...methods, "OPTIONS"];
       throw new ApiError(405, "method_not_allowed", `${c.req.method} is not allowed here; use ${methods.join(" or ")}.`, {

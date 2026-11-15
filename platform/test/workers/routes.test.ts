@@ -173,6 +173,40 @@ describe("routing and headers", () => {
     expect(del.status).toBe(405);
   });
 
+  it("/api/health is 503 no_live_run when live.json names a run whose files are missing", async () => {
+    const broken: Fetcher = {
+      fetch: (input: string | Request | URL, init?: RequestInit) =>
+        String(input instanceof Request ? input.url : input).endsWith("/manifest.json")
+          ? Promise.resolve(new Response("<!doctype html>", { headers: { "content-type": "text/html" } }))
+          : env.ASSETS.fetch(input, init),
+    };
+    const res = await call("/api/health", envFor("static", { ASSETS: broken }));
+    expect(res.status).toBe(503);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("no_live_run");
+  });
+
+  it("OPTIONS on an unknown route is a 404; on a known one it lists that route's methods", async () => {
+    const res = await call("/api/nope", "static", { method: "OPTIONS" });
+    expect(res.status).toBe(404);
+    expectValid(V.error, await res.json());
+    const known = await call("/api/meta", "static", { method: "OPTIONS" });
+    expect(known.status).toBe(204);
+    expect(known.headers.get("access-control-allow-methods")).toBe("GET, HEAD, OPTIONS");
+  });
+
+  it("the /api index carries the C0 header (v, run_id, fixture) and the audit limits", async () => {
+    const body = (await (await call("/api", "static")).json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ v: 1, run_id: "fixture", fixture: true });
+    expect(body["limits"]).toMatchObject({ audit_max_claims: expect.any(Number), audit_max_body_bytes: 5 * 1024 * 1024, fields_page_size: 500 });
+  });
+
+  it("page 10000000 says the real limit", async () => {
+    const res = await call("/api/fields?page=10000000", "static");
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toBe("page must be an integer from 1 to 9999999.");
+    expect((await call("/api/fields?page=9999999", "static")).status).toBe(200);
+  });
+
   it("CORS preflight is answered", async () => {
     const res = await call("/api/audit", "static", { method: "OPTIONS" });
     expect(res.status).toBe(204);
