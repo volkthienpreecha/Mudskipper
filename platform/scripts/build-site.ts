@@ -14,6 +14,7 @@
  *   node scripts/build-site.ts --run ../artifacts/r01 [--updated-at now] [--out DIR] [--placeholder]
  */
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -27,10 +28,30 @@ import { PRODUCTION_URL } from "./lib/wrangler.ts";
 export const DEFAULT_OUT = join(PLATFORM_ROOT, ".site");
 const PLACEHOLDER = join(PLATFORM_ROOT, "placeholder");
 const APP_DIST = join(REPO_ROOT, "app", "dist");
-/** SPEC Lane Volk app routes, for the sitemap when the app is deployed. */
-const APP_ROUTES = ["/", "/map", "/lab", "/scarecrow", "/evidence", "/methods", "/judges"];
+/** The app's routes (app/src/main.ts navigation), for the sitemap when the app is deployed. */
+const APP_ROUTES = ["/", "/lab", "/scarecrow", "/evidence", "/methods"];
+/**
+ * CSP for Volk's app (app/dist): its own scripts and its MapLibre worker, styles that MapLibre sets inline,
+ * the Esri World Imagery basemap tiles, overlay PNGs and data from this API (same origin, or the production
+ * origin the app falls back to). Strict hash pinning stays for the placeholder page only.
+ */
+export const APP_CSP = [
+  "default-src 'none'",
+  "script-src 'self'",
+  "worker-src 'self' blob:",
+  "child-src blob:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://server.arcgisonline.com https://mudskipper-nisar.pages.dev https://*.mudskipper-nisar.pages.dev",
+  "font-src 'self'",
+  "connect-src 'self' https://mudskipper-nisar.pages.dev https://*.mudskipper-nisar.pages.dev https://server.arcgisonline.com",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
 /** Pages limits (Free plan): 20,000 files per deployment, 25 MiB per file. */
-const MAX_FILES = 20_000;
+export const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 export interface SiteOptions {
@@ -41,6 +62,11 @@ export interface SiteOptions {
   /** Build the placeholder even if app/dist exists. */
   placeholder?: boolean;
   siteUrl?: string;
+  /**
+   * Build the app first (`npm run build -w @mudskipper/app`, so app/dist is always fresh) against this API
+   * origin (VITE_API_BASE_URL; the app is same-origin with the API, so this is the deployment's own URL).
+   */
+  appApiBase?: string;
 }
 
 export interface SiteResult {
@@ -202,9 +228,13 @@ function headersFile(b: BundleResult, csp: string | null): string {
     "  Referrer-Policy: strict-origin-when-cross-origin",
     "  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()",
     "  Cross-Origin-Opener-Policy: same-origin",
-    ...(csp ? [`  Content-Security-Policy: ${csp}`, "  X-Frame-Options: DENY"] : []),
+    `  Content-Security-Policy: ${csp ?? APP_CSP}`,
+    "  X-Frame-Options: DENY",
     "",
     "/fonts/*",
+    "  Cache-Control: public, max-age=31536000, immutable",
+    "",
+    "/assets/*",
     "  Cache-Control: public, max-age=31536000, immutable",
     "",
     "/og.png",
@@ -221,7 +251,18 @@ function headersFile(b: BundleResult, csp: string | null): string {
   return lines.join("\n");
 }
 
-function countFiles(dir: string): { files: number; largest: [string, number] } {
+/** `npm run build -w @mudskipper/app` with the API origin baked in (never edits app/ sources). */
+export function buildApp(apiBase: string): void {
+  const res = spawnSync("npm", ["run", "build", "-w", "@mudskipper/app"], {
+    cwd: REPO_ROOT,
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf8",
+    env: { ...process.env, VITE_API_BASE_URL: apiBase.replace(/\/$/, "") },
+  });
+  if (res.status !== 0) throw new Error(`app build failed (exit ${res.status}):\n${res.stdout}\n${res.stderr}`);
+}
+
+export function countFiles(dir: string): { files: number; largest: [string, number] } {
   let files = 0;
   let largest: [string, number] = ["", 0];
   const walk = (d: string) => {
@@ -245,6 +286,7 @@ export function buildSite(opts: SiteOptions): SiteResult {
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
 
+  if (!opts.placeholder && opts.appApiBase && existsSync(join(REPO_ROOT, "app", "package.json"))) buildApp(opts.appApiBase);
   const useApp = !opts.placeholder && existsSync(join(APP_DIST, "index.html"));
   if (useApp) {
     cpSync(APP_DIST, out, { recursive: true });
@@ -302,11 +344,16 @@ function main() {
       out: { type: "string" },
       "updated-at": { type: "string" },
       placeholder: { type: "boolean", default: false },
+      "app-base": { type: "string", default: PRODUCTION_URL },
+      "no-app-build": { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
   });
   if (values.help || (!values.fixtures && !values.run)) {
-    console.log("usage: node scripts/build-site.ts (--fixtures | --run DIR) [--out DIR] [--updated-at ISO|now] [--placeholder]");
+    console.log(
+      "usage: node scripts/build-site.ts (--fixtures | --run DIR) [--out DIR] [--updated-at ISO|now] [--placeholder]\n" +
+        "       [--app-base URL (API origin baked into the app; default production)] [--no-app-build]",
+    );
     process.exit(values.help ? 0 : 2);
   }
   const updatedAt = values["updated-at"] === "now" ? new Date().toISOString().slice(0, 19) + "Z" : values["updated-at"];
@@ -314,6 +361,7 @@ function main() {
     runDir: values.fixtures ? FIXTURE_RUN : resolve(values.run!),
     fixtures: values.fixtures,
     placeholder: values.placeholder,
+    ...(values["no-app-build"] ? {} : { appApiBase: values["app-base"] }),
     ...(values.out ? { out: values.out } : {}),
     ...(updatedAt ? { updatedAt } : {}),
   });

@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { buildSite } from "../../scripts/build-site.ts";
+import { APP_CSP, buildSite } from "../../scripts/build-site.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT } from "../../scripts/lib/run.ts";
 import { smoke } from "../../scripts/smoke.ts";
 import { LIMITS_TEXT } from "../../src/limits.ts";
@@ -117,5 +117,30 @@ describe.skipIf(process.env["SKIP_PAGES_DEV"] === "1")("wrangler pages dev + smo
     const r = await fetch(`http://127.0.0.1:${port}/`);
     expect(r.headers.get("content-security-policy")).toContain("script-src 'sha256-");
     expect(r.headers.get("access-control-expose-headers")).toBeNull(); // only the Function sets this
+  });
+});
+
+describe.runIf(existsSync(join(REPO_ROOT, "app", "package.json")))("build-site with Volk's app", () => {
+  const appOut = mkdtempSync(join(tmpdir(), "mudskipper-app-site-"));
+  const built = buildSite({ runDir: FIXTURE_RUN, out: appOut, fixtures: true, appApiBase: "https://staging.mudskipper-nisar.pages.dev" });
+  const appHeaders = readFileSync(join(appOut, "_headers"), "utf8");
+  afterAll(() => rmSync(appOut, { recursive: true, force: true }));
+
+  it("builds app/dist fresh against the given API origin and ships it with the /data bundle", () => {
+    expect(built.app).toBe("app/dist");
+    const html = readFileSync(join(appOut, "index.html"), "utf8");
+    const js = /src="(\/assets\/[^"]+\.js)"/.exec(html)![1]!;
+    expect(readFileSync(join(appOut, js), "utf8")).toContain("https://staging.mudskipper-nisar.pages.dev");
+    expect(existsSync(join(appOut, "data", "live.json"))).toBe(true);
+  });
+
+  it("gives the app its own CSP (MapLibre worker, basemap tiles, the API) and immutable hashed assets", () => {
+    expect(appHeaders).toContain(`Content-Security-Policy: ${APP_CSP}`);
+    for (const d of ["script-src 'self'", "worker-src 'self' blob:", "https://server.arcgisonline.com", "frame-ancestors 'none'", "object-src 'none'"]) {
+      expect(APP_CSP).toContain(d);
+    }
+    expect(APP_CSP).not.toContain("'unsafe-eval'");
+    expect(appHeaders).toMatch(/\/assets\/\*\n {2}Cache-Control: public, max-age=31536000, immutable/);
+    expect(readFileSync(join(appOut, "sitemap.xml"), "utf8")).toContain("<loc>https://mudskipper-nisar.pages.dev/lab</loc>");
   });
 });
