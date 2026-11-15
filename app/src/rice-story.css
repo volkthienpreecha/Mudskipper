@@ -1,0 +1,66 @@
+/* User-provided watercolor sky, diffused blue light, and moving rice grains. */
+.rice-sky,.brand-sky { position:absolute; inset:-4%; background:linear-gradient(180deg,#091b455e 0%,#12316840 44%,#091b45d6 100%),url('/img/rice-sky.png') center/cover; filter:blur(4px); transform:scale(1.04); }
+#riceParticles,#brandRice { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+html #opening .orbital-atmosphere::after { background:radial-gradient(ellipse at 50% 45%,#091b458f 0%,#091b4552 44%,transparent 76%),linear-gradient(0deg,#091b45b3,transparent 28%); }
+html #opening .hero-copy { width:min(1100px,90%); max-width:none; text-align:center; margin:0 auto!important; align-self:center; }
+html #opening h1 { width:100%; max-width:none; margin-inline:auto; font-size:clamp(3rem,5.4vw,6rem)!important; line-height:1.04!important; text-wrap:balance; }
+html #opening .lede { max-width:48ch; margin:28px auto 32px; }
+html #opening .ctas { justify-content:center; }
+.rice-phrase { white-space:nowrap; }
+html #opening .hero-intro { display:block; text-align:center; }
+html #opening .hero-bottom { justify-content:center; border-top:0; }
+html #opening .hero-bottom>span { position:absolute; right:0; font-size:.75rem; }
+@media(min-width:1200px) {
+  html nav[aria-label="Main"] { display:grid; grid-template-columns:1fr auto 1fr; gap:24px; }
+  html nav[aria-label="Main"]>.brand { justify-self:start; }
+  html nav[aria-label="Main"]>ul { margin:0!important; justify-self:center; justify-content:center; flex-wrap:nowrap; }
+  html nav[aria-label="Main"]>.motion-toggle { justify-self:end; }
+}
+@media(min-width:901px) and (max-width:1199px) {
+  html nav[aria-label="Main"] { gap:16px; }
+  html nav[aria-label="Main"]>ul { justify-content:center; gap:12px; margin-inline:auto; }
+  html nav[aria-label="Main"]>.motion-toggle span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+}
+html .brand-interlude { display:block; position:relative; padding:0; min-height:65svh; background:#0b2456; border:0; }
+.brand-pin { position:relative; height:65svh; min-height:320px; display:grid; place-items:center; overflow:clip; isolation:isolate; }
+.brand-sky { z-index:-1; filter:blur(16px); transform:scale(var(--brand-sky-scale,1.08)); background-image:linear-gradient(180deg,#12347450,#3b6cbb52 50%,#091b45c9),url('/img/rice-sky.png'); }
+html #brandName { position:relative; z-index:1; max-width:none; width:max-content; text-align:center; font:500 min(16vw,21rem)/1 var(--sans)!important; letter-spacing:-.075em!important; color:#eaf3ff; text-shadow:none; margin:0; transform:translateY(var(--brand-y,0)) scale(var(--brand-scale,1)); opacity:var(--brand-opacity,1); }
+.brand-interlude.is-scroll-pinned { height:210svh; }
+.brand-interlude.is-scroll-pinned .brand-pin { position:sticky; top:var(--nav-h,73px); height:calc(100svh - var(--nav-h,73px)); }
+/* One continuous acquisition plot is uncovered by the scroll, without altering data. */
+#season.is-scroll-pinned { display:block; height:235svh; padding:0 5vw; }
+#season.is-scroll-pinned>[data-scroll-pin] { position:sticky; top:var(--nav-h,73px); height:calc(100svh - var(--nav-h,73px)); padding:24px 0; }
+#season.is-scroll-pinned h2 { margin-bottom:12px; font-size:clamp(2rem,3.1vw,3rem)!important; }
+#season.is-scroll-pinned .sub { margin:8px 0 16px!important; }
+#season.is-scroll-pinned .label { margin:0 0 8px; }
+#season.is-scroll-pinned .stats { margin:16px 0!important; transform:none!important; }
+#season.is-scroll-pinned .stat { padding:12px 16px!important; }
+#season.is-scroll-pinned .stat strong { font-size:3rem!important; }
+#season.is-scroll-pinned .stat span { font-size:.8125rem; }
+#season.is-scroll-pinned .timeline { margin:16px 0 0!important; padding:16px!important; transform:none!important; border:0!important; border-top:1px solid var(--line)!important; border-radius:0; box-shadow:none!important; background:transparent!important; }
+#season.is-scroll-pinned .season { padding:4px; }
+#season.is-scroll-pinned #seasonSvg { width:100%; height:24vh; }
+#season.is-scroll-pinned .tl-legend { margin-top:12px; padding-top:12px; }
+#season.is-scroll-pinned .chart-table { margin-top:8px; padding-top:0; }
+#season .stat { transform:translateY(var(--stat-y,0)); }
+#seasonSvg { clip-path:inset(-16px var(--season-crop,0%) -16px -16px); }
+#season:focus-within #seasonSvg { clip-path:none; }
+.scroll-arrive { transform:translateY(24px); transition:transform .7s cubic-bezier(.22,1,.36,1); }
+.scroll-arrive.is-arrived { transform:none; }
+@media(max-width:999px) {
+  html #opening { justify-content:center; min-height:860px; padding-top:160px; padding-bottom:156px; }
+  html #opening .hero-copy { width:100%; }
+  html #opening h1 { font-size:clamp(2.6rem,7vw,5rem)!important; }
+  html #opening .hero-bottom { flex-direction:column; align-items:center; gap:8px; }
+  html #opening .hero-bottom>span { position:static; text-align:center; }
+}
+@media(max-width:600px) {
+  html #opening h1 { font-size:clamp(2.5rem,10vw,3.75rem)!important; }
+  html #opening .hero-copy { width:100%; }
+  html #opening .lede { max-width:30ch; font-size:1rem; }
+  html #opening .hero-intro { top:116px; }
+  html #opening .ctas { flex-direction:column; align-items:center; }
+  .brand-pin { height:55svh; min-height:260px; }
+}
+html.motion-paused .scroll-arrive { transform:none; }
+@media(prefers-reduced-motion:reduce) { .scroll-arrive { transform:none; transition:none; } html #brandName { transform:none; opacity:1; } }
