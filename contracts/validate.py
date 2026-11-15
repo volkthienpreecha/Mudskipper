@@ -100,9 +100,25 @@ class Report:
 
 
 # ------------------------------------------------------------------------------------------------ schemas
+def _ecma_anchors(node):
+    """JSON Schema patterns are ECMA-262, where `$` matches only at the end of input. Python's `$` also matches
+    before a trailing newline, so `"abc\n"` would pass `^[a-z]+$`. Rewrite a final unescaped `$` to `\Z`."""
+    if isinstance(node, dict):
+        out = {}
+        for k, v in node.items():
+            if k == "pattern" and isinstance(v, str) and v.endswith("$") and not v.endswith("\\$"):
+                v = v[:-1] + "\\Z"
+            out[k] = _ecma_anchors(v)
+        return out
+    if isinstance(node, list):
+        return [_ecma_anchors(v) for v in node]
+    return node
+
+
 class Schemas:
     def __init__(self):
-        docs = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(SCHEMA_DIR.rglob("*.schema.json"))]
+        docs = [_ecma_anchors(json.loads(p.read_text(encoding="utf-8")))
+                for p in sorted(SCHEMA_DIR.rglob("*.schema.json"))]
         registry = Registry().with_resources([(d["$id"], Resource.from_contents(d)) for d in docs])
         self._validators = {}
         for d in docs:
