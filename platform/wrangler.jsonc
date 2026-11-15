@@ -19,7 +19,9 @@
   ],
   // Preview deployments (any branch but main, e.g. the `rehearsal` branch, DECISIONS.md K-312) get their own
   // audit namespace, so a rehearsal or perf run never writes into production storage. Bindings are not
-  // inherited by Pages environments, so every binding production has must be repeated here.
+  // inherited by Pages environments, so every binding production has must be repeated here: when D1 or R2
+  // is enabled, add the same `d1_databases` / `r2_buckets` entries to `preview` too (runs are keyed by run_id,
+  // and each deployment serves the run its own /data/live.json names, so preview and production can share them).
   "env": {
     "preview": {
       "kv_namespaces": [{ "binding": "AUDITS", "id": "1be2567375e3460688bd2dc4b26a6f8a" }]

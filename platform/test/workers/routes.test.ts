@@ -233,8 +233,29 @@ describe("routing and headers", () => {
   });
 
   it("BACKEND=static forces the static bundle even with DB bound", async () => {
-    const res = await call("/api/meta", envFor("d1", { BACKEND: "static", ASSETS: env.ASSETS_EMPTY }));
-    expect(res.status).toBe(503); // proves it read ASSETS, not D1
+    const untouchable = new Proxy({}, { get: () => () => { throw new Error("D1 must not be read"); } }) as unknown as D1Database;
+    const res = await call("/api/meta", envFor("d1", { BACKEND: "static", DB: untouchable }));
+    expect(res.status).toBe(200);
+    expect(await call("/api/fields/fazilka-00114", envFor("d1", { BACKEND: "static", DB: untouchable }))).toHaveProperty("status", 200);
+  });
+
+  it("D1 serves only the version the deployment names: another upload of the run is 503, never a mixed answer", async () => {
+    const other: Fetcher = {
+      async fetch(input: string | Request | URL, init?: RequestInit) {
+        const res = await env.ASSETS.fetch(input, init);
+        if (!String(input instanceof Request ? input.url : input).endsWith("/data/runs/fixture/manifest.json")) return res;
+        return Response.json({ ...((await res.json()) as object), bundle_hash: "e".repeat(64) });
+      },
+    };
+    for (const path of ["/api/meta", "/api/fields", "/api/fields/fazilka-00114"]) {
+      const res = await call(path, envFor("d1", { ASSETS: other }));
+      expect(res.status, path).toBe(503);
+      expect(((await res.json()) as { error: { code: string; message: string } }).error).toMatchObject({ code: "no_live_run" });
+    }
+    // the deployment's own live.json is the pointer: no D1 meta row is needed (it is only a mirror)
+    await env.DB.prepare("DELETE FROM meta WHERE key = 'live'").run();
+    resetCaches(); // a fresh isolate of the real deployment
+    expect((await call("/api/meta", "d1")).status).toBe(200);
   });
 
   it("no response leaks request data: errors never echo the body", async () => {
