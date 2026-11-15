@@ -13,6 +13,7 @@ Protomaps. The app must show ATTRIBUTION wherever the basemap is drawn.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import pathlib
@@ -27,6 +28,15 @@ import zipfile
 import common as c
 
 GO_PMTILES_VERSION = "1.31.2"
+# SHA-256 of each go-pmtiles 1.31.2 release asset, as GitHub reports them (`gh api
+# repos/protomaps/go-pmtiles/releases/tags/v1.31.2`). The downloaded binary is executed, so it is checked
+# before anything is unpacked (docs/SECURITY.md, K-346). Bump these together with GO_PMTILES_VERSION.
+GO_PMTILES_SHA256 = {
+    "go-pmtiles-1.31.2_Darwin_arm64.zip": "40528f7f616fcbf91207cd48c8fc023d213f6d86c0cbf1f748732803d1880f3d",
+    "go-pmtiles-1.31.2_Darwin_x86_64.zip": "1f0dc02eee6c58312dd6c509faee1b5c32f0596568af1bf51f1b034e7a88a65b",
+    "go-pmtiles_1.31.2_Linux_arm64.tar.gz": "f8bd47e7ea866863489cad588fbaf2f31f42e5821f7a03f009b3769f05801cb1",
+    "go-pmtiles_1.31.2_Linux_x86_64.tar.gz": "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f",
+}
 BUILDS_JSON = "https://build-metadata.protomaps.dev/builds.json"
 BUILD_URL = "https://build.protomaps.com/{key}"
 MAXZOOM = 15
@@ -38,6 +48,17 @@ def _get(url: str) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": "mudskipper-geo/0.1"})
     with urllib.request.urlopen(req, timeout=300) as r:
         return r.read()
+
+
+def verified_release(name: str, blob: bytes) -> bytes:
+    """The release archive `name`, only if its SHA-256 is the pinned one."""
+    want = GO_PMTILES_SHA256.get(name)
+    if want is None:
+        raise SystemExit(f"no pinned sha256 for {name}; add it to GO_PMTILES_SHA256 or install pmtiles yourself")
+    got = hashlib.sha256(blob).hexdigest()
+    if got != want:
+        raise SystemExit(f"{name}: sha256 {got} does not match the pinned {want}; refusing to run it")
+    return blob
 
 
 def pmtiles_bin(ddir: pathlib.Path) -> str:
@@ -55,7 +76,7 @@ def pmtiles_bin(ddir: pathlib.Path) -> str:
     name = f"go-pmtiles-{v}_{system}_{arch}.zip" if system == "Darwin" else f"go-pmtiles_{v}_{system}_{arch}.tar.gz"
     url = f"https://github.com/protomaps/go-pmtiles/releases/download/v{v}/{name}"
     c.log(f"downloading {url}")
-    blob = _get(url)
+    blob = verified_release(name, _get(url))
     local.parent.mkdir(parents=True, exist_ok=True)
     if name.endswith(".zip"):
         with zipfile.ZipFile(io.BytesIO(blob)) as z:

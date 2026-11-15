@@ -84,7 +84,7 @@ number generator, so the Python reference and the TypeScript core agree to the b
 
 | Path | What | Owner |
 |---|---|---|
-| [`docs/`](docs) | [Build spec](docs/SPEC.md), [win guide](docs/WIN_GUIDE.md), generated page copy | team |
+| [`docs/`](docs) | [Build spec](docs/SPEC.md), [win guide](docs/WIN_GUIDE.md), [security](docs/SECURITY.md), generated page copy | team |
 | [`contracts/`](contracts) | The contract: [CONTRACTS.md](contracts/CONTRACTS.md), JSON Schemas, reference rules, fixtures, validator | shared |
 | [`pipeline/`](pipeline) | NISAR search, bounded reads, decomposition, per-field states, overlays, checks | Ishaan |
 | [`geo/`](geo) | Tiles, field polygons, district table, sample claims | Karthik |
