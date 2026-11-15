@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { MAX_BODY_BYTES } from "../../src/limits.ts";
 import { auditId, defaultSeed, sha256Hex } from "../../src/crypto.ts";
 import { RankError, type RankFn } from "../../src/audit/rank.ts";
+import { RateLimiter, StoreBudget } from "../../src/audit/guard.ts";
 import { AUDIT_TTL_SECONDS, D1AuditStore, KvAuditStore, kvAuditKey } from "../../src/audit/store.ts";
+import { createApp } from "../../src/app.ts";
 import type { BundleManifest } from "../../src/repo/types.ts";
-import { ORIGIN, call, envFor, fixtureApi, goldenRank, resetCaches, validators as V, type BackendKind } from "./helpers.ts";
+import { FIXED_NOW, ORIGIN, call, callApp, envFor, fixtureApi, goldenRank, resetCaches, validators as V, type BackendKind } from "./helpers.ts";
 
 beforeEach(resetCaches);
 
@@ -289,5 +291,56 @@ describe("review item 1: a stored audit is only served for the run version it wa
     expect(puts[0]!.key).toBe(`audit:0123456789abcdef:${golden.audit_id}`);
     expect(puts[0]!.options).toMatchObject({ expirationTtl: AUDIT_TTL_SECONDS });
     expect(AUDIT_TTL_SECONDS).toBe(2_592_000);
+  });
+});
+
+describe("review item 2: rate limit and daily store budget", () => {
+  const body = (seed: number) => {
+    const req = golden();
+    req.seed = seed;
+    return JSON.stringify(req);
+  };
+  const postTo = (app: ReturnType<typeof createApp>, b: string, kind: BackendKind | ReturnType<typeof envFor> = "static", ip = "203.0.113.7") =>
+    callApp(app, "/api/audit", kind, { method: "POST", body: b, headers: { "content-type": "application/json", "cf-connecting-ip": ip } });
+
+  it("429 rate_limited with Retry-After once a client spends its burst; other clients are unaffected", async () => {
+    const app = createApp({ now: () => FIXED_NOW, rank: goldenRank, limiter: new RateLimiter(2, 1 / 30) });
+    expect((await postTo(app, body(61))).status).toBe(201);
+    expect((await postTo(app, body(62))).status).toBe(201);
+    const third = await postTo(app, body(63));
+    await expectError(third.clone(), 429, "rate_limited");
+    expect(third.headers.get("retry-after")).toBe("30");
+    expect((await postTo(app, body(63), "static", "198.51.100.1")).status).toBe(201);
+  });
+
+  it("over the daily budget it ranks but does not store: 200, x-audit-stored false, no Location, GET 404", async () => {
+    const app = createApp({ now: () => FIXED_NOW, rank: goldenRank, budget: new StoreBudget(2, 1) });
+    for (const s of [71, 72]) {
+      const r = await postTo(app, body(s));
+      expect(r.status).toBe(201);
+      expect(r.headers.get("x-audit-stored")).toBe("true");
+    }
+    expect(await env.AUDITS.get(`budget:audits:${FIXED_NOW.toISOString().slice(0, 10)}`)).toBe("2");
+    const over = await postTo(app, body(73));
+    expect(over.status).toBe(200);
+    expect(over.headers.get("x-audit-stored")).toBe("false");
+    expect(over.headers.get("location")).toBeNull();
+    const result = (await over.json()) as { audit_id: string };
+    expect(V.auditResponse(result)).toBe(true);
+    expect((await callApp(app, `/api/audit/${result.audit_id}`, "static")).status).toBe(404);
+  });
+
+  it("a KV write refused (daily limit) degrades the same way instead of a 500", async () => {
+    const refusing = {
+      get: async () => null,
+      put: async () => {
+        throw new Error("KV put() limit exceeded for the day.");
+      },
+    } as unknown as KVNamespace;
+    const app = createApp({ now: () => FIXED_NOW, rank: goldenRank });
+    const res = await postTo(app, body(81), envFor("static", { AUDITS: refusing }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-audit-stored")).toBe("false");
+    expect(V.auditResponse(await res.json())).toBe(true);
   });
 });

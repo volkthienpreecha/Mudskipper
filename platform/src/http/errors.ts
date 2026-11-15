@@ -15,6 +15,7 @@ export type ErrorCode =
   | "precondition_failed"
   | "no_live_run"
   | "storage_unavailable"
+  | "rate_limited"
   | "internal";
 
 export class ApiError extends Error {

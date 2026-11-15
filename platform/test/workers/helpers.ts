@@ -42,6 +42,12 @@ export async function call(path: string, kind: BackendKind | Bindings, init: Req
   return makeApp(rank).request(ORIGIN + path, init, bindings);
 }
 
+/** Like `call`, against one app (so per-isolate state such as the rate limiter carries over between calls). */
+export async function callApp(app: ReturnType<typeof createApp>, path: string, kind: BackendKind | Bindings, init: RequestInit = {}) {
+  const bindings = typeof kind === "string" ? envFor(kind) : kind;
+  return app.request(ORIGIN + path, init, bindings);
+}
+
 export const fixtureApi = (name: string) => structuredClone(env.TEST_FIXTURE_API[name]) as Record<string, unknown>;
 
 /** A stand-in for core's rank: returns the golden response for the golden request (Phase 1 envelope tests). */

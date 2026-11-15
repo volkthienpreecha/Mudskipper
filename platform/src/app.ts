@@ -15,6 +15,8 @@ import { ApiError, badRequest, errorBody, notFound } from "./http/errors.ts";
 import { CACHE, applySecurityHeaders, etagMatches } from "./http/headers.ts";
 import { parseAuditBody, readBodyCapped, toApiError } from "./audit/validate.ts";
 import { RankError, defaultRank, type RankFn } from "./audit/rank.ts";
+import { defaultRateLimiter, defaultStoreBudget, type RateLimiter, type StoreBudget } from "./audit/guard.ts";
+import type { KvAuditStore } from "./audit/store.ts";
 import { selectBackend, type Backend } from "./backend.ts";
 import type { Body } from "./repo/types.ts";
 import { header, type FieldQuery } from "./shapes.ts";
@@ -25,6 +27,10 @@ export interface AppOptions {
   rank?: RankFn;
   /** Clock, for tests. */
   now?: () => Date;
+  /** POST /api/audit rate limit per client IP (default: 20 at once, then one every 3 s, per isolate). */
+  limiter?: RateLimiter;
+  /** Daily stored-audit budget shared through KV (default: 800 a day). */
+  budget?: StoreBudget;
 }
 
 /** Routes and their methods, for /api, 405 answers and the placeholder page. */
@@ -90,6 +96,8 @@ function parseFieldQuery(url: URL): FieldQuery {
 export function createApp(options: AppOptions = {}): Hono<AppEnv> {
   const rank = options.rank ?? defaultRank;
   const now = options.now ?? (() => new Date());
+  const limiter = options.limiter ?? defaultRateLimiter();
+  const budget = options.budget ?? defaultStoreBudget();
   const app = new Hono<AppEnv>();
   const backendOf = (c: Context<AppEnv>) => selectBackend(c.env, new URL(c.req.url).origin);
 
@@ -163,6 +171,14 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
       throw new ApiError(503, "storage_unavailable", "Audit storage is not configured on this deployment.");
     }
     const audits = backend.audits;
+    const client = c.req.header("cf-connecting-ip") ?? "unknown";
+    const turn = limiter.take(client, now().getTime());
+    if (!turn.ok) {
+      await c.req.raw.body?.cancel();
+      throw new ApiError(429, "rate_limited", `Too many audits from this address; retry in ${turn.retryAfter} s.`, {
+        "retry-after": String(turn.retryAfter),
+      });
+    }
     const bytes = await readBodyCapped(c.req.raw);
     const { request, inputHash } = await parseAuditBody(bytes);
     const live = await backend.repo.live();
@@ -186,8 +202,20 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
       // core and the platform disagree on CONTRACTS.md B6 step 8; store under core's id and say so in the logs.
       console.error(`audit_id mismatch: platform ${id}, ranking ${result.audit_id}`);
     }
-    const stored = await audits.put(result, version);
-    return json(stored, 201, CACHE.none, { location: `/api/audit/${stored.audit_id}` });
+    // KV allows 1,000 writes a day: over the shared daily budget, or if KV refuses the write, rank without
+    // storing (200, x-audit-stored: false, no Location) instead of failing the request (src/audit/guard.ts).
+    const kv = audits.kind === "kv" ? (audits as KvAuditStore).kv : null;
+    const unstored = () => json(result, 200, CACHE.none, { "x-audit-stored": "false" });
+    if (kv && !(await budget.allows(kv, now().getTime()).catch(() => true))) return unstored();
+    let stored;
+    try {
+      stored = await audits.put(result, version);
+    } catch (e) {
+      console.error(`audit store failed (${audits.kind}): ${(e as Error).message}`);
+      return unstored();
+    }
+    if (kv) await budget.stored(kv, now().getTime()).catch((e: Error) => console.error(`audit budget counter: ${e.message}`));
+    return json(stored, 201, CACHE.none, { location: `/api/audit/${stored.audit_id}`, "x-audit-stored": "true" });
   });
 
   app.get("/api/audit/:id", async (c) => {
