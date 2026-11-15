@@ -7,7 +7,7 @@ VENV   := .venv
 VPY    := $(VENV)/bin/python
 RUN_ID ?= r01
 
-.PHONY: help setup fixtures fixtures-check validate validate-full test check publish clean
+.PHONY: help setup fixtures fixtures-check validate validate-full test check publish smoke clean
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Mudskipper make targets\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -37,11 +37,11 @@ test: $(VENV)/.ready ## Run the contract test suite (schemas, rules, validator)
 
 check: test validate fixtures-check ## Everything CI runs for contracts
 
-publish: ## Publish artifacts/$(RUN_ID) to Cloudflare R2 + D1 (FIXTURES=1 publishes the sample set)
-	@if [ ! -f platform/package.json ]; then \
-	  echo "publish: platform/scripts/publish.ts is not built yet (Lane Karthik, step 5)."; exit 1; fi
-	$(MAKE) validate
-	npm --prefix platform run publish -- $(if $(FIXTURES),--fixtures,--run $(RUN_ID))
+publish: $(VENV)/.ready ## Publish artifacts/$(RUN_ID) to https://mudskipper-nisar.pages.dev (FIXTURES=1: the sample set; ARGS=--dry-run)
+	npm run publish -w platform -- $(if $(FIXTURES),--fixtures,--run $(RUN_ID)) $(ARGS)
+
+smoke: ## Smoke-test the deployed site and API (BASE=http://localhost:8788 for a local `npm run dev -w platform`)
+	npm run smoke -w platform -- $(if $(BASE),--base $(BASE),)
 
 clean: ## Remove the venv and Python caches (never touches data/ or artifacts/)
 	rm -rf $(VENV)

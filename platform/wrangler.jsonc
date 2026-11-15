@@ -1,0 +1,27 @@
+// Cloudflare Pages configuration for https://mudskipper-nisar.pages.dev (DECISIONS.md K-002, K-301).
+//
+// `wrangler pages deploy` treats this file as the source of truth for the project's bindings, so every
+// binding the production deployment needs lives here. Pages Functions (functions/api, functions/tiles) run
+// only on /api, /api/* and /tiles/*; `_routes.json` in the build output pins that (scripts/build-site.ts).
+//
+// The storage backend (src/backend.ts) is chosen by which bindings exist:
+//   - static (today): API responses are JSON files in the deployment under /data/; audits go to KV AUDITS.
+//   - d1: uncomment `d1_databases` once the account has a free D1 slot (platform/README.md, "Switch to D1").
+//   - r2: uncomment `r2_buckets` once R2 is enabled on the account; /tiles/* then proxies R2 with Range.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "mudskipper-nisar",
+  "pages_build_output_dir": ".site",
+  "compatibility_date": "2026-11-13",
+  "kv_namespaces": [
+    // Stored audit results, keyed by audit_id (used when DB is not bound).
+    { "binding": "AUDITS", "id": "c0dce1f0672b48d99a9204eceb6dc84e" }
+  ]
+  // ,"d1_databases": [
+  //   { "binding": "DB", "database_name": "mudskipper", "database_id": "<id from `wrangler d1 create mudskipper`>",
+  //     "migrations_dir": "migrations" }
+  // ]
+  // ,"r2_buckets": [
+  //   { "binding": "DATA", "bucket_name": "mudskipper-data" }
+  // ]
+}

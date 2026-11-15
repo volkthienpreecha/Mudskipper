@@ -6,8 +6,19 @@
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "types": "wrangler types --env-interface Env --include-runtime=false worker-configuration.d.ts",
+    "types:check": "wrangler types --env-interface Env --include-runtime=false worker-configuration.d.ts --check",
+    "gen": "node scripts/gen-validators.ts",
+    "gen:check": "node scripts/gen-validators.ts --check",
+    "typecheck": "npm run types:check && npm run gen:check && tsc -p tsconfig.json && tsc -p tsconfig.scripts.json",
+    "test": "vitest run",
+    "build:bundle": "node scripts/build-bundle.ts",
+    "build:site": "node scripts/build-site.ts",
+    "load-d1": "node scripts/load-d1.ts",
+    "og": "node scripts/og.ts",
+    "dev": "wrangler pages dev",
+    "publish": "node scripts/publish.ts",
+    "smoke": "node scripts/smoke.ts"
   },
   "dependencies": {
     "@mudskipper/core": "*",
@@ -18,6 +29,7 @@
     "@types/node": "^24",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
+    "sharp": "0.35.5",
     "typescript": "7.0.2",
     "vitest": "5.1.0",
     "wrangler": "4.162.0"

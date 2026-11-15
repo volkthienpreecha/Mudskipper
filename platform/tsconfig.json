@@ -1,0 +1,24 @@
+{
+  // Runtime code: the Hono app, Pages Functions and the tests that run inside workerd. Globals are the
+  // web-standard WebWorker set core is written against; binding types come from types/workers.d.ts and the
+  // Env interface from `wrangler types --include-runtime=false` (worker-configuration.d.ts).
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "WebWorker"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "skipLibCheck": true,
+    "types": ["@cloudflare/vitest-plugin/types"]
+  },
+  "include": ["src", "functions", "test/workers", "types", "worker-configuration.d.ts"]
+}
