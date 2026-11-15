@@ -1,6 +1,6 @@
 /* Astryx owns its control internals. Isolate them from the imported page's global nav/button reset. */
 .astryx-island * { all: revert-layer; }
-.astryx-island { min-width: 0; color-scheme: dark; font-family: var(--sans); }
+.astryx-island { min-width: 0; color-scheme: light; font-family: var(--sans); }
 .astryx-island [data-astryx-theme] { display: contents; }
 .astryx-island .astryx-button {
   min-height: 44px;
@@ -18,7 +18,7 @@
   border-radius: 10px;
 }
 .astryx-island .astryx-tab:focus-visible, .astryx-island .astryx-button:focus-visible { outline: 2px solid var(--water); outline-offset: 4px; }
-.astryx-island .astryx-tab[aria-selected="true"] { color: var(--water); background: #3fd0c914; }
+.astryx-island .astryx-tab[aria-selected="true"] { color: var(--water); background: #5145d714; }
 @media (max-width: 600px) {
   .astryx-island .astryx-tab { padding-inline: 10px; }
 }
