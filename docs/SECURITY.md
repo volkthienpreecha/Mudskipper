@@ -100,7 +100,7 @@ one hit, a false positive (generated validator key names in `platform/test/gen/v
 history greps for Cloudflare, GitHub, AWS and Earthdata credentials and for `.env` files found nothing.
 `.gitignore` covers `.env`, `.env.*` and `.dev.vars`.
 
-**Live tests** (non-destructive, a handful of requests; scripts in the PR description): traversal through
+**Live tests** (non-destructive, a handful of requests, against production and the `security` preview): traversal through
 `..`, `%2e%2e`, `%252e`, `%5c`, `__proto__` and `constructor` on `/tiles` all return 404 JSON or a
 Cloudflare 400; `/api/fields/<script>` and `?tile=<img>` return escaped JSON errors with nosniff and
 `default-src 'none'`; every Range edge case (`bytes=-0`, oversized, reversed, multi-range, `items=`, hex,
