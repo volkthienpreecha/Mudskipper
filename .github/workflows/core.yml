@@ -1,0 +1,60 @@
+name: core
+
+# core/ is the one implementation of the rules (SPEC A4). This job keeps its generated types in sync with
+# contracts/schemas, type-checks it under the browser, workerd and Node type sets, runs its tests (golden
+# fixtures included), and proves cross-language agreement: core's outputs for the fixture inputs must pass
+# contracts/validate.py --recompute, and a differential run against contracts/rules.py must match exactly.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: core (node 24)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install (npm ci)
+        run: npm ci
+      - name: Generated contract types match the schemas
+        run: npm run gen:check -w @mudskipper/core
+      - name: Type-check (WebWorker, DOM and Node type sets)
+        run: npm run typecheck -w @mudskipper/core
+      - name: Test (rules, golden fixtures, client)
+        run: npm test -w @mudskipper/core
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: contracts/requirements.txt
+      - name: Set up the validator
+        run: make setup PYTHON=python
+      - name: Cross-language check (core writes the run, Python validates it with --recompute)
+        run: |
+          run="$RUNNER_TEMP/run"
+          cp -R contracts/fixtures/run "$run"
+          rm "$run/detectability.json" "$run/field_summary.jsonl" "$run/states.json" "$run/story.json"
+          node core/scripts/compute-run.ts "$run"
+          .venv/bin/python contracts/validate.py "$run" --recompute
+      - name: Differential check against contracts/rules.py
+        run: |
+          for seed in 1 2 3; do
+            python core/scripts/differential.py "$RUNNER_TEMP/differential-$seed.json" --seed "$seed"
+            node core/scripts/differential.ts "$RUNNER_TEMP/differential-$seed.json"
+          done

@@ -1,0 +1,7 @@
+{
+  // The same source under the browser's type set, which is what the Vite app compiles core with.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+  }
+}

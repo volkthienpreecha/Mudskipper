@@ -37,9 +37,39 @@ Fonts (self-hosted)
   IBM Plex Sans / Mono ... SIL OFL 1.1  https://github.com/IBM/plex
   (latin subsets from Google Fonts in platform/placeholder/fonts/, with their OFL texts)
 
+Software (geo/, Python; exact versions in geo/uv.lock)
+  NumPy .................. BSD-3-Clause https://numpy.org
+  Shapely / GEOS ......... BSD-3-Clause / LGPL-2.1 https://github.com/shapely/shapely
+  pyproj / PROJ .......... MIT          https://github.com/pyproj4/pyproj
+  pyogrio / GDAL ......... MIT          https://github.com/geopandas/pyogrio
+  GeoPandas .............. BSD-3-Clause https://github.com/geopandas/geopandas
+  Rasterio ............... BSD-3-Clause https://github.com/rasterio/rasterio
+  DuckDB ................. MIT          https://github.com/duckdb/duckdb
+  Apache Arrow (pyarrow) . Apache-2.0   https://github.com/apache/arrow
+  ftw-tools (optional) ... MIT          https://github.com/fieldsoftheworld/ftw-baselines
+  go-pmtiles CLI ......... BSD-3-Clause https://github.com/protomaps/go-pmtiles
+
 Data
-  NISAR L2 GCOV (NASA-ISRO), via the Alaska Satellite Facility DAAC.
+  NISAR L2 GCOV (NASA-ISRO), via the Alaska Satellite Facility DAAC. Frame
+  footprints from the ASF Search API (api.daac.asf.alaska.edu).
   Sentinel-2 imagery (Copernicus) via Fields of The World.
+  Fields of The World global data, 2nd edition, 2024 field-boundary
+  predictions, CC-BY-4.0, Taylor Geospatial / Fields of The World,
+  https://source.coop/ftw/global-data-2e (fields.geojson, source "ftw").
+  FTW model weights FTW_PRUE_EFNET_B5_CCBY (v3.1), CC-BY-4.0, only when
+  geo/fields.py runs with --method ftw-local.
+  GlobalRice20 2024 paddy rice map (20 m), CC-BY-4.0, Zhang, Song, Ding, Xie,
+  Guo and Xu, https://doi.org/10.5281/zenodo.18168302 (rice_mask_frac, tiles).
+  Paddy rice and cropping intensity in South and Southeast Asia 2024 (30 m),
+  CC-BY-4.0, Zhao, Dong, Zhang, Yang and Xiao,
+  https://doi.org/10.5281/zenodo.21349862 (cross-check only).
+  geoBoundaries gbOpen IND ADM2 (district boundaries, source Pathways Data /
+  lgdirectory.gov.in), ODbL-1.0, Runfola et al. 2020,
+  https://www.geoboundaries.org (tile selection only; not redistributed).
+  Protomaps basemap (optional, basemap/punjab.pmtiles): data
+  (c) OpenStreetMap contributors, ODbL-1.0, https://www.openstreetmap.org/copyright;
+  build by Protomaps, https://protomaps.com. Show the attribution
+  "Protomaps (c) OpenStreetMap" wherever the basemap is drawn.
   OPERA DSWx (NASA JPL), if the cross-check runs.
   Punjab Department of Agriculture direct-seeded rice figures (cited in
   district_check.json).

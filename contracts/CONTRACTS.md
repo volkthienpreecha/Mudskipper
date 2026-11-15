@@ -95,7 +95,9 @@ artifacts/<run_id>/   gitignored: one run's files, published to R2/D1
 
 "Stage" is how far a run has got. A **pipeline** run has Ishaan's and geo's files. A **published** run also
 has core's outputs. The validator picks the stage automatically (published if `field_summary.jsonl` exists)
-or takes `--stage`.
+or takes `--stage`. A third stage, **geo** (v1 addition, only by `--stage geo`), checks geo's hand-off before
+any pipeline file exists: `aoi.json` and `fields.geojson` with the same rules as the other stages, plus the
+PMTiles magic bytes of `fields.pmtiles` when it is present.
 
 ### B3.1 `aoi.json`
 
@@ -424,7 +426,8 @@ A FeatureCollection of claims. Geometry is a `Point`, `Polygon` or `MultiPolygon
 
 Uploads are ordinary GIS exports, so the schema accepts extra members (`name`, `crs`, `bbox`), extra
 properties (ignored) and positions with an altitude (ignored). Polygon rings MUST be closed (first position
-equals last) with at least 4 positions, otherwise `400 invalid_geometry`.
+equals last) with at least 4 positions and enclose an interior, otherwise `400 invalid_geometry` (also for any
+geometry type other than Point, Polygon and MultiPolygon).
 
 The sample has exactly 60 SYNTHETIC claims on real field ids of the same run, plus a few points that do not
 match any field, so the unmatched path is visible.

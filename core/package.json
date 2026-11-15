@@ -10,13 +10,16 @@
     ".": "./src/index.ts",
     "./contracts": "./src/contracts.gen.ts",
     "./client": "./src/client.ts",
+    "./fixtures-vite": "./src/fixtures-vite.ts",
+    "./fixtures-node": "./src/fixtures-node.ts",
     "./package.json": "./package.json"
   },
   "scripts": {
     "gen": "node scripts/gen-types.mjs",
     "gen:check": "node scripts/gen-types.mjs --check",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
-    "test": "vitest run"
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.dom.json && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "compute-run": "node scripts/compute-run.ts"
   },
   "devDependencies": {
     "@types/node": "^24",

@@ -1,0 +1,256 @@
+{
+  "description": "Real Mudskipper study tiles chosen by geo/tiles.py (see DECISIONS.md K-101, K-102).",
+  "rule": {
+    "step_m": 500,
+    "snap_m": 20,
+    "size_m": 15000,
+    "district_margin_m": 250,
+    "frame_margin_m": 2000,
+    "min_zhao_share": 0.5,
+    "score": "GlobalRice20 2024 rice share among windows with Zhao 2024 share >= min_zhao_share; ties: north, then west"
+  },
+  "tiles": [
+    {
+      "id": "fazilka",
+      "district": "Fazilka",
+      "geoboundaries_name": "Fazilka",
+      "utm_epsg": 32643,
+      "utm_origin": [
+        432500,
+        3389500
+      ],
+      "size_m": 15000,
+      "utm_bounds": [
+        432500,
+        3389500,
+        447500,
+        3404500
+      ],
+      "bbox": [
+        74.294626,
+        30.636233,
+        74.452135,
+        30.772336
+      ],
+      "center_lonlat": [
+        74.37344,
+        30.70431
+      ],
+      "rice_share": {
+        "globalrice20_2024": 0.5636,
+        "zhao_2024": 0.8064
+      },
+      "search": {
+        "candidates": 2930,
+        "zhao_majority_candidates": 471,
+        "district_area_ha": 325539.7,
+        "top5_search_scores": [
+          {
+            "utm_origin": [
+              432500,
+              3389500
+            ],
+            "globalrice20_2024": 0.5633,
+            "zhao_2024": 0.8067
+          },
+          {
+            "utm_origin": [
+              433000,
+              3389500
+            ],
+            "globalrice20_2024": 0.5625,
+            "zhao_2024": 0.8071
+          },
+          {
+            "utm_origin": [
+              432000,
+              3389500
+            ],
+            "globalrice20_2024": 0.5598,
+            "zhao_2024": 0.8046
+          },
+          {
+            "utm_origin": [
+              432000,
+              3389000
+            ],
+            "globalrice20_2024": 0.557,
+            "zhao_2024": 0.806
+          },
+          {
+            "utm_origin": [
+              425000,
+              3380000
+            ],
+            "globalrice20_2024": 0.4133,
+            "zhao_2024": 0.7578
+          }
+        ]
+      },
+      "fixture_tile": {
+        "bbox": [
+          74.042,
+          30.2623,
+          74.198,
+          30.3977
+        ],
+        "rice_share": {
+          "globalrice20_2024": 0.1836,
+          "zhao_2024": 0.2961
+        }
+      }
+    },
+    {
+      "id": "muktsar",
+      "district": "Sri Muktsar Sahib",
+      "geoboundaries_name": "Muktsar",
+      "utm_epsg": 32643,
+      "utm_origin": [
+        445500,
+        3345500
+      ],
+      "size_m": 15000,
+      "utm_bounds": [
+        445500,
+        3345500,
+        460500,
+        3360500
+      ],
+      "bbox": [
+        74.432785,
+        30.23986,
+        74.589461,
+        30.375802
+      ],
+      "center_lonlat": [
+        74.51118,
+        30.30786
+      ],
+      "rice_share": {
+        "globalrice20_2024": 0.6175,
+        "zhao_2024": 0.7095
+      },
+      "search": {
+        "candidates": 2636,
+        "zhao_majority_candidates": 2636,
+        "district_area_ha": 263312.2,
+        "top5_search_scores": [
+          {
+            "utm_origin": [
+              445500,
+              3345500
+            ],
+            "globalrice20_2024": 0.6178,
+            "zhao_2024": 0.7092
+          },
+          {
+            "utm_origin": [
+              445000,
+              3348500
+            ],
+            "globalrice20_2024": 0.6175,
+            "zhao_2024": 0.75
+          },
+          {
+            "utm_origin": [
+              445500,
+              3346000
+            ],
+            "globalrice20_2024": 0.6173,
+            "zhao_2024": 0.7132
+          },
+          {
+            "utm_origin": [
+              445500,
+              3346500
+            ],
+            "globalrice20_2024": 0.6171,
+            "zhao_2024": 0.7186
+          },
+          {
+            "utm_origin": [
+              445500,
+              3348500
+            ],
+            "globalrice20_2024": 0.616,
+            "zhao_2024": 0.7484
+          }
+        ]
+      },
+      "fixture_tile": {
+        "bbox": [
+          74.372,
+          30.3323,
+          74.528,
+          30.4677
+        ],
+        "rice_share": {
+          "globalrice20_2024": 0.4663,
+          "zhao_2024": 0.673
+        }
+      }
+    }
+  ],
+  "frames": [
+    {
+      "track": 135,
+      "direction": "descending",
+      "frame": 73,
+      "role": "descending series (D-003)",
+      "n_granules": 10,
+      "source": "https://api.daac.asf.alaska.edu/services/search/param?dataset=NISAR&processingLevel=GCOV&relativeOrbit=135&frame=73&start=2026-06-17T00:00:00Z&end=2026-10-24T00:00:00Z&output=geojson",
+      "granules": [
+        "NISAR_L2_PR_GCOV_023_135_D_073_4005_DHDH_A_20260623T134740_20260623T134813_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_024_135_D_073_4005_DHDH_A_20260705T134739_20260705T134812_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_025_135_D_073_4005_DHDH_A_20260717T134739_20260717T134811_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_027_135_D_073_4005_DHDH_A_20260810T134737_20260810T134810_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_028_135_D_073_2005_QPDH_A_20260822T134735_20260822T134809_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_029_135_D_073_2005_QPDH_A_20260903T134734_20260903T134809_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_030_135_D_073_2005_QPDH_A_20260915T134734_20260915T134809_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_031_135_D_073_2005_QPDH_A_20260927T134734_20260927T134809_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_032_135_D_073_4005_DHDH_A_20261009T134737_20261009T134809_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_033_135_D_073_4005_DHDH_A_20261021T134738_20261021T134809_P05023_N_F_J_001"
+      ]
+    },
+    {
+      "track": 84,
+      "direction": "ascending",
+      "frame": 17,
+      "role": "ascending series (pipeline main series)",
+      "n_granules": 10,
+      "source": "https://api.daac.asf.alaska.edu/services/search/param?dataset=NISAR&processingLevel=GCOV&relativeOrbit=84&frame=17&start=2026-06-17T00:00:00Z&end=2026-10-24T00:00:00Z&output=geojson",
+      "granules": [
+        "NISAR_L2_PR_GCOV_023_084_A_017_4005_DHDH_A_20260620T002132_20260620T002207_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_024_084_A_017_4005_DHDH_A_20260702T002131_20260702T002206_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_025_084_A_017_4005_DHDH_A_20260714T002131_20260714T002205_P05023_F_F_J_001",
+        "NISAR_L2_PR_GCOV_026_084_A_017_4005_DHDH_A_20260726T002130_20260726T002205_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_028_084_A_017_4005_DHDH_A_20260819T002129_20260819T002203_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_029_084_A_017_4005_DHDH_A_20260831T002128_20260831T002203_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_030_084_A_017_4005_DHDH_A_20260912T002128_20260912T002203_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_031_084_A_017_4005_DHDH_A_20260924T002128_20260924T002203_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_032_084_A_017_4005_DHDH_A_20261006T002128_20261006T002203_P05023_N_F_J_001",
+        "NISAR_L2_PR_GCOV_033_084_A_017_4005_DHDH_A_20261018T002129_20261018T002203_P05023_N_F_J_001"
+      ]
+    }
+  ],
+  "sources": {
+    "globalrice20": {
+      "name": "GlobalRice20 2024 paddy rice map, 20 m (tile Lat0_Lon45)",
+      "url": "https://zenodo.org/api/records/18168302/files/2024_Lat0_Lon45.tif/content",
+      "license": "CC-BY-4.0",
+      "citation": "Zhang, Song, Ding, Xie, Guo and Xu (2026), GlobalRice20, Zenodo, https://doi.org/10.5281/zenodo.18168302"
+    },
+    "zhao2024": {
+      "name": "Zhao et al. paddy rice and cropping intensity 2024, 30 m (India North)",
+      "url": "https://zenodo.org/api/records/21349862/files/India%20North%202024.tif/content",
+      "license": "CC-BY-4.0",
+      "citation": "Zhao, Dong, Zhang, Yang and Xiao (2026), paddy rice in South and Southeast Asia 1995-2024 at 30 m, Zenodo, https://doi.org/10.5281/zenodo.21349862"
+    },
+    "geoboundaries": {
+      "name": "geoBoundaries gbOpen India ADM2 (districts, 2021; source Pathways Data / lgdirectory.gov.in)",
+      "url": "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/IND/ADM2/geoBoundaries-IND-ADM2.geojson",
+      "license": "ODbL-1.0",
+      "citation": "Runfola et al. (2020) geoBoundaries, PLoS ONE 15(4): e0231866; IND ADM2 build 9469f09"
+    }
+  }
+}

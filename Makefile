@@ -46,3 +46,45 @@ smoke: ## Smoke-test the deployed site and API (BASE=http://localhost:8788 for a
 clean: ## Remove the venv and Python caches (never touches data/ or artifacts/)
 	rm -rf $(VENV)
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
+
+# ------------------------------------------------------------------------------------------------ geo (Karthik)
+# Python via uv (geo/pyproject.toml + geo/uv.lock). Downloads and caches go to $(DATA_DIR), outputs to $(RUN_DIR).
+UV         ?= uv
+DATA_DIR   ?= $(CURDIR)/data
+RUN_DIR    ?= $(CURDIR)/artifacts/$(RUN_ID)
+FTW_METHOD ?= ftw-global
+CLAIMS_OUT ?= $(RUN_DIR)/claims.sample.geojson
+GEO_RUN    := cd geo && $(UV) run --frozen python
+# The scripts run inside geo/, so every path handed to them is made absolute first.
+GEO_ARGS    = --run-id $(RUN_ID) --run-dir $(abspath $(RUN_DIR))
+GEO_DATA    = --data-dir $(abspath $(DATA_DIR))
+
+.PHONY: geo-setup geo-ftw-setup geo-test tiles grid fields district claims basemap
+
+geo-setup: ## geo: install the locked Python environment (geo/.venv)
+	cd geo && $(UV) sync --frozen
+
+geo-ftw-setup: ## geo: also install ftw-tools 2.0.0b5 (torch; only for FTW_METHOD=ftw-local)
+	cd geo && $(UV) sync --frozen --extra ftw
+
+geo-test: ## geo: offline unit tests (synthetic rasters and polygons)
+	cd geo && $(UV) run --frozen pytest
+
+tiles: ## geo: re-choose the two study tiles -> geo/tiles.json (network: ASF, Zenodo, geoBoundaries)
+	$(GEO_RUN) tiles.py $(GEO_DATA)
+
+grid: ## geo: aoi.json + labeled 1 ha grid fields (H+0:45 hand-off) into RUN_DIR
+	$(GEO_RUN) grid.py $(GEO_ARGS) $(GEO_DATA) --copy-to $(abspath $(DATA_DIR))/geo/$(RUN_ID)/fields.grid.geojson
+
+fields: ## geo: FTW field polygons -> fields.geojson + fields.pmtiles (FTW_METHOD=ftw-global|ftw-local)
+	$(GEO_RUN) fields.py $(GEO_ARGS) $(GEO_DATA) --method $(FTW_METHOD) \
+	  --report $(abspath $(DATA_DIR))/geo/$(RUN_ID)/fields.$(FTW_METHOD).report.json
+
+district: ## geo: district_check.json from fields + field_summary.jsonl (after publish)
+	$(GEO_RUN) district_check.py $(GEO_ARGS)
+
+claims: ## geo: 60 SYNTHETIC sample claims on the run's field ids (CLAIMS_OUT=...)
+	$(GEO_RUN) claims_sample.py $(GEO_ARGS) --out $(abspath $(CLAIMS_OUT))
+
+basemap: ## geo: Protomaps extract for both tiles -> $(DATA_DIR)/basemap/punjab.pmtiles
+	$(GEO_RUN) basemap.py $(GEO_DATA)
