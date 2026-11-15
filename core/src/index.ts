@@ -92,3 +92,4 @@ export {
   type ArtifactFile,
 } from "./compute.ts";
 export { dumpJson, dumpJsonl, dumpStates, parseJsonl } from "./json.ts";
+export { JUDGES, type JudgeEntry, type JudgeCriterion, type AppRoute, type TaggedNumber } from "./judges.ts";
