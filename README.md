@@ -36,8 +36,14 @@ measures how much a 12-day revisit can and cannot verify, and ranks fields for i
 screen says whether it was **OBSERVED** by the radar, **INFERRED** by our model, or **ASSUMED** from a cited
 source.
 
-> **Status: foundation (`v0-foundation`).** The contract, fixtures and validator are in. Everything you can
-> run today is **SAMPLE** data. Real NISAR results land on the deployed site as each lane finishes.
+**Live:** [mudskipper-nisar.pages.dev](https://mudskipper-nisar.pages.dev) ·
+API: [`/api`](https://mudskipper-nisar.pages.dev/api) · [`/api/story`](https://mudskipper-nisar.pages.dev/api/story) ·
+[`/api/states`](https://mudskipper-nisar.pages.dev/api/states) · [`/api/detectability`](https://mudskipper-nisar.pages.dev/api/detectability)
+
+> **Status:** the contract, core rules, field geometry and the Cloudflare API are live. The site currently serves
+> the **SAMPLE** fixture run (every response says `"fixture": true`) behind a placeholder page; the real NISAR run
+> replaces it when the radar pipeline's files are published, and the full app replaces the placeholder when it
+> lands.
 
 ## How it works
 
