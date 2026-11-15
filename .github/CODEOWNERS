@@ -1,0 +1,8 @@
+# Each lane owns its directories (SPEC A4, A10). Reviews are requested automatically.
+/app/        @volkthienpreecha
+/platform/   @KarthikSubramanian07
+/core/       @KarthikSubramanian07
+/geo/        @KarthikSubramanian07
+/pipeline/   @IshaanLingichetty
+# The contract is shared: every lane reviews changes to it.
+/contracts/  @KarthikSubramanian07 @IshaanLingichetty @volkthienpreecha

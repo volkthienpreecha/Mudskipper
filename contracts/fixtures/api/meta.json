@@ -1,0 +1,73 @@
+{
+  "v": 1,
+  "run_id": "fixture",
+  "fixture": true,
+  "created_at": "2026-11-14T00:00:00Z",
+  "git_sha": "fixture",
+  "season": {
+    "start": "2026-06-17",
+    "end": "2026-10-23"
+  },
+  "stages": {
+    "mid_start": "2026-07-15",
+    "late_start": "2026-09-10"
+  },
+  "gaps": [
+    {
+      "start": "2026-07-27T22:03:25Z",
+      "end": "2026-08-10T00:55:27Z",
+      "source": "https://nisar-docs.asf.alaska.edu/availability-overview/"
+    }
+  ],
+  "tiles": [
+    {
+      "id": "fazilka",
+      "district": "Fazilka",
+      "bbox": [
+        74.042,
+        30.2623,
+        74.198,
+        30.3977
+      ]
+    },
+    {
+      "id": "muktsar",
+      "district": "Sri Muktsar Sahib",
+      "bbox": [
+        74.372,
+        30.3323,
+        74.528,
+        30.4677
+      ]
+    }
+  ],
+  "counts": {
+    "fields": 300,
+    "passes": 12,
+    "passes_used": 10,
+    "observations": 3000
+  },
+  "pol_modes": [
+    "DH",
+    "QP"
+  ],
+  "methods": [
+    "fd_gmm_v1",
+    "hhhv_v1"
+  ],
+  "crids": [
+    "P05023"
+  ],
+  "assets": {
+    "fields_geojson": "/tiles/runs/fixture/fields.geojson",
+    "fields_pmtiles": null,
+    "overlays_index": "/tiles/runs/fixture/overlays/index.json",
+    "claims_sample": "/tiles/runs/fixture/claims.sample.geojson",
+    "hist": {
+      "early": "/tiles/runs/fixture/hist/early.png",
+      "mid": "/tiles/runs/fixture/hist/mid.png",
+      "late": "/tiles/runs/fixture/hist/late.png"
+    }
+  },
+  "limits_text": "No 2026 ground truth in Punjab yet. NISAR revisits every 12 days and has a data gap from Jul 27 to Aug 10, 2026. Data are provisional. States are inferred without labels. DSR is a signal, not proof. We show irrigation evidence, not emissions."
+}

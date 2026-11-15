@@ -1,0 +1,216 @@
+{
+  "v": 1,
+  "run_id": "fixture",
+  "fixture": true,
+  "audit_id": "a_0b62be829068dbfa",
+  "created_at": "2026-11-14T00:00:00Z",
+  "budget": 20,
+  "seed": 7,
+  "input_hash": "86ac920eb5ac25f56906213298fdc88200be3993b5fea121aacc89ef431e577b",
+  "synthetic": true,
+  "matched": 54,
+  "unmatched": 6,
+  "ranked": [
+    {
+      "rank": 1,
+      "claim_id": "SYN-0010",
+      "field_id": "fazilka-00018",
+      "district": "Fazilka",
+      "weight": 1.0,
+      "score": 2.6867,
+      "reason": "Not consistent with AWD (0 of 4 clear looks drained); DSR: transplant signal",
+      "pick": "score"
+    },
+    {
+      "rank": 2,
+      "claim_id": "SYN-0012",
+      "field_id": "fazilka-00123",
+      "district": "Fazilka",
+      "weight": 1.0,
+      "score": 2.6864,
+      "reason": "DSR: transplant signal",
+      "pick": "score"
+    },
+    {
+      "rank": 3,
+      "claim_id": "SYN-0042",
+      "field_id": "muktsar-00070",
+      "district": "Sri Muktsar Sahib",
+      "weight": 1.0,
+      "score": 2.6863,
+      "reason": "Not enough evidence for AWD (4 clear looks); DSR: transplant signal",
+      "pick": "score"
+    },
+    {
+      "rank": 4,
+      "claim_id": "SYN-0027",
+      "field_id": "muktsar-00121",
+      "district": "Sri Muktsar Sahib",
+      "weight": 1.0,
+      "score": 2.6863,
+      "reason": "Consistent with AWD (3 of 4 clear looks drained); DSR: transplant signal",
+      "pick": "score"
+    },
+    {
+      "rank": 5,
+      "claim_id": "SYN-0024",
+      "field_id": "fazilka-00132",
+      "district": "Fazilka",
+      "weight": 1.0,
+      "score": 2.6862,
+      "reason": "Not enough evidence for AWD (4 clear looks); DSR: transplant signal",
+      "pick": "score"
+    },
+    {
+      "rank": 6,
+      "claim_id": "SYN-0044",
+      "field_id": null,
+      "district": null,
+      "weight": 0.8,
+      "score": 2.552,
+      "reason": "Claim does not match a mapped rice field",
+      "pick": "score"
+    },
+    {
+      "rank": 7,
+      "claim_id": "SYN-0035",
+      "field_id": "muktsar-00026",
+      "district": "Sri Muktsar Sahib",
+      "weight": 0.6,
+      "score": 2.48802,
+      "reason": "Not enough evidence for AWD (4 clear looks); DSR: signal unknown",
+      "pick": "score"
+    },
+    {
+      "rank": 8,
+      "claim_id": "SYN-0003",
+      "field_id": "muktsar-00090",
+      "district": "Sri Muktsar Sahib",
+      "weight": 0.6,
+      "score": 2.4879,
+      "reason": "Not enough evidence for AWD (3 clear looks); DSR: signal unknown",
+      "pick": "score"
+    },
+    {
+      "rank": 9,
+      "claim_id": "SYN-0007",
+      "field_id": "muktsar-00099",
+      "district": "Sri Muktsar Sahib",
+      "weight": 0.6,
+      "score": 2.48784,
+      "reason": "Not enough evidence for AWD (5 clear looks); DSR: DSR signal",
+      "pick": "score"
+    },
+    {
+      "rank": 10,
+      "claim_id": "SYN-0016",
+      "field_id": null,
+      "district": null,
+      "weight": 0.8,
+      "score": 2.44,
+      "reason": "Claim does not match a mapped rice field",
+      "pick": "score"
+    },
+    {
+      "rank": 11,
+      "claim_id": "SYN-0045",
+      "field_id": "muktsar-00048",
+      "district": "Sri Muktsar Sahib",
+      "weight": 1.0,
+      "score": 1.9568,
+      "reason": "Consistent with AWD (5 of 5 clear looks drained); DSR: transplant signal",
+      "pick": "score"
+    },
+    {
+      "rank": 12,
+      "claim_id": "SYN-0031",
+      "field_id": "muktsar-00047",
+      "district": "Sri Muktsar Sahib",
+      "weight": 1.0,
+      "score": 1.9565,
+      "reason": "Not consistent with AWD (0 of 5 clear looks drained)",
+      "pick": "score"
+    },
+    {
+      "rank": 13,
+      "claim_id": "SYN-0017",
+      "field_id": "fazilka-00088",
+      "district": "Fazilka",
+      "weight": 1.0,
+      "score": 1.9564,
+      "reason": "Not enough evidence for AWD (5 clear looks); DSR: transplant signal",
+      "pick": "score"
+    },
+    {
+      "rank": 14,
+      "claim_id": "SYN-0038",
+      "field_id": "muktsar-00097",
+      "district": "Sri Muktsar Sahib",
+      "weight": 1.0,
+      "score": 1.9562,
+      "reason": "DSR: transplant signal",
+      "pick": "score"
+    },
+    {
+      "rank": 15,
+      "claim_id": "SYN-0054",
+      "field_id": "fazilka-00003",
+      "district": "Fazilka",
+      "weight": 0.6,
+      "score": 1.61202,
+      "reason": "Not enough evidence for AWD (4 clear looks)",
+      "pick": "score"
+    },
+    {
+      "rank": 16,
+      "claim_id": "SYN-0023",
+      "field_id": "fazilka-00006",
+      "district": "Fazilka",
+      "weight": 0.6,
+      "score": 1.61202,
+      "reason": "Not enough evidence for AWD (4 clear looks); DSR: signal unknown",
+      "pick": "score"
+    },
+    {
+      "rank": 17,
+      "claim_id": "SYN-0014",
+      "field_id": "fazilka-00008",
+      "district": "Fazilka",
+      "weight": 0.1,
+      "score": 0.41467000000000004,
+      "reason": "Random check; Consistent with AWD (4 of 5 clear looks drained)",
+      "pick": "random"
+    },
+    {
+      "rank": 18,
+      "claim_id": "SYN-0002",
+      "field_id": "fazilka-00029",
+      "district": "Fazilka",
+      "weight": 0.6,
+      "score": 1.1739,
+      "reason": "Random check; Not enough evidence for AWD (2 clear looks)",
+      "pick": "random"
+    },
+    {
+      "rank": 19,
+      "claim_id": "SYN-0059",
+      "field_id": "muktsar-00144",
+      "district": "Sri Muktsar Sahib",
+      "weight": 0.6,
+      "score": 1.1737199999999999,
+      "reason": "Random check; Not enough evidence for AWD (4 clear looks); DSR: signal unknown",
+      "pick": "random"
+    },
+    {
+      "rank": 20,
+      "claim_id": "SYN-0005",
+      "field_id": "muktsar-00135",
+      "district": "Sri Muktsar Sahib",
+      "weight": 0.6,
+      "score": 0.91092,
+      "reason": "Random check; Not enough evidence for AWD (3 clear looks)",
+      "pick": "random"
+    }
+  ],
+  "notice": "Ranking for inspection, not a finding about anyone."
+}

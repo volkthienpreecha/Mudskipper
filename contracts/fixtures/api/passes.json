@@ -1,0 +1,343 @@
+{
+  "v": 1,
+  "run_id": "fixture",
+  "fixture": true,
+  "passes": [
+    {
+      "pass_id": "20260623-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_023_135_D_073_2005_QPDH_A_20260623T134734_20260623T134809_P05023_N_F_J_001",
+      "datetime": "2026-06-23T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "QP",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV",
+        "VHVH",
+        "VVVV",
+        "HHHV",
+        "HHVH",
+        "HHVV",
+        "HVVH",
+        "HVVV",
+        "VHVV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 20,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.875,
+        "muktsar": 0.842
+      },
+      "used": true,
+      "excluded_reason": null
+    },
+    {
+      "pass_id": "20260705-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_024_135_D_073_2005_QPDH_A_20260705T134734_20260705T134809_P05023_N_F_J_001",
+      "datetime": "2026-07-05T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "QP",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV",
+        "VHVH",
+        "VVVV",
+        "HHHV",
+        "HHVH",
+        "HHVV",
+        "HVVH",
+        "HVVV",
+        "VHVV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 20,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.825,
+        "muktsar": 0.884
+      },
+      "used": true,
+      "excluded_reason": null
+    },
+    {
+      "pass_id": "20260714-T084A",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_025_084_A_017_4005_DHDH_A_20260714T002129_20260714T002204_P05023_N_F_J_001",
+      "datetime": "2026-07-14T00:21:29Z",
+      "direction": "ascending",
+      "track": 84,
+      "frame": 17,
+      "pol_mode": "DH",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 10,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.977,
+        "muktsar": 0.96
+      },
+      "used": false,
+      "excluded_reason": "direction_not_selected"
+    },
+    {
+      "pass_id": "20260717-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_025_135_D_073_4005_DHDH_A_20260717T134734_20260717T134809_P05023_N_F_J_001",
+      "datetime": "2026-07-17T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "DH",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 10,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.952,
+        "muktsar": 0.969
+      },
+      "used": true,
+      "excluded_reason": null
+    },
+    {
+      "pass_id": "20260810-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_027_135_D_073_2005_QPDH_A_20260810T134734_20260810T134809_P05023_N_F_J_001",
+      "datetime": "2026-08-10T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "QP",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV",
+        "VHVH",
+        "VVVV",
+        "HHHV",
+        "HHVH",
+        "HHVV",
+        "HVVH",
+        "HVVV",
+        "VHVV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 20,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.857,
+        "muktsar": 0.852
+      },
+      "used": true,
+      "excluded_reason": null
+    },
+    {
+      "pass_id": "20260822-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_028_135_D_073_2005_QPDH_A_20260822T134734_20260822T134809_P05023_N_F_J_001",
+      "datetime": "2026-08-22T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "QP",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV",
+        "VHVH",
+        "VVVV",
+        "HHHV",
+        "HHVH",
+        "HHVV",
+        "HVVH",
+        "HVVV",
+        "VHVV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 20,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.883,
+        "muktsar": 0.838
+      },
+      "used": true,
+      "excluded_reason": null
+    },
+    {
+      "pass_id": "20260903-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_029_135_D_073_2005_QPDH_A_20260903T134734_20260903T134809_P05023_N_F_J_001",
+      "datetime": "2026-09-03T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "QP",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV",
+        "VHVH",
+        "VVVV",
+        "HHHV",
+        "HHVH",
+        "HHVV",
+        "HVVH",
+        "HVVV",
+        "VHVV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 20,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.913,
+        "muktsar": 0.907
+      },
+      "used": true,
+      "excluded_reason": null
+    },
+    {
+      "pass_id": "20260915-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_030_135_D_073_2005_QPDH_A_20260915T134734_20260915T134809_P05023_N_F_J_001",
+      "datetime": "2026-09-15T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "QP",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV",
+        "VHVH",
+        "VVVV",
+        "HHHV",
+        "HHVH",
+        "HHVV",
+        "HVVH",
+        "HVVV",
+        "VHVV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 20,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.928,
+        "muktsar": 0.921
+      },
+      "used": true,
+      "excluded_reason": null
+    },
+    {
+      "pass_id": "20260915-T135D-ur",
+      "granule_id": "SAMPLE_NISAR_L2_UR_GCOV_030_135_D_073_2005_QPDH_A_20260915T134734_20260915T134809_P05023_F_F_J_001",
+      "datetime": "2026-09-15T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "QP",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV",
+        "VHVH",
+        "VVVV",
+        "HHHV",
+        "HHVH",
+        "HHVV",
+        "HVVH",
+        "HVVV",
+        "VHVV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 20,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.852,
+        "muktsar": 0.854
+      },
+      "used": false,
+      "excluded_reason": "duplicate_product"
+    },
+    {
+      "pass_id": "20260927-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_031_135_D_073_2005_QPDH_A_20260927T134734_20260927T134809_P05023_N_F_J_001",
+      "datetime": "2026-09-27T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "QP",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV",
+        "VHVH",
+        "VVVV",
+        "HHHV",
+        "HHVH",
+        "HHVV",
+        "HVVH",
+        "HVVV",
+        "VHVV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 20,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.838,
+        "muktsar": 0.892
+      },
+      "used": true,
+      "excluded_reason": null
+    },
+    {
+      "pass_id": "20261009-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_032_135_D_073_4005_DHDH_A_20261009T134734_20261009T134809_P05023_N_F_J_001",
+      "datetime": "2026-10-09T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "DH",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 10,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.987,
+        "muktsar": 0.984
+      },
+      "used": true,
+      "excluded_reason": null
+    },
+    {
+      "pass_id": "20261021-T135D",
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_033_135_D_073_2005_QPDH_A_20261021T134734_20261021T134809_P05023_N_F_J_001",
+      "datetime": "2026-10-21T13:47:34Z",
+      "direction": "descending",
+      "track": 135,
+      "frame": 73,
+      "pol_mode": "QP",
+      "covariance_terms": [
+        "HHHH",
+        "HVHV",
+        "VHVH",
+        "VVVV",
+        "HHHV",
+        "HHVH",
+        "HHVV",
+        "HVVH",
+        "HVVV",
+        "VHVV"
+      ],
+      "crid": "P05023",
+      "maturity": "provisional",
+      "pixel_m": 20,
+      "valid_fraction_by_tile": {
+        "fazilka": 0.881,
+        "muktsar": 0.9
+      },
+      "used": true,
+      "excluded_reason": null
+    }
+  ]
+}

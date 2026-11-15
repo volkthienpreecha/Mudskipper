@@ -1,0 +1,143 @@
+{
+  "v": 1,
+  "run_id": "fixture",
+  "fixture": true,
+  "git_sha": "fixture",
+  "created_at": "2026-11-14T00:00:00Z",
+  "granules": [
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_023_135_D_073_2005_QPDH_A_20260623T134734_20260623T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "46175367ed998e37ccee6ce528fcc4e89fffe5f6276026fb1766437295af3008"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_024_135_D_073_2005_QPDH_A_20260705T134734_20260705T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "ec811ed2170aa6a3d16b05c12018efcfdbf4165023c4f2240fb0e0fa0b851afa"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_025_084_A_017_4005_DHDH_A_20260714T002129_20260714T002204_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": null
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_025_135_D_073_4005_DHDH_A_20260717T134734_20260717T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "7eb731c087ea8d3ff621b978d137173403d15aaafbd86e21df445de8d538b558"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_027_135_D_073_2005_QPDH_A_20260810T134734_20260810T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "bc8bd69d474dd6e0bd47c9ad6787cf0433fed932606809c6063f28396ab36b36"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_028_135_D_073_2005_QPDH_A_20260822T134734_20260822T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "5f0847c6f5f93d94f86d671a9016a2e2a0331b82076d65d854cbbb60884b026f"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_029_135_D_073_2005_QPDH_A_20260903T134734_20260903T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "006358f158dc85b0b67f603742b53c9bcbdc218715c963fca17c3e5a80c81de3"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_030_135_D_073_2005_QPDH_A_20260915T134734_20260915T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "1e1b49aa9cb14a11d1b3be647793a771a921f9db083339ba127381f91d64c105"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_UR_GCOV_030_135_D_073_2005_QPDH_A_20260915T134734_20260915T134809_P05023_F_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": null
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_031_135_D_073_2005_QPDH_A_20260927T134734_20260927T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "2fb22c0974b854ca600e148e071ed66277d013bb0600276f420d273b5381ab72"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_032_135_D_073_4005_DHDH_A_20261009T134734_20261009T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "8cbbdcd9775a615f4973a057fe560ee300eba29da2ebea9952c7b7c3dfe26730"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_033_135_D_073_2005_QPDH_A_20261021T134734_20261021T134809_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": "e712be2746b5088b34da2a621486bca62ad738e27f9a2ff808daaaf0d90afb8b"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "aoi.json",
+      "sha256": "6f77f8ae60f562cd7e976e2ddf31d2bbfaef27264e2cf7a87b85270980c49246"
+    },
+    {
+      "path": "checks.json",
+      "sha256": "c640dfbed16f4ad33b87cf881a85856ec09ceab4f64315f00f1f7cb0cbf755f0"
+    },
+    {
+      "path": "claims.sample.geojson",
+      "sha256": "725ac5b85859b6590cdf87360b5d8c0376ed22a39fbc97713bbdf9c906c6567b"
+    },
+    {
+      "path": "detectability.json",
+      "sha256": "66faef973ad13d8566f9dc8b2e90dc80793a0052d235b5cc536fd908ad90bbc0"
+    },
+    {
+      "path": "district_check.json",
+      "sha256": "14f917ce9454337c5f01f8fdd98483bbe4ec9706c11be7848e80d0ec39b3c788"
+    },
+    {
+      "path": "field_summary.jsonl",
+      "sha256": "c1a84f79831a7f2f84fb4f3f53c4aa0722a26f08b14677159af09ee56b84dceb"
+    },
+    {
+      "path": "fields.geojson",
+      "sha256": "97895ce4d20dc1ba8eb9fe4b278445816b53f76046aa712784ae2cc8b3ba4a7e"
+    },
+    {
+      "path": "hist/early.png",
+      "sha256": "7eaa85d07c00364749aa9600c8f3cee20be1d75e10e8c31240298d19166103ec"
+    },
+    {
+      "path": "hist/late.png",
+      "sha256": "5ba51e2cbd027a68f81afea3ecbd91efa4a40676ae1cd4078516eaee9c31c539"
+    },
+    {
+      "path": "hist/mid.png",
+      "sha256": "0826d69be54b825e263d6411774de6ccb4e92b7f98d0bff09238d72248397029"
+    },
+    {
+      "path": "observations.jsonl",
+      "sha256": "5aa609c28347d5a9d4403c31700206883fb7f3274a5c5881da02d05723a6eab1"
+    },
+    {
+      "path": "overlays/20260623-T135D_fazilka.png",
+      "sha256": "135cb43f35f0e0d791810b95353ae4543dbceeafedb4e56f0152beb053fc6e27"
+    },
+    {
+      "path": "overlays/20260810-T135D_fazilka.png",
+      "sha256": "ab6f23ee9cc3f4fa52ee48163eb4b22f7267fcfe92a2bbccc3065ea3b6ef30bb"
+    },
+    {
+      "path": "overlays/20260915-T135D_fazilka.png",
+      "sha256": "d23d8f040e44dcaddafa3834e910b856aaa8c8d55b153b81299ec763509c5482"
+    },
+    {
+      "path": "overlays/index.json",
+      "sha256": "faba9bce103d42bb25e2c47db5a628b8719cb246b267a81f4949d62dbb8aabab"
+    },
+    {
+      "path": "passes.json",
+      "sha256": "5255d79f1893aea98654bf99975280e29f02cfbeb10012aed5d8291cacbeaf77"
+    },
+    {
+      "path": "story.json",
+      "sha256": "0a10d0a129c01104d79a26b9bd1a35f96be81cb64b3cbe5c8c759d109c98adb5"
+    }
+  ],
+  "decomposition_check": {
+    "reference": "SAMPLE: not run on fixtures (pipeline cross-checks one real quad-pol pass against PyPolSARpro or polsartools)",
+    "max_abs_diff_db": null
+  }
+}

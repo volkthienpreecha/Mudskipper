@@ -1,0 +1,40 @@
+name: contracts
+
+# Guards the shared contract: schemas, the reference rules, the validator and the committed fixtures.
+# Lane CI (core typecheck/test, app build, Worker deploy) lands with Lane Karthik step 2.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: contracts (python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: contracts/requirements.txt
+      - name: Test schemas, rules and validator
+        run: make test PYTHON=python
+      - name: Validate fixtures (T1) with the simulation rerun
+        run: make validate-full PYTHON=python
+      - name: Fixtures match a fresh build on Linux (T2)
+        run: make fixtures-check PYTHON=python
