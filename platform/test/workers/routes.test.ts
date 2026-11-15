@@ -215,12 +215,25 @@ describe("routing and headers", () => {
   });
 
   it("every response carries the security headers", async () => {
-    for (const path of ["/api/meta", "/api/nope", "/api/fields/fazilka-99999", "/tiles/runs/fixture/fields.geojson"]) {
-      const res = await call(path, "static");
-      expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    const cases: [string, RequestInit?][] = [
+      ["/api/meta"],
+      ["/api/nope"],
+      ["/api/fields/fazilka-99999"],
+      ["/tiles/runs/fixture/fields.geojson"],
+      ["/tiles/runs/fixture/fields.geojson", { headers: { range: "bytes=99999999-" } }], // 416
+      ["/tiles/runs/fixture/..%2f..%2flive.json"], // traversal: 404
+      ["/api/health", { method: "PUT" }], // 405
+      ["/api/audit", { method: "OPTIONS" }], // preflight
+    ];
+    for (const [path, init] of cases) {
+      const res = await call(path, "static", init);
+      expect(res.headers.get("x-content-type-options"), path).toBe("nosniff");
       expect(res.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
       expect(res.headers.get("content-security-policy")).toBe("default-src 'none'; frame-ancestors 'none'");
+      expect(res.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains");
+      expect(res.headers.get("x-frame-options")).toBe("DENY");
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      expect(res.headers.get("access-control-allow-credentials")).toBeNull();
     }
   });
 

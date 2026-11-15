@@ -191,6 +191,9 @@ def parse(text: str):
 def load_json(path: pathlib.Path, rep: Report, where: str):
     try:
         return parse(path.read_text(encoding="utf-8"))
+    except RecursionError:
+        rep.error(where, "cannot parse: RecursionError (JSON nested too deeply)")
+        return None
     except (OSError, UnicodeDecodeError, ValueError) as exc:
         rep.error(where, f"cannot parse: {exc}")
         return None
@@ -209,6 +212,8 @@ def load_jsonl(path: pathlib.Path, rep: Report, where: str):
             continue
         try:
             rows.append((i, parse(line)))
+        except RecursionError:
+            rep.error(f"{where}:{i}", "cannot parse: RecursionError (JSON nested too deeply)")
         except ValueError as exc:
             rep.error(f"{where}:{i}", f"cannot parse: {exc}")
     return rows
@@ -392,6 +397,11 @@ def _validate_run(run: pathlib.Path, schemas: Schemas, rep: Report, stage: str, 
         for a in prov["artifacts"]:
             rep.check(a["path"] not in listed, "provenance.json", f"{a['path']} listed twice")
             listed[a["path"]] = a["sha256"]
+            # The schema's path pattern admits "." and ".." segments; never read outside the run (K-345).
+            parts = pathlib.PurePosixPath(a["path"]).parts
+            if not rep.check(bool(parts) and not a["path"].startswith("/") and all(seg not in (".", "..") for seg in parts),
+                             "provenance.json", f"artifact path {a['path']!r} leaves the run directory"):
+                continue
             path = run / a["path"]
             if rep.check(path.is_file(), "provenance.json", f"lists {a['path']}, which does not exist"):
                 rep.check(sha256(path) == a["sha256"], "provenance.json", f"sha256 mismatch for {a['path']}")
@@ -768,7 +778,7 @@ def _validate_api(root: pathlib.Path, schemas: Schemas, rep: Report):
     def run_json(name):
         try:
             return parse((run / name).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except (OSError, ValueError, RecursionError):
             return None
 
     for api_name, run_name in (("story.json", "story.json"), ("passes.json", "passes.json"),
@@ -787,7 +797,7 @@ def _validate_api(root: pathlib.Path, schemas: Schemas, rep: Report):
         for line in (run / "field_summary.jsonl").read_text(encoding="utf-8").splitlines():
             s = parse(line)
             summaries[s["field_id"]] = s
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         pass
     if "fields.json" in docs:
         page = docs["fields.json"]

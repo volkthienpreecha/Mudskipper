@@ -38,7 +38,10 @@ source.
 
 **Live:** [mudskipper-nisar.pages.dev](https://mudskipper-nisar.pages.dev) ·
 API: [`/api`](https://mudskipper-nisar.pages.dev/api) · [`/api/story`](https://mudskipper-nisar.pages.dev/api/story) ·
-[`/api/states`](https://mudskipper-nisar.pages.dev/api/states) · [`/api/detectability`](https://mudskipper-nisar.pages.dev/api/detectability)
+[`/api/states`](https://mudskipper-nisar.pages.dev/api/states) · [`/api/detectability`](https://mudskipper-nisar.pages.dev/api/detectability) ·
+Docs: [developer guide](https://mudskipper-nisar.pages.dev/developers) · [OpenAPI 3.1](https://mudskipper-nisar.pages.dev/openapi.json) ·
+[`llms.txt`](https://mudskipper-nisar.pages.dev/llms.txt) · [About](https://mudskipper-nisar.pages.dev/about) ·
+[Privacy](https://mudskipper-nisar.pages.dev/privacy). Every page also answers `Accept: text/markdown`.
 
 > **Status:** the contract, core rules, field geometry and the Cloudflare API are live. The site currently serves
 > the **SAMPLE** fixture run (every response says `"fixture": true`) behind a placeholder page; the real NISAR run
@@ -81,7 +84,7 @@ number generator, so the Python reference and the TypeScript core agree to the b
 
 | Path | What | Owner |
 |---|---|---|
-| [`docs/`](docs) | [Build spec](docs/SPEC.md), [win guide](docs/WIN_GUIDE.md), generated page copy | team |
+| [`docs/`](docs) | [Build spec](docs/SPEC.md), [win guide](docs/WIN_GUIDE.md), [security](docs/SECURITY.md), generated page copy | team |
 | [`contracts/`](contracts) | The contract: [CONTRACTS.md](contracts/CONTRACTS.md), JSON Schemas, reference rules, fixtures, validator | shared |
 | [`pipeline/`](pipeline) | NISAR search, bounded reads, decomposition, per-field states, overlays, checks | Ishaan |
 | [`geo/`](geo) | Tiles, field polygons, district table, sample claims | Karthik |

@@ -76,6 +76,25 @@ class RejectsBrokenRuns(Base):
         self.edit_json("passes.json", recrid)
         self.assertFails(self.validate_root(), "T4: series ('descending', 135, 73) mixes CRIDs ['P05023', 'P05036']")
 
+    def test_provenance_artifact_path_cannot_leave_the_run(self):
+        # K-345: "../" matches the schema's path pattern, so validate.py itself must refuse to read it.
+        import hashlib
+        secret = self.tmp / "secret.txt"
+        secret.write_text("not part of any run\n", encoding="utf-8")
+        digest = hashlib.sha256(secret.read_bytes()).hexdigest()
+
+        def add(doc):
+            doc["artifacts"].append({"path": "../../secret.txt", "sha256": digest})
+            doc["artifacts"].sort(key=lambda a: a["path"])
+        self.edit_json("provenance.json", add)
+        rep = self.validate_root()
+        self.assertFails(rep, "artifact path '../../secret.txt' leaves the run directory")
+        self.assertNotIn("does not exist", "\n".join(e for e in rep.errors if "secret.txt" in e))
+
+    def test_deeply_nested_json_is_an_error_not_a_crash(self):
+        (self.run_dir / "story.json").write_text("[" * 200_000 + "]" * 200_000, encoding="utf-8")
+        self.assertFails(self.validate_root(), "cannot parse: RecursionError")
+
     def test_t3_missing_granule_in_provenance(self):
         self.edit_json("provenance.json", lambda d: d["granules"].pop(0))
         self.assertFails(self.validate_root(), "T3: pass 20260623-T135D has no granule entry")

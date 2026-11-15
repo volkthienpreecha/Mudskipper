@@ -5,10 +5,13 @@
  *   - the app: app/dist when it exists (Volk's build; never edited here), else the placeholder page
  *     (platform/placeholder/, filled in with the live run's numbers);
  *   - the static API bundle under /data/ (scripts/build-bundle.ts);
- *   - `_routes.json`: Functions run only on /api, /api/* and /tiles/*; everything else is static, and with no
- *     top-level 404.html Pages serves index.html for unknown paths (SPA fallback);
+ *   - the agent-ready pages (scripts/lib/pages.ts, DECISIONS.md K-321 to K-327): one HTML file per app route,
+ *     /about, /contact, /privacy, /developers, a top-level 404.html (real 404s: no SPA fallback), a Markdown
+ *     twin of every page, openapi.json/.yaml, llms.txt, llms-full.txt and /.well-known/api-catalog;
+ *   - `_routes.json`: the Hono app on /api/* and /tiles/*, the page middleware (functions/_middleware.ts) on
+ *     page paths, and static files (/assets, /fonts, /data, images, …) excluded so they never run a Function;
  *   - `_headers` for static assets (security headers, CSP for the placeholder, cache policy);
- *   - robots.txt and sitemap.xml.
+ *   - robots.txt, sitemap.xml and /.well-known/security.txt (RFC 9116).
  *
  *   node scripts/build-site.ts --fixtures                     # sample run
  *   node scripts/build-site.ts --run ../artifacts/r01 [--updated-at now] [--out DIR] [--placeholder]
@@ -20,16 +23,17 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type { JsonObject } from "../src/contracts.ts";
 import { ROUTES } from "../src/app.ts";
+import { HSTS, PERMISSIONS_POLICY } from "../src/http/headers.ts";
 import { LIMITS_TEXT } from "../src/limits.ts";
 import { buildBundle, type BundleResult } from "./build-bundle.ts";
+import { jsonLd } from "./lib/content.ts";
+import { PAGE_CSS_HASH, siteRoutes, writeAgentSite } from "./lib/pages.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT } from "./lib/run.ts";
 import { PRODUCTION_URL } from "./lib/wrangler.ts";
 
 export const DEFAULT_OUT = join(PLATFORM_ROOT, ".site");
 const PLACEHOLDER = join(PLATFORM_ROOT, "placeholder");
 const APP_DIST = join(REPO_ROOT, "app", "dist");
-/** The app's routes (app/src/main.ts navigation), for the sitemap when the app is deployed. */
-const APP_ROUTES = ["/", "/lab", "/scarecrow", "/evidence", "/methods"];
 /**
  * CSP for Volk's app (app/dist): its own scripts and its MapLibre worker, styles that MapLibre sets inline,
  * the Esri World Imagery basemap tiles, overlay PNGs and data from this API (same origin, or the production
@@ -40,6 +44,7 @@ export const APP_CSP = [
   "script-src 'self'",
   "worker-src 'self' blob:",
   "child-src blob:",
+  "frame-src 'none'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://server.arcgisonline.com https://mudskipper-nisar.pages.dev https://*.mudskipper-nisar.pages.dev",
   "font-src 'self'",
@@ -50,6 +55,27 @@ export const APP_CSP = [
   "form-action 'none'",
   "frame-ancestors 'none'",
 ].join("; ");
+/** Where vulnerability reports go (docs/SECURITY.md, "Reporting a vulnerability"). */
+export const SECURITY_CONTACT = "https://github.com/volkthienpreecha/Mudskipper/security/advisories/new";
+export const SECURITY_POLICY = "https://github.com/volkthienpreecha/Mudskipper/blob/main/docs/SECURITY.md";
+
+/**
+ * RFC 9116 security.txt. `Expires` is one year after `now` (the RFC recommends less than a year ahead), so every
+ * deploy renews it; `Canonical` names the production URL.
+ */
+export function securityTxt(siteUrl: string, now = new Date()): string {
+  const expires = new Date(now.getTime() + 365 * 86_400_000);
+  expires.setUTCHours(0, 0, 0, 0);
+  return [
+    `Contact: ${SECURITY_CONTACT}`,
+    `Expires: ${expires.toISOString().replace(/\.\d{3}Z$/, "Z")}`,
+    `Policy: ${SECURITY_POLICY}`,
+    "Preferred-Languages: en",
+    `Canonical: ${siteUrl}/.well-known/security.txt`,
+    "",
+  ].join("\n");
+}
+
 /** Pages limits (Free plan): 20,000 files per deployment, 25 MiB per file. */
 export const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -178,19 +204,10 @@ function placeholderHtml(b: BundleResult, siteUrl: string): { html: string; csp:
           : `<span class="p">${esc(r.path)}</span>`;
     return `      <li><span class="m${m === "POST" ? " post" : ""}">${m}</span>${path}<span class="d">${esc(r.description)}</span></li>`;
   }).join("\n");
-  const jsonLd = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "Mudskipper",
-    url: `${siteUrl}/`,
-    description:
-      "Mudskipper uses NASA-ISRO NISAR radar to show, field by field, what space can prove about rice-field drainage, what it can't, and where an inspector should look first.",
-    inLanguage: "en",
-    license: "https://spdx.org/licenses/GPL-3.0-only.html",
-  }).replace(/</g, "\\u003c");
+  const ld = JSON.stringify(jsonLd({ siteUrl, bundle: b, appRoutes: [], appPrefixes: [], app: "placeholder", extraPages: [] })).replace(/</g, "\\u003c");
   const values: Record<string, string> = {
     SITE_URL: siteUrl,
-    JSON_LD: jsonLd,
+    JSON_LD: ld,
     STYLE: style,
     SCRIPT: script,
     MARK: markInline(),
@@ -219,7 +236,7 @@ function placeholderHtml(b: BundleResult, siteUrl: string): { html: string; csp:
   const csp = [
     "default-src 'none'",
     `script-src ${cspHash(script)}`,
-    `style-src ${cspHash(style)}`,
+    `style-src ${cspHash(style)} ${PAGE_CSS_HASH}`,
     "img-src 'self' data:",
     "font-src 'self'",
     "connect-src 'self'",
@@ -238,10 +255,16 @@ function headersFile(b: BundleResult, csp: string | null): string {
     "/*",
     "  X-Content-Type-Options: nosniff",
     "  Referrer-Policy: strict-origin-when-cross-origin",
-    "  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    `  Permissions-Policy: ${PERMISSIONS_POLICY}`,
     "  Cross-Origin-Opener-Policy: same-origin",
+    // same-site, not same-origin: the deployment hash URLs and branch previews are subdomains of this host.
+    "  Cross-Origin-Resource-Policy: same-site",
+    `  Strict-Transport-Security: ${HSTS}`,
     `  Content-Security-Policy: ${csp ?? APP_CSP}`,
     "  X-Frame-Options: DENY",
+    "",
+    "/.well-known/security.txt",
+    "  Cache-Control: public, max-age=86400",
     "",
     "/fonts/*",
     "  Cache-Control: public, max-age=31536000, immutable",
@@ -263,6 +286,10 @@ function headersFile(b: BundleResult, csp: string | null): string {
     `/data/runs/${b.run.run_id}/*`,
     `  Cache-Control: ${runCache}`,
     "  Access-Control-Allow-Origin: *",
+    "",
+    // The static API bundle is public data other origins may read (like /api and /tiles): no CORP here.
+    "/data/*",
+    "  ! Cross-Origin-Resource-Policy",
     "",
   ];
   return lines.join("\n");
@@ -298,7 +325,7 @@ export function withLinkPreview(html: string, siteUrl: string): string {
  */
 export function installApp(out: string, siteUrl: string): void {
   if (existsSync(join(APP_DIST, "data"))) throw new Error("app/dist contains /data, which is reserved for the API bundle");
-  if (existsSync(join(APP_DIST, "404.html"))) console.warn("warning: app/dist has a top-level 404.html, which turns off Pages' SPA fallback");
+  if (existsSync(join(APP_DIST, "404.html"))) console.warn("warning: app/dist has a top-level 404.html; build-site replaces it with its own (K-321)");
   rmSync(join(out, "assets"), { recursive: true, force: true });
   cpSync(APP_DIST, out, { recursive: true });
   const indexPath = join(out, "index.html");
@@ -335,6 +362,52 @@ export function countFiles(dir: string): { files: number; largest: [string, numb
   return { files, largest };
 }
 
+/**
+ * Everything after the frontend and the /data bundle are in place, for the origin `siteUrl`: the placeholder
+ * page (when there is no app), the agent-ready pages and files, `_routes.json`, `_headers`, robots.txt and
+ * sitemap.xml. publish.ts calls it again for production (after re-installing the app built for the production
+ * origin), so production gets production URLs and exactly the page assembly the preview was smoked with.
+ */
+export function finishSite(out: string, bundle: BundleResult, opts: { siteUrl: string; useApp: boolean }): void {
+  const { siteUrl, useApp } = opts;
+  let csp: string | null = null;
+  if (!useApp) {
+    const page = placeholderHtml(bundle, siteUrl);
+    csp = page.csp;
+    writeFileSync(join(out, "index.html"), page.html);
+    cpSync(join(PLACEHOLDER, "fonts"), join(out, "fonts"), { recursive: true });
+    for (const f of ["favicon.svg", "favicon-48.png", "apple-touch-icon.png", "og.png"]) cpSync(join(PLACEHOLDER, f), join(out, f));
+  }
+  const agent = writeAgentSite(out, { siteUrl, bundle, app: useApp ? "app" : "placeholder" });
+
+  const appHeaders = useApp && existsSync(join(APP_DIST, "_headers")) ? readFileSync(join(APP_DIST, "_headers"), "utf8").trimEnd() + "\n\n" : "";
+  writeFileSync(join(out, "_headers"), appHeaders + headersFile(bundle, csp) + "\n" + agent.headers);
+
+  writeFileSync(
+    join(out, "robots.txt"),
+    [
+      "# Mudskipper. AI agents and crawlers are welcome: start at /llms.txt (site map for agents) or /openapi.json.",
+      "User-agent: *",
+      "Allow: /",
+      "Disallow: /api/",
+      "Disallow: /tiles/",
+      "Disallow: /data/",
+      "",
+      `Sitemap: ${siteUrl}/sitemap.xml`,
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    join(out, "sitemap.xml"),
+    '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+      agent.sitemap.map((p) => `  <url><loc>${siteUrl}${p}</loc></url>`).join("\n") +
+      "\n</urlset>\n",
+  );
+  mkdirSync(join(out, ".well-known"), { recursive: true });
+  writeFileSync(join(out, ".well-known", "security.txt"), securityTxt(siteUrl));
+  writeFileSync(join(out, "_routes.json"), JSON.stringify(siteRoutes(out), null, 2) + "\n");
+}
+
 export function buildSite(opts: SiteOptions): SiteResult {
   const out = resolve(opts.out ?? DEFAULT_OUT);
   const siteUrl = opts.siteUrl ?? PRODUCTION_URL;
@@ -351,37 +424,11 @@ export function buildSite(opts: SiteOptions): SiteResult {
     ...(opts.updatedAt ? { updatedAt: opts.updatedAt } : {}),
   });
 
-  let csp: string | null = null;
-  if (!useApp) {
-    const page = placeholderHtml(bundle, siteUrl);
-    csp = page.csp;
-    writeFileSync(join(out, "index.html"), page.html);
-    cpSync(join(PLACEHOLDER, "fonts"), join(out, "fonts"), { recursive: true });
-    for (const f of ["favicon.svg", "favicon-48.png", "apple-touch-icon.png", "og.png"]) cpSync(join(PLACEHOLDER, f), join(out, f));
-  }
-
-  const routes = { version: 1, include: ["/api", "/api/*", "/tiles/*"], exclude: [] as string[] };
-  writeFileSync(join(out, "_routes.json"), JSON.stringify(routes, null, 2) + "\n");
-
-  const ours = headersFile(bundle, csp);
-  const existing = existsSync(join(out, "_headers")) ? readFileSync(join(out, "_headers"), "utf8").trimEnd() + "\n\n" : "";
-  writeFileSync(join(out, "_headers"), existing + ours);
-
-  const pages = useApp ? APP_ROUTES : ["/"];
-  writeFileSync(
-    join(out, "robots.txt"),
-    ["User-agent: *", "Allow: /", "Disallow: /api/", "Disallow: /tiles/", "Disallow: /data/", "", `Sitemap: ${siteUrl}/sitemap.xml`, ""].join("\n"),
-  );
-  writeFileSync(
-    join(out, "sitemap.xml"),
-    '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-      pages.map((p) => `  <url><loc>${siteUrl}${p}</loc></url>`).join("\n") +
-      "\n</urlset>\n",
-  );
-
+  finishSite(out, bundle, { siteUrl, useApp });
   const { files, largest } = countFiles(out);
   if (files > MAX_FILES) throw new Error(`${files} files exceeds the Pages limit of ${MAX_FILES}`);
   if (largest[1] > MAX_FILE_BYTES) throw new Error(`${largest[0]} is ${largest[1]} bytes, over the Pages 25 MiB limit`);
+  const routes = JSON.parse(readFileSync(join(out, "_routes.json"), "utf8")) as unknown;
   return { out, app: useApp ? "app/dist" : "placeholder", bundle, files, routes };
 }
 

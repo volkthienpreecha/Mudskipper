@@ -14,11 +14,16 @@ deployment. Response shapes are pinned by [`contracts/schemas/api`](../contracts
 ```
                          https://mudskipper-nisar.pages.dev   (Pages project mudskipper-nisar, branch main)
                                           │
-              _routes.json: /api, /api/*, /tiles/* ──► Pages Functions ──────────────┐
-              everything else ──► static assets (SPA fallback to index.html)        │
-                                          │                                          ▼
+   _routes.json: /* ──► functions/_middleware.ts (src/site.ts: Accept → .md, real 404s, Vary) ──┐
+                 /api/*, /tiles/* ──► Pages Functions (Hono) ────────────────────────────┐   │
+   excluded: /assets/* /fonts/* /data/* images robots … ──► static assets only          │   │
+              unknown paths ──► 404.html (404; no SPA fallback)                          ▼   ▼
  ┌──────────── static assets (platform/.site) ────────────┐        functions/api/[[path]].ts
  │ index.html  app/dist, or placeholder/ when no app yet  │        functions/tiles/[[path]].ts
+ │ lab.html evidence.html … (one per app route), 404.html │
+ │ about/contact/privacy/developers.html + every *.md     │
+ │ openapi.json/.yaml llms.txt llms-full.txt site.json    │
+ │ .well-known/api-catalog                                │
  │ og.png  favicon.svg  fonts/  robots.txt  sitemap.xml   │                 │ hono/cloudflare-pages
  │ _headers (CSP, nosniff, cache)  _routes.json           │                 ▼
  │ data/live.json                                         │◄──┐     src/app.ts  (one Hono app)
@@ -51,6 +56,9 @@ deployment. Response shapes are pinned by [`contracts/schemas/api`](../contracts
 | `GET /api/audit/:id` | stored `api/audit_response` | `public, max-age=31536000, immutable` |
 | `GET /tiles/runs/<run_id>/<file>` | bytes, Range → 206, 416, If-None-Match → 304 | real run: 1 year immutable; `fixture`: 5 min |
 
+The full description, with every schema, is [`/openapi.json`](https://mudskipper-nisar.pages.dev/openapi.json)
+(generated at build time; `test/node/agent-site.test.ts` checks it against this table's routes in `src/app.ts`).
+
 Errors are only `{"error":{"code","message"}}`: `invalid_json`, `invalid_request`, `too_large` (413, body > 5 MB,
 checked from `Content-Length` and while streaming), `too_many_claims` (> 5,000), `duplicate_claim_id`,
 `invalid_geometry`, `rate_limited` (429 + `Retry-After`), `not_found`, `method_not_allowed` (405 + `Allow`),
@@ -69,6 +77,31 @@ the whole file), so `/tiles/*` computes ranges itself from the manifest's size a
 ASSETS for the bytes and slices them when needed. With R2 bound it uses `head()` + ranged `get()` and the same
 range code, so both backends answer identically (tests cover suffix, open-ended, 416, If-None-Match, If-Range,
 multi-range and HEAD).
+
+## Pages for people and agents
+
+`scripts/lib/pages.ts` (DECISIONS.md K-321 to K-327) writes, after the frontend and the /data bundle:
+
+| Path | What it is |
+|---|---|
+| `/`, and `/lab`, `/scarecrow`, `/evidence`, `/methods`, `/judges`, `/map` when the app's code names them | the app, with the route's title and canonical URL; an app with an empty mount node gets the route's content prerendered inside it (hidden while JavaScript runs, shown without it) |
+| `/field/<id>` | the app shell (200), from the `app_prefixes` in `/site.json` |
+| `/about`, `/contact`, `/privacy`, `/developers` | static pages from `scripts/lib/content.ts` (the build's `/privacy` replaces `app/public/privacy.html`) |
+| any of those with `Accept: text/markdown` | its `.md` twin (`/index.md`, `/about.md`, …), `text/markdown; charset=utf-8`, `Vary: Accept` |
+| an unknown path | 404 with `404.html`, or `404.md` for `Accept: text/markdown` |
+| `/openapi.json`, `/openapi.yaml` | OpenAPI 3.1 generated from `contracts/schemas` (`scripts/lib/openapi.ts`) |
+| `/llms.txt`, `/llms-full.txt`, `/.well-known/api-catalog` | agent discovery (llmstxt.org, RFC 9727) |
+| `/site.json` | the middleware's manifest: pages with Markdown, app route prefixes |
+
+Every page is written once as blocks from the live run's documents and rendered to both HTML and Markdown, so
+the two never disagree. Previews use their own origin in every generated URL; `publish.ts` re-assembles for the
+production origin before deploying production (`finishSite`).
+
+```sh
+curl -H 'Accept: text/markdown' https://mudskipper-nisar.pages.dev/          # Markdown homepage
+curl -i https://mudskipper-nisar.pages.dev/no-such-page                     # 404
+curl https://mudskipper-nisar.pages.dev/openapi.json
+```
 
 ## Storage backends
 
@@ -93,8 +126,8 @@ All are plain `node` (Node 24 runs the TypeScript directly) and print `--help`.
 | Command | What it does |
 |---|---|
 | `make publish FIXTURES=1` / `make publish RUN_ID=r01` | `scripts/publish.ts`: preflight → compute-run + district table → `validate.py --recompute` → republish guard → app + bundle + site → (D1 load, R2 upload) → deploy the `staging` preview → smoke it → app for the production origin, carry the previous run's tiles → deploy production → smoke it → mirror live (K-318). `--branch NAME` publishes a preview only. `ARGS=--dry-run` prints the preflight and the plan. |
-| `make smoke` (`BASE=…`) | `scripts/smoke.ts`: every endpoint schema-validated, T8 fixture flag, Range 206/416/304, audit POST (golden ranking while the fixture run is live) + GET round trip, SPA fallback, timings |
-| `npm run build:site -w platform -- --fixtures` | `scripts/build-site.ts` → `platform/.site/` (app/dist or placeholder, `/data/` bundle, `_routes.json`, `_headers`, robots, sitemap) |
+| `make smoke` (`BASE=…`) | `scripts/smoke.ts`: every endpoint schema-validated, T8 fixture flag, Range 206/416/304, audit POST (golden ranking while the fixture run is live) + GET round trip, Markdown negotiation, real 404s, every page, OpenAPI and llms.txt, timings |
+| `npm run build:site -w platform -- --fixtures` | `scripts/build-site.ts` → `platform/.site/` (app/dist or placeholder, `/data/` bundle, route pages, trust and developer pages, Markdown twins, OpenAPI, llms.txt, `_routes.json`, `_headers`, robots, sitemap) |
 | `npm run build:bundle -w platform -- --run DIR` | `scripts/build-bundle.ts`: every API response validated, then written; deterministic |
 | `npm run load-d1 -w platform -- --fixtures --local` | `scripts/load-d1.ts`: `--local`/`--remote`, `--dry-run`, `--budget 90000`, `--allow-over-budget`, `--live`, `--full` |
 | `npm run og -w platform` | `scripts/og.ts`: `og.png` (1200×630, headless Chrome + the self-hosted fonts) and the raster icons |
