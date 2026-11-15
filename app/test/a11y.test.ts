@@ -20,7 +20,8 @@ import { serveStatic, type StaticServer } from './support/static-server.ts';
 const DIST = fileURLToPath(new URL('../dist', import.meta.url));
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const OFFLINE = process.env.A11Y_OFFLINE === '1';
-const API = 'https://mudskipper-nisar.pages.dev';
+// The production API and its preview deployments (a build may point at either through VITE_API_BASE_URL).
+const API = /^https:\/\/([a-z0-9-]+\.)?mudskipper-nisar\.pages\.dev\//;
 const LONG = 180_000;
 
 let server: StaticServer;
@@ -47,6 +48,8 @@ async function open(viewport = { width: 1440, height: 900 }, setup?: (context: B
   (page as Page & { errors: string[] }).errors = errors;
   await page.goto(server.origin + '/', { waitUntil: 'domcontentloaded', timeout: LONG });
   await page.waitForSelector('#fcard .pickbtn', { timeout: LONG });
+  // Start-up ends with restoring the URL state, which writes ?dataset=… ; act only after that.
+  await page.waitForFunction(() => location.search.includes('dataset='), null, { timeout: LONG });
   // Scroll-triggered reveals: show every section, as a visitor scrolling through would see it.
   await page.evaluate(() => document.querySelectorAll('.rv, .step, .card, #tl, .track').forEach((element) => element.classList.add('in')));
   return page;
@@ -146,7 +149,7 @@ describe('axe-core, WCAG 2.2 A and AA', { timeout: 30 * 60_000 }, () => {
 
   test('API unavailable: dataset and field errors are announced and pass axe', async () => {
     const page = await open(undefined, async (context) => {
-      await context.route(`${API}/**`, (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"unavailable"}' }));
+      await context.route(API, (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"unavailable"}' }));
     });
     await page.selectOption('#datasetSelect', 'api');
     await page.waitForFunction(() => /Retry the dataset selection/.test(document.querySelector('#dataStatus')?.textContent ?? ''), null, { timeout: LONG });
