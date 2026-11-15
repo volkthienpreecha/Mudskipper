@@ -1,0 +1,141 @@
+/* WCAG 2.2 AA refinements. Loaded last, after system-ui.css. They keep the imported design (photography,
+   dark ink palette, teal/coral states, section order) and only add what conformance needs. The reason for
+   each rule is the success criterion named beside it. */
+
+/* Text alternatives and announcements that are spoken but not shown. */
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 2.4.1: two skip links share the same spot and appear one at a time on focus. */
+.skip-link { font-weight: 600; text-decoration: none; }
+.skip-link:focus-visible { outline: 2px solid var(--water); outline-offset: 3px; }
+
+/* Programmatic focus targets (skip link targets) do not need a ring; the report card does show one. */
+main:focus, section[tabindex="-1"]:focus { outline: none; }
+#fcard:focus-visible { outline: 2px solid var(--water); outline-offset: 4px; }
+
+/* 2.4.11: keyboard focus scrolls clear of the fixed navigation, whatever its height. */
+html { scroll-padding-top: calc(var(--nav-h, 72px) + 16px); scroll-padding-bottom: 24px; }
+
+/* 1.4.3: the photographic scenes keep their look, with a scrim that holds body text at 4.5:1 or better.
+   Measured against the brightest 2% of background pixels in each text box (see app/ACCESSIBILITY.md). */
+.shade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(6, 9, 11, .35) 0%, rgba(6, 9, 11, .5) 45%, rgba(6, 9, 11, .58) 100%);
+  transition: opacity 1.2s var(--ease);
+}
+@media (min-width: 901px) {
+  /* Hero copy sits on the dark left edge and the preview card is opaque, so the hero keeps the brighter Earth. */
+  .bg[data-scene="0"] .shade::after { opacity: 0; }
+}
+.timeline { background: #0e1a1fe8 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+#seasonSvg .ax.gap-label { fill: var(--ink); paint-order: stroke; stroke: #0e1a1f; stroke-width: 5px; stroke-linejoin: round; }
+.pv-coords { padding: 1px 6px; border-radius: 999px; background: rgba(0, 0, 0, .66); color: #fff !important; text-shadow: none !important; }
+#fieldMap .clabel { stroke: rgba(0, 0, 0, .8) !important; stroke-width: 4px !important; }
+#fieldMap .mk text { stroke: rgba(0, 0, 0, .85) !important; stroke-width: 4px !important; }
+
+/* 1.4.1 and 1.4.11: state swatches carry a shape as well as a colour, and the hatched and empty states have
+   3:1 edges against the card. */
+.chip span, .pcol span { display: grid; place-items: center; }
+.chip span svg, .pcol span svg { width: 12px; height: 12px; fill: none; stroke: #0e1a1f; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; opacity: .78; }
+.chip span.f svg, .pcol span.f svg { fill: #0e1a1f; stroke: none; }
+.chip span.u, .pcol .u, .passes .u { background: repeating-linear-gradient(135deg, #7d888e 0 2px, #1a2126 2px 5px) !important; }
+.chip span.n { box-shadow: inset 0 0 0 1px #7b8f96; }
+#seasonSvg .edge { fill: none; stroke: #0e1a1f; stroke-width: 2; }
+#seasonSvg .cursor.on { opacity: .6; }
+
+/* 2.4.7: visible focus on the map's SVG controls, distinct from the solid selected outline. */
+#fieldMap .mk:focus { outline: none; }
+#fieldMap .mk:focus-visible .dot { stroke: #fff; stroke-width: 3px; vector-effect: non-scaling-stroke; }
+#fieldMap .mk:focus-visible text { fill: var(--water) !important; text-decoration: underline; }
+#gF path:focus { outline: none; }
+#gF path:focus-visible { stroke: #fff !important; stroke-width: 3.5px !important; stroke-dasharray: 6 3; fill-opacity: .85; }
+#seasonPlot:focus-visible { outline: 2px solid var(--water); outline-offset: 6px; border-radius: 4px; }
+:is(.chart-table-wrap, .bt-table-wrap, #backend-tool-content):focus-visible { outline: 2px solid var(--water); outline-offset: 4px; }
+
+/* 2.2.2: "Pause animations" in the navigation. */
+.motion-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  flex-shrink: 0;
+  border: 1px solid var(--control-line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--dim);
+  font: 500 var(--text-caption)/1.3 var(--sans);
+  cursor: pointer;
+}
+.motion-toggle svg { width: 16px; height: 16px; flex: none; }
+.motion-toggle:hover { background: #253940; color: var(--ink); }
+.motion-toggle[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+@media (max-width: 900px) {
+  .motion-toggle { padding: 8px 10px; }
+  .motion-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
+}
+/* Paused: no looping or long animation anywhere, the same as the reduced-motion setting. */
+html.motion-paused *, html.motion-paused *::before, html.motion-paused *::after { animation: none !important; transition: none !important; }
+html.motion-paused .slide { transform: none !important; }
+html.motion-paused .rv, html.motion-paused .cell { opacity: 1; transform: none; }
+html.motion-paused .step, html.motion-paused .card { opacity: 1 !important; transform: none !important; }
+/* The typing caret blinks for five seconds, then rests (2.2.2). */
+.pv-search .caret { animation-iteration-count: 5; }
+
+/* 1.4.13: Escape hides the Legal submenu that opens on hover and focus. */
+.dd.dismissed .ddm { opacity: 0 !important; pointer-events: none !important; }
+
+/* Field report: the field list for keyboard and touch selection (2.1.1, 2.5.8). */
+.fc-empty-top { margin: 12px 0 20px !important; text-align: left !important; max-width: none !important; }
+.fc-picker { display: grid; gap: 6px; margin-top: auto; color: var(--dim); font-size: var(--text-caption); }
+.fc-picker select { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid var(--control-line); border-radius: 8px; background: #16262d; color: var(--ink); font: 1rem var(--sans); }
+.fc-open { margin-top: 12px; align-self: flex-start; }
+
+/* 2.5.7: map panning buttons beside zoom. */
+.map-controls { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
+.map-controls svg { width: 18px; height: 18px; }
+@media (max-width: 600px) {
+  .map-controls button { min-width: 36px; min-height: 36px; padding: 4px 6px; }
+}
+
+/* Season chart data table (1.1.1). */
+.chart-table { margin-top: 16px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, .12); }
+.chart-table summary { display: flex; align-items: center; min-height: 44px; color: var(--dim); font-size: var(--text-secondary); cursor: pointer; }
+.chart-table summary:hover { color: var(--ink); }
+.chart-table-wrap { max-width: 100%; overflow-x: auto; }
+.chart-table table { width: 100%; border-collapse: collapse; font-size: var(--text-secondary); font-variant-numeric: tabular-nums; text-align: left; }
+.chart-table th, .chart-table td { padding: 10px 16px 10px 0; border-bottom: 1px solid var(--line); font-weight: 400; }
+.chart-table thead th { color: var(--dim); font-size: var(--text-caption); }
+.chart-table tbody th { color: var(--ink); }
+
+/* Inspection list as an ordered list. */
+#backendTools .bt-queue-list { list-style: none; margin: 0; padding: 0; }
+
+/* 1.4.10: reflow at 320 CSS pixels. */
+@media (max-width: 400px) {
+  nav { padding-inline: 16px; }
+  section { padding-inline: 16px; }
+  .hero { padding-inline: 16px; }
+  .mapapp { padding: 12px; }
+  .map-bar { padding: 12px 0; }
+  .fcard { padding: 16px; }
+  .preview { padding: 16px; }
+  footer { padding-inline: 16px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg .shade::after { transition: none; }
+}
