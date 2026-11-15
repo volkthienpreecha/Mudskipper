@@ -1,0 +1,25 @@
+{
+  "name": "@mudskipper/platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Pages Functions (Hono) API, D1 migrations, the tiles proxy and the publish script.",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mudskipper/core": "*",
+    "hono": "4.13.18"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.8.2",
+    "@types/node": "^24",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0",
+    "wrangler": "4.162.0"
+  }
+}
