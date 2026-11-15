@@ -85,17 +85,17 @@
     </ul>
     <details class="curl">
       <summary>Rank claims for inspection</summary>
-      <pre><code>curl -X POST {{SITE_URL}}/api/audit \
+      <pre tabindex="0"><code>curl -X POST {{SITE_URL}}/api/audit \
   -H 'content-type: application/json' \
   --data @claims.json   # {"claims": FeatureCollection, "budget": 20}</code></pre>
       <p>Body ≤ 5 MB, ≤ 5,000 claims, budget 1–500. Ranking is for inspection, not a finding about anyone.</p>
     </details>
   </section>
 
-  <aside class="limits" aria-labelledby="limits-h">
+  <section class="limits" aria-labelledby="limits-h">
     <h2 id="limits-h">Limits</h2>
     <p>{{LIMITS_TEXT}}</p>
-  </aside>
+  </section>
 </main>
 
 <footer class="foot">
