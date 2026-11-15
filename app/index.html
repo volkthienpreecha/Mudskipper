@@ -604,13 +604,9 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 <section id="story" data-bg="3">
   <div class="wrap story">
     <p class="label rv"><b>01</b> The problem</p>
-    <h2 class="rv">Paid to drain the paddy. Checked on foot</h2>
-    <ol class="ledger">
-      <li class="rv"><span class="ln">i</span><h3>The payment</h3><p>Standing water makes rice paddies release methane. Draining them between floods, called alternate wetting and drying, cuts it and can earn carbon credits. Punjab's government also pays farmers who sow direct-seeded rice instead of flooding a nursery.</p></li>
-      <li class="rv"><span class="ln">ii</span><h3>The gap</h3><p>Field inspections take time, and monsoon clouds obscure ordinary satellite imagery during the season.</p></li>
-      <li class="rv"><span class="ln">iii</span><h3>The answer</h3><p>NASA-ISRO's NISAR radar sees through clouds and the rice canopy. Standing water changes the radar signal, supporting field states of flooded, drained, or uncertain on available passes.</p></li>
-    </ol>
-    <blockquote class="rv">Mudskipper uses NASA-ISRO NISAR radar to show, field by field, the satellite evidence for rice-field drainage and where an inspector could look first.</blockquote>
+    <h2 class="rv">From a drainage claim<br>to satellite evidence</h2>
+    <p class="sub rv">Follow the radar observations behind a rice field's drainage story.</p>
+    <div id="storyDemo" class="ms-demo"><p class="sub">Loading the field evidence…</p></div>
   </div>
 </section>
 
@@ -663,13 +659,9 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 <section id="how" data-bg="4">
   <div class="wrap">
     <p class="label rv"><b>03</b> How to use it</p>
-    <h2 class="rv">Three steps, no satellite degree needed</h2>
-    <div class="track">
-      <div class="track-line" aria-hidden="true"><span></span></div>
-      <div class="tstep rv"><span class="node">1</span><h3>Pick a field</h3><p>Fly in from the map of India and click any paddy.</p></div>
-      <div class="tstep rv"><span class="node">2</span><h3>Read every pass</h3><p>NISAR looks every 12 days, through cloud and canopy, June to October.</p></div>
-      <div class="tstep rv"><span class="node">3</span><h3>Get the evidence</h3><p>Aqua is flooded, gold is drained, hatched is uncertain. Then rank fields for inspection.</p></div>
-    </div>
+    <h2 class="rv">One field, from boundary to evidence</h2>
+    <p class="sub rv">Try the workflow with real fields from the dataset selected above.</p>
+    <div id="walkthroughDemo" class="ms-demo"><p class="sub">Loading the field walkthrough…</p></div>
   </div>
 </section>
 
@@ -702,12 +694,8 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
   <div class="wrap">
     <p class="label rv"><b>05</b> The science</p>
     <h2 class="rv">How radar reads a rice field</h2>
-    <div class="sci rv" role="table" aria-label="How radar reads a rice field">
-      <div class="sci-row sci-head" role="row"><span role="columnheader">Stage</span><span role="columnheader">What the radar sees</span><span role="columnheader">Signal</span><span role="columnheader">Our rule</span></div>
-      <div class="sci-row" role="row"><span class="sci-stage" role="cell">Before canopy<small>June to July</small></span><span role="cell">Open water acts like a mirror and bounces the radar away from the satellite</span><span class="sci-sig" role="cell"><svg viewBox="0 0 120 32" aria-hidden="true"><path d="M2 8 L40 8 L52 26 L118 26" fill="none" stroke="var(--water)" stroke-width="1.5"/></svg>HH drops</span><span role="cell">Radar features are used to infer the field state</span></div>
-      <div class="sci-row" role="row"><span class="sci-stage" role="cell">Canopy season<small>August to October</small></span><span role="cell">Tall stems standing in water bounce the radar straight back, so the field looks brighter</span><span class="sci-sig" role="cell"><svg viewBox="0 0 120 32" aria-hidden="true"><path d="M2 24 L50 24 L62 6 L118 6" fill="none" stroke="var(--water)" stroke-width="1.5"/></svg>HH rises</span><span role="cell">Radar backscatter varies as water and vegetation conditions change</span></div>
-      <div class="sci-row" role="row"><span class="sci-stage" role="cell">Cross-checks<small>all season</small></span><span role="cell">Additional datasets can be used for aggregate checks</span><span class="sci-sig" role="cell"><svg viewBox="0 0 120 32" aria-hidden="true"><circle cx="40" cy="16" r="10" fill="none" stroke="var(--water)"/><circle cx="56" cy="16" r="10" fill="none" stroke="var(--mud)"/><circle cx="72" cy="16" r="10" fill="none" stroke="var(--haze)"/></svg>agree?</span><span role="cell">Check results are reported with each dataset</span></div>
-    </div>
+    <p class="sub rv">Explore the return path, then read the actual HH backscatter for the field.</p>
+    <div id="methodDemo" class="ms-demo"><p class="sub">Loading the radar demonstration…</p></div>
   </div>
 </section>
 
@@ -716,15 +704,9 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 <section id="api" data-bg="4">
   <div class="wrap">
     <p class="label rv"><b>06</b> Open data</p>
-    <h2 class="rv">Explore the open data API</h2>
-    <div class="api2 rv" role="table" aria-label="API endpoints"><div class="api-head" role="row"><span role="columnheader">Method</span><span role="columnheader">Endpoint</span><span role="columnheader">Returns</span></div>
-      <div role="row"><code class="m" role="cell">GET</code><code role="cell">/api/meta</code><span role="cell">Season, stages, gap, tiles and counts</span></div>
-      <div role="row"><code class="m" role="cell">GET</code><code role="cell">/api/passes</code><span role="cell">Every NISAR pass, used or excluded</span></div>
-      <div role="row"><code class="m" role="cell">GET</code><code role="cell">/api/states</code><span role="cell">Every field's state on every pass</span></div>
-      <div role="row"><code class="m" role="cell">GET</code><code role="cell">/api/fields/:id</code><span role="cell">One field: polygon, observations, season summary</span></div>
-      <div role="row"><code class="m" role="cell">GET</code><code role="cell">/api/checks</code><span role="cell">Season shape, OPERA cross-check, district table</span></div>
-      <div role="row"><code class="m p" role="cell">POST</code><code role="cell">/api/audit</code><span role="cell">Rank claims for inspection (GeoJSON, up to 5,000)</span></div>
-    </div>
+    <h2 class="rv">Query the data behind the map</h2>
+    <p class="sub rv">Choose an endpoint. Make a live request. Take the response into your own work.</p>
+    <div id="apiDemo" class="ms-demo"><p class="sub">Loading the API explorer…</p></div>
   </div>
 </section>
 </main>

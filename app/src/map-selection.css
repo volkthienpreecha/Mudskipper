@@ -1,0 +1,17 @@
+/* Country markers never participate in field selection. Keep selection attached to geometry. */
+.skip-link:not(:focus) { clip-path: inset(50%); }
+.skip-link:focus { clip-path: none; }
+#fieldMap, #fieldMap [role="button"] { -webkit-tap-highlight-color: transparent; }
+.mapapp.infields #gM { visibility: hidden; pointer-events: none; }
+.mapapp.infields #fieldMap circle { display: none; }
+#gF path.sel {
+  fill-opacity: .9;
+  stroke: var(--ink) !important;
+  stroke-width: 1.75px !important;
+  vector-effect: non-scaling-stroke;
+  paint-order: stroke fill;
+}
+#gF path:focus-visible {
+  stroke-width: 3px !important;
+  stroke-dasharray: 5 3;
+}

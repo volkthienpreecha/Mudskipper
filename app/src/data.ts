@@ -1,4 +1,5 @@
 import { createClient, type MudskipperClient } from '@mudskipper/core/client';
+import { stageOf, uncertainState } from '@mudskipper/core';
 import type {
   AreaGeometry,
   FieldDetail,
@@ -310,7 +311,24 @@ export async function getApiFieldDetails(client: MudskipperClient, dataset: Demo
     check(state && state === field.s[passIndex], `field ${id} observation state does not match pass ${observation.pass_id}`);
     probability(observation.inferred.p_flooded, `${id} p_flooded`);
     probability(observation.inferred.confidence, `${id} confidence`);
-    if (observation.observed.hh_db !== null) finite(observation.observed.hh_db, `${id} hh_db`);
+    const valid = probability(observation.valid_frac, `${id} valid_frac`);
+    check(valid !== null, `${id} valid_frac must not be null`);
+    check(Number.isInteger(observation.n_px) && observation.n_px >= 0, `${id} n_px must be a nonnegative integer`);
+    check(observation.stage === stageOf(observation.datetime, dataset.apiMeta!.stages), `${id} observation stage does not match pass ${observation.pass_id}`);
+    check(observation.inferred.state === uncertainState(observation.inferred.p_flooded, valid), `${id} inferred state does not match probability and valid coverage`);
+    check(dataset.apiMeta!.methods.includes(observation.inferred.method), `${id} method is absent from run metadata`);
+    check(pass.pol_mode !== 'DH' || observation.inferred.method === 'hhhv_v1', `${id} dual-pol observation must use hhhv_v1`);
+    for (const [key, value] of Object.entries(observation.observed)) {
+      if (value !== null && value !== undefined) finite(value, `${id} ${key}`);
+    }
+    check(Array.isArray(observation.flags) && observation.flags.every((flag) => typeof flag === 'string'), `${id} flags must be strings`);
+  }
+  dataset.passIds.forEach((passId, index) => check(field.s[index] === '-' || seen.has(passId), `field ${id} is missing observation for pass ${passId}`));
+  if (detail.summary) {
+    const summary = detail.summary;
+    check(summary.awd.verdict === row.awd_verdict && summary.awd.clear_looks === row.clear_looks && summary.awd.drained_hits === row.drained_hits && summary.awd.p_catch_ge1_if_awd === row.p_catch && summary.dsr.signal === row.dsr_signal, `field ${id} detail summary does not match selected dataset`);
+  } else {
+    check(row.awd_verdict === null && row.dsr_signal === null, `field ${id} detail is missing its published summary`);
   }
   return detail;
 }

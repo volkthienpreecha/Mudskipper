@@ -93,6 +93,144 @@
 #backendTools .bt-hash strong, #backendTools .bt-hash span, #backendTools .bt-hash code { display: block; font: inherit; }
 #backendTools .bt-hash span { color: var(--dim, #9fb0a8); margin-top: 5px; }
 #backendTools .bt-hash code { color: var(--faint, #6f817a); margin-top: 6px; }
+
+/* The three tools share their data language, while the lab, queue and evidence retain distinct shapes. */
+#backendTools .bt-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
+#backendTools .bt-section-heading h3 { margin-bottom: 0; }
+#backendTools .bt-section-heading .bt-kicker { margin-bottom: 8px; }
+#backendTools .bt-section-heading > p { margin: 0; }
+#backendTools .bt-season-profile { padding-block: 32px; border-top: 1px solid var(--line); margin-top: 32px; }
+#backendTools .bt-state-legend, #backendTools .bt-signal-legend { display: flex; flex-wrap: wrap; gap: 10px 24px; font-size: 12px; margin: 0 0 24px; }
+#backendTools .bt-state-legend > span { display: inline-flex; align-items: center; gap: 8px; color: var(--dim); }
+#backendTools .bt-state-legend > span::before { content: ''; width: 8px; height: 8px; background: currentColor; border-radius: 50%; }
+#backendTools .bt-state-legend > .is-f { color: var(--water); }
+#backendTools .bt-state-legend > .is-d { color: var(--mud); }
+#backendTools .bt-state-legend > .is-u { color: #c4ad70; }
+#backendTools .bt-state-legend > .is-n { color: var(--dim); }
+#backendTools .bt-season-columns { display: flex; align-items: flex-end; gap: clamp(4px, 2vw, 28px); }
+#backendTools .bt-season-col { min-width: 0; flex: 1; text-align: center; }
+#backendTools .bt-season-col > span { display: block; font-size: 11px; color: var(--dim); margin-top: 12px; }
+#backendTools .bt-season-stack { height: 145px; display: flex; flex-direction: column-reverse; overflow: hidden; border-radius: 4px 4px 0 0; }
+#backendTools .bt-season-stack > span { display: block; width: 100%; flex-shrink: 0; min-height: 0; background: var(--dim); }
+#backendTools .bt-season-stack > .is-f { background: var(--water); }
+#backendTools .bt-season-stack > .is-d { background: var(--mud); }
+#backendTools .bt-season-stack > .is-u { background: #c4ad70; }
+#backendTools .bt-season-stack > .is-n { background: #465e62; }
+#backendTools .bt-field-workbench { display: block; min-height: 0; scroll-snap-align: none; margin-block: 28px 44px; padding: clamp(20px, 3vw, 38px); background: #14272d; border: 1px solid var(--line); border-radius: 14px; }
+#backendTools .bt-field-workbench label { display: block; color: var(--dim); font-size: 13px; }
+#backendTools :is(select, input[type="text"]) { display: block; min-height: 44px; min-width: 0; max-width: 100%; margin-top: 8px; padding: 10px 12px; color: var(--ink); background: var(--bg); border: 1px solid var(--control-line, #657d80); border-radius: 8px; font: inherit; }
+#backendTools select:focus-visible { outline: 2px solid var(--water); outline-offset: 4px; }
+#backendTools .bt-field-heading { margin-top: 24px; }
+#backendTools .bt-field-heading h3 { font-size: 20px; margin-bottom: 8px; overflow-wrap: anywhere; }
+#backendTools .bt-field-heading p { font-size: 13px; }
+#backendTools .bt-archive-states { display: flex; gap: 6px; margin-block: 28px; }
+#backendTools .bt-archive-states > div { flex: 1; min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+#backendTools .bt-archive-states :is(span, strong, small) { display: block; font-size: 11px; font-weight: 400; margin-bottom: 8px; overflow-wrap: anywhere; }
+#backendTools .bt-archive-states span, #backendTools .bt-archive-states small { color: var(--dim); }
+#backendTools .bt-archive-states .is-f { color: var(--water); }
+#backendTools .bt-archive-states .is-d { color: var(--mud); }
+#backendTools .bt-archive-states .is-u { color: #c4ad70; }
+#backendTools .bt-signal-chart { margin-block: 26px 20px; min-width: 0; }
+#backendTools .bt-signal-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+#backendTools .bt-signal-chart text { font: 10px system-ui, sans-serif; fill: var(--dim); }
+#backendTools .bt-chart-grid { stroke: var(--line); stroke-width: 1; }
+#backendTools .bt-signal-legend { justify-content: flex-end; margin: 16px 0 0; font-size: 12px; color: var(--dim); }
+#backendTools .bt-signal-legend span { display: inline-flex; align-items: center; gap: 8px; }
+#backendTools .bt-signal-legend i { width: 15px; height: 2px; display: inline-block; }
+#backendTools .bt-probability-heading { display: flex; justify-content: space-between; gap: 12px; margin-block: 30px 20px; font-size: 12px; color: var(--dim); }
+#backendTools .bt-probability-passes { display: flex; gap: 6px; }
+#backendTools .bt-probability-passes button { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; background: transparent; border: 1px solid transparent; padding: 12px 3px; color: var(--dim); border-radius: 7px; font-size: 11px; transition: background .2s, border-color .2s, color .2s; }
+#backendTools .bt-probability-passes button:hover { background: #20383e; color: var(--ink); }
+#backendTools .bt-probability-passes button[aria-pressed="true"] { background: #20383e; border-color: var(--water); color: var(--ink); }
+#backendTools .bt-probability-passes strong { font-size: 12px; font-weight: 500; }
+#backendTools .bt-probability-track { display: block; position: relative; height: 85px; width: 100%; max-width: 34px; background: #0d1f25; border-radius: 3px; overflow: hidden; }
+#backendTools .bt-probability-track::after { content: ''; position: absolute; inset: 35% 0; border-block: 1px dashed #738680; background: #d7c58b09; }
+#backendTools .bt-probability-track i { position: absolute; inset-inline: 0; bottom: 0; background: var(--water); }
+#backendTools .bt-observation { display: grid; grid-template-columns: 1fr 2fr; gap: 26px; margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line); }
+#backendTools .bt-observation-title .bt-kicker { margin-bottom: 8px; }
+#backendTools .bt-observation-title h4 { text-transform: capitalize; font-size: 22px; margin-bottom: 8px; }
+#backendTools .bt-observation-title > p:last-child { font-size: 12px; margin-bottom: 0; }
+#backendTools .bt-observation-values { display: flex; flex-wrap: wrap; gap: 20px 30px; margin: 0; }
+#backendTools .bt-observation-values > div { flex: 1; min-width: 110px; }
+#backendTools .bt-observation-values dt { font-size: 12px; color: var(--dim); margin-bottom: 10px; }
+#backendTools .bt-observation-values dd { font-size: 20px; font-weight: 500; margin: 0; }
+#backendTools .bt-flags { margin-top: 22px; overflow-wrap: anywhere; }
+#backendTools .bt-decisions { display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; margin-top: 36px; padding-top: 30px; border-top: 1px solid var(--line); }
+#backendTools .bt-decisions p { font-size: 13px; }
+#backendTools .bt-decisions h4 { margin-bottom: 12px; text-transform: capitalize; }
+#backendTools .bt-decisions .bt-facts { margin-top: 20px; }
+#backendTools .bt-model-search { display: flex; gap: 10px; align-items: flex-end; }
+#backendTools .bt-model-search input { width: 190px; }
+#backendTools .bt-field-workbench .bt-status { margin-block: 0; }
+#backendTools .bt-stage-bars { display: flex; gap: 22px; margin: 30px 0 24px; }
+#backendTools .bt-stage-bars > div { flex: 1; min-width: 0; text-align: center; }
+#backendTools .bt-stage-bars strong { display: block; font-size: 20px; font-weight: 500; margin-bottom: 12px; }
+#backendTools .bt-stage-bars > div > span { display: block; text-transform: capitalize; color: var(--dim); font-size: 12px; margin-top: 10px; }
+#backendTools .bt-stage-track { height: 145px; position: relative; background: #14272d; overflow: hidden; border-radius: 4px 4px 0 0; }
+#backendTools .bt-stage-track span { position: absolute; inset-inline: 0; bottom: 0; background: var(--water); }
+#backendTools .bt-stage-bars > div:first-child .bt-stage-track span { background: var(--mud); }
+#backendTools .bt-comparison-key { display: flex; flex-wrap: wrap; gap: 14px; margin-block: 20px; font-size: 11px; color: var(--dim); }
+#backendTools .bt-comparison-key span::before { content: ''; display: inline-block; width: 12px; height: 3px; background: var(--water); margin: 0 7px 3px 0; }
+#backendTools .bt-comparison-key span:last-child::before { background: var(--mud); }
+#backendTools .bt-comparison-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 20px; margin-top: 17px; font-size: 12px; }
+#backendTools .bt-comparison-row small { display: block; color: var(--dim); margin-top: 5px; font-size: 10px; }
+#backendTools .bt-comparison-bars > span { display: block; height: 17px; position: relative; padding-right: 52px; margin-block: 3px; }
+#backendTools .bt-comparison-bars em { display: block; position: relative; width: 100%; height: 17px; }
+#backendTools .bt-comparison-bars i { position: absolute; display: block; height: 7px; top: 5px; left: 0; background: var(--water); transform-origin: left; }
+#backendTools .bt-comparison-bars span:last-child i { background: var(--mud); }
+#backendTools .bt-comparison-bars b { position: absolute; right: 0; font-size: 10px; font-weight: 400; color: var(--dim); }
+#backendTools .bt-run-coverage { padding: 24px 28px; border-left: 2px solid var(--water); background: #14272d; margin-bottom: 26px; }
+#backendTools .bt-run-coverage h3 { margin-bottom: 30px; }
+#backendTools .bt-coverage-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 18px; margin-block: 22px; font-size: 13px; }
+#backendTools .bt-coverage-row strong { font-weight: 500; }
+#backendTools .bt-coverage-track { grid-column: 1 / -1; height: 6px; background: #263e43; overflow: hidden; }
+#backendTools .bt-coverage-track span { display: block; height: 100%; transform-origin: left; }
+#backendTools .bt-fill-water { background: var(--water); }
+#backendTools .bt-fill-mud { background: var(--mud); }
+#backendTools .bt-fill-neutral { background: #b9b99b; }
+#backendTools .bt-audit-summary { display: flex; flex-wrap: wrap; gap: 16px 32px; padding-block: 18px; border-block: 1px solid var(--line); margin-bottom: 20px; }
+#backendTools .bt-audit-summary > span { font-size: 12px; color: var(--dim); }
+#backendTools .bt-audit-summary strong { display: block; font-size: 25px; font-weight: 500; color: var(--ink); margin-bottom: 6px; }
+#backendTools .bt-score i { display: block; height: 3px; margin-top: 10px; background: var(--water); margin-left: auto; }
+#backendTools .bt-queue-list { list-style: none; padding: 0; margin: 0; }
+#backendTools .bt-threshold { display: grid; grid-template-columns: minmax(0, 1.2fr) 1fr 1fr; gap: 20px; padding: 22px 0; margin-top: 32px; border-block: 1px solid var(--line); align-items: center; }
+#backendTools .bt-threshold > span { font-size: 13px; }
+#backendTools .bt-threshold strong { font-size: 24px; font-weight: 500; color: var(--water); }
+#backendTools .bt-threshold strong:last-child { color: var(--mud); }
+#backendTools .bt-threshold small { display: block; font-size: 11px; font-weight: 400; color: var(--dim); margin-top: 8px; }
+#backendTools #detectability-threshold > .bt-fine { margin-top: 14px; }
+#backendTools .bt-over-threshold .bt-bar-track { background: #8db5ac0c; border-top: 1px solid #3fd0c955; }
+#backendTools .bt-pass-schedule { margin-bottom: 20px; }
+#backendTools .bt-acquisitions { padding: 0; list-style: none; }
+#backendTools .bt-acquisitions li { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 20px; align-items: baseline; padding: 16px 0 16px 20px; border-bottom: 1px solid var(--line); border-left: 2px solid var(--water); font-size: 12px; }
+#backendTools .bt-acquisitions li.is-excluded { border-left-color: var(--mud); }
+#backendTools .bt-acquisitions :is(strong, small) { display: block; font-weight: 400; }
+#backendTools .bt-acquisitions small { color: var(--dim); margin-top: 5px; overflow-wrap: anywhere; }
+#backendTools .bt-acquisitions li > span:last-child { color: var(--dim); text-align: right; }
+#backendTools .bt-parameter-source { margin-top: 24px; }
+#backendTools .bt-parameter-source h4 { font-size: 13px; text-transform: capitalize; }
+
+/* Motion gives the data a direction of travel; values remain immediately readable by assistive tech. */
+@keyframes bt-reveal { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bt-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes bt-extend { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes bt-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+#backendTools :is(.bt-lab, .bt-inspection, .bt-evidence-grid, .bt-field-heading, .bt-observation, .bt-decisions) { animation: bt-reveal .48s cubic-bezier(.2,.7,.2,1) both; }
+#backendTools :is(.bt-bar, .bt-stage-track span, .bt-probability-track i, .bt-season-stack) { transform-origin: bottom; animation: bt-grow .65s cubic-bezier(.18,.75,.2,1) both; }
+#backendTools :is(.bt-coverage-track span, .bt-comparison-bars i, .bt-score i) { animation: bt-extend .7s cubic-bezier(.18,.75,.2,1) both; }
+#backendTools .bt-signal-trace { stroke-dasharray: 1; animation: bt-draw 1.1s cubic-bezier(.2,.65,.2,1) both; }
+#backendTools .bt-queue-list > li { animation: bt-reveal .38s ease both; }
+#backendTools .bt-queue-list > li:nth-child(2) { animation-delay: .04s; }
+#backendTools .bt-queue-list > li:nth-child(3) { animation-delay: .08s; }
+#backendTools .bt-queue-list > li:nth-child(4) { animation-delay: .12s; }
+#backendTools .bt-queue-list > li:nth-child(5) { animation-delay: .16s; }
+#backendTools .bt-queue-list > li:nth-child(n+6) { animation-delay: .2s; }
+#backendTools .audit-row { transition: background .2s, padding .2s; }
+#backendTools button.audit-row:hover { background: #3fd0c908; padding-inline: 9px; }
+html.motion-paused #backendTools *, html.motion-paused #backendTools *::before, html.motion-paused #backendTools *::after { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  #backendTools *, #backendTools *::before, #backendTools *::after { animation: none !important; transition: none !important; }
+}
 @media (max-width: 1050px) {
   #backendTools .bt-toolbar { align-items: flex-start; flex-direction: column; }
   #backendTools .bt-lab, #backendTools .bt-inspection { gap: 32px; grid-template-columns: minmax(220px, .85fr) minmax(0, 1.3fr); }
@@ -114,4 +252,28 @@
   #backendTools .bt-queue-head, #backendTools .audit-row { grid-template-columns: 24px minmax(0, 1fr) 48px; gap: 10px; }
   #backendTools .bt-provenance-facts > div { flex-wrap: wrap; gap: 5px; }
   #backendTools .bt-provenance-facts dd { width: 100%; text-align: left; }
+  #backendTools .bt-section-heading { align-items: flex-start; flex-direction: column; gap: 20px; }
+  #backendTools .bt-section-heading :is(form, label) { width: 100%; }
+  #backendTools .bt-section-heading select { width: 100%; }
+  #backendTools .bt-field-workbench { padding-inline: 18px; margin-inline: -4px; }
+  #backendTools .bt-model-search { flex-wrap: wrap; }
+  #backendTools .bt-model-search input { flex: 1; min-width: 140px; }
+  #backendTools .bt-archive-states { flex-wrap: wrap; gap: 12px 8px; }
+  #backendTools .bt-archive-states > div { flex: 0 0 calc(33.333% - 6px); }
+  #backendTools .bt-probability-passes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  #backendTools .bt-probability-passes button { display: grid; grid-template-columns: 1fr 1fr; text-align: left; gap: 6px; padding: 10px; }
+  #backendTools .bt-probability-passes .bt-probability-track { grid-column: 1 / -1; grid-row: 2; max-width: none; height: 38px; }
+  #backendTools .bt-probability-passes strong { text-align: right; }
+  #backendTools .bt-observation, #backendTools .bt-decisions { grid-template-columns: 1fr; }
+  #backendTools .bt-observation-values > div { min-width: 90px; }
+  #backendTools .bt-season-col > span { font-size: 10px; line-height: 1.5; }
+  #backendTools .bt-season-stack { height: 120px; }
+  #backendTools .bt-signal-chart text { font-size: 12px; }
+  #backendTools .bt-comparison-row { grid-template-columns: 100px minmax(0, 1fr); gap: 12px; }
+  #backendTools .bt-comparison-row small { font-size: 10px; }
+  #backendTools .bt-threshold { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #backendTools .bt-threshold > span { grid-column: 1 / -1; }
+  #backendTools .bt-acquisitions li { grid-template-columns: 55px minmax(0, 1fr); gap: 10px; padding-left: 12px; }
+  #backendTools .bt-acquisitions li > span:last-child { grid-column: 2; text-align: left; }
+  #backendTools .bt-run-coverage { padding: 22px 18px; }
 }

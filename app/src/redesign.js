@@ -7,7 +7,8 @@ import {
 } from "./data.ts";
 import { mountBackendTools } from "./backend.ts";
 import "./integration.css";
-const client = createBackend(import.meta.env.VITE_API_BASE_URL || undefined);
+const backendOrigin = import.meta.env.VITE_API_BASE_URL || "https://mudskipper-nisar.pages.dev";
+const client = createBackend(backendOrigin);
 const esc = (value) =>
   String(value ?? "").replace(
     /[&<>"']/g,
@@ -32,9 +33,11 @@ let snapshot,
   overlays = null,
   overlayOn = false,
   backend,
+  componentUI,
   dragged = false,
   restoring = false,
-  restoreVersion = 0;
+  restoreVersion = 0,
+  searchFieldIds = [];
 const details = new Map(),
   detailPending = new Map();
 const allFields = () => Object.values(DATA.tiles).flatMap((t) => t.fields);
@@ -296,6 +299,8 @@ async function load() {
   DATA = snapshot;
   SAT = snapshotSat;
   installControls();
+  $("datasetSelect").querySelector('[value="snapshot"]').textContent = "Archive · 375-field snapshot";
+  $("datasetSelect").querySelector('[value="api"]').textContent = "Published model run";
   backend = mountBackendTools({
     client,
     getDataset: () => DATA,
@@ -312,6 +317,20 @@ async function load() {
   });
   await activateDataset(DATA);
   await restoreLocation();
+  const { mountComponents } = await import("./components.ts");
+  componentUI = mountComponents({
+    dataset: DATA,
+    apiBaseUrl: backendOrigin,
+    getJSON: (path) => json(new URL(path, backendOrigin).href),
+    getFieldDetail: (field) => detailFor(field),
+    selectField: async (id) => {
+      const entry = fieldEntry(id);
+      if (!entry) return;
+      $("mapapp").scrollIntoView({ behavior: motionOff() ? "auto" : "smooth" });
+      await select(entry.index, entry.tile);
+      card.focus({ preventScroll: true });
+    },
+  });
 }
 function drawBase() {
   const ring = (r) =>
@@ -438,18 +457,15 @@ async function activateDataset(dataset) {
     document.querySelector(".slider-box").append(el);
   }
   drawBase();
-  // Suggestions for the field search: every field ID in the active dataset.
-  if ($("fieldIds"))
-    $("fieldIds").innerHTML = allFields()
-      .map((f) => f.id)
-      .sort()
-      .map((id) => `<option value="${esc(id)}"></option>`)
-      .join("");
+  // Search still covers every field. Only suggestions are bounded, keeping large runs responsive.
+  searchFieldIds = allFields().map((field) => field.id).sort();
+  updateFieldSuggestions();
   updateStatistics();
   seasonChart();
   await heroField(interesting(tile), tile);
   paint();
   backend?.refresh();
+  componentUI?.updateDataset(DATA);
   updateRadar();
   if (DATA.kind === "api") {
     const current = DATA;
@@ -487,7 +503,7 @@ async function changeDataset(kind, fromRestore = false) {
     syncURL(true);
     $("dataStatus").textContent = "";
     announceMap(
-      `${kind === "snapshot" ? "2026 radar snapshot" : "Published API run"} loaded: ${allFields().length} fields, ${DATA.passes.length} passes`,
+      `${kind === "snapshot" ? "Archived 375-field snapshot" : "Published model run"} loaded: ${allFields().length} fields, ${DATA.passes.length} passes`,
     );
   } catch (error) {
     if (token === changeVersion) {
@@ -504,6 +520,17 @@ async function changeDataset(kind, fromRestore = false) {
     }
   }
 }
+function updateFieldSuggestions() {
+  const target = $("fieldIds");
+  if (!target) return;
+  const query = $("searchField").value.trim().toLowerCase();
+  target.innerHTML = searchFieldIds
+    .filter((id) => !query || id.toLowerCase().includes(query))
+    .slice(0, 40)
+    .map((id) => `<option value="${esc(id)}"></option>`)
+    .join("");
+}
+
 function updateStatistics() {
   const fields = allFields(),
     total = fields.length * DATA.passes.length;
@@ -1389,7 +1416,7 @@ async function restoreLocation() {
     q = new URLSearchParams(location.search),
     wanted =
       q.get("dataset") ||
-      (["/lab", "/scarecrow", "/evidence"].includes(path) ? "api" : "snapshot"),
+      "api",
     id =
       q.get("field") ||
       (path.startsWith("/field/") ? decodeURIComponent(path.slice(7)) : null);
@@ -1490,6 +1517,7 @@ function installControls() {
     search.focus();
   };
   search.addEventListener("input", () => {
+    updateFieldSuggestions();
     if (search.getAttribute("aria-invalid") === "true") {
       search.removeAttribute("aria-invalid");
       $("dataStatus").textContent = "";

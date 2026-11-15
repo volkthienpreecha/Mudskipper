@@ -46,7 +46,7 @@ async function open(viewport = { width: 1440, height: 900 }, setup?: (context: B
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   (page as Page & { errors: string[] }).errors = errors;
-  await page.goto(server.origin + '/', { waitUntil: 'domcontentloaded', timeout: LONG });
+  await page.goto(server.origin + '/?dataset=snapshot', { waitUntil: 'domcontentloaded', timeout: LONG });
   await page.waitForSelector('#fcard .pickbtn', { timeout: LONG });
   // Start-up ends with restoring the URL state, which writes ?dataset=… ; act only after that.
   await page.waitForFunction(() => location.search.includes('dataset='), null, { timeout: LONG });
@@ -71,7 +71,8 @@ async function chooseApiDataset(page: Page): Promise<void> {
 
 async function waitForTabPanel(page: Page, ready: string): Promise<void> {
   await page.waitForSelector(`#backend-tool-content :is(${ready}, .bt-error)`, { timeout: LONG });
-  const error = await page.locator('#backend-tool-content .bt-error').first().textContent().catch(() => null);
+  const errors = page.locator('#backend-tool-content .bt-error');
+  const error = await errors.count() ? await errors.first().textContent() : null;
   assert.equal(error, null, `analysis panel error: ${error}`);
 }
 
@@ -94,6 +95,36 @@ async function horizontalOverflow(page: Page): Promise<string[]> {
 }
 
 describe('axe-core, WCAG 2.2 A and AA', { timeout: 30 * 60_000 }, () => {
+  test('walkthrough selection preserves keyboard focus across the component redraw', async () => {
+    const page = await open();
+    const field = page.locator('[data-guide-field]').nth(1);
+    await field.waitFor();
+    const id = await field.getAttribute('data-guide-field');
+    await field.focus();
+    await field.press('Enter');
+    await page.waitForFunction((selected) => document.activeElement?.getAttribute('data-guide-field') === selected, id);
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-guide-field')), id);
+    await page.context().close();
+  });
+
+  test('a failed repeated API request cannot copy an earlier response', async () => {
+    let requests = 0;
+    const page = await open(undefined, async (context) => {
+      await context.route('**/api/meta', async (route) => {
+        if (++requests === 1) await route.fulfill({ json: { run_id: 'response-copy-check', fixture: true } });
+        else await route.abort('failed');
+      });
+    });
+    await page.locator('#ms-run-request').click();
+    await page.waitForFunction(() => document.querySelector('#ms-api-status')?.textContent?.includes('response received'));
+    assert.equal(await page.locator('#ms-copy-response').isEnabled(), true);
+    await page.locator('#ms-run-request').click();
+    await page.waitForFunction(() => document.querySelector('#ms-api-status')?.textContent?.includes('Request failed'));
+    assert.equal(await page.locator('#ms-copy-response').isDisabled(), true);
+    assert.equal((await page.locator('#ms-api-response').textContent())?.includes('response-copy-check'), false);
+    await page.context().close();
+  });
+
   test('home page at 1440 × 900, every section', async () => {
     const page = await open();
     await expectNoViolations(page, 'home');
@@ -188,7 +219,8 @@ describe('axe-core, WCAG 2.2 A and AA', { timeout: 30 * 60_000 }, () => {
     await waitForTabPanel(page, '.bt-evidence-grid');
     await page.evaluate(() => document.querySelectorAll<HTMLDetailsElement>('#backendTools details').forEach((details) => { details.open = true; }));
     await expectNoViolations(page, 'Evidence');
-    await page.locator('#gF path').first().waitFor({ state: 'attached' }).catch(() => undefined);
+    // The API dataset opens at country level; field paths are created only after choosing a district.
+    await page.locator('#fcard .pickbtn').first().waitFor();
     await page.click('#fcard .pickbtn');
     await page.selectOption('#fieldPicker', { index: 1 });
     await page.click('#fieldPickerOpen');
@@ -346,9 +378,10 @@ describe('keyboard only', { timeout: 30 * 60_000 }, () => {
     await page.keyboard.type('nope');
     await page.keyboard.press('Enter');
     assert.equal(await page.getAttribute('#searchField', 'aria-invalid'), 'true');
-    await page.fill('#searchField', 'fazilka-00012');
+    await page.fill('#searchField', 'fazilka-');
     const real = await page.evaluate(() => document.querySelector('#fieldIds option')?.getAttribute('value'));
-    await page.fill('#searchField', real!);
+    assert.ok(real, 'district-prefix search supplies an ID from the active dataset');
+    await page.fill('#searchField', real);
     await page.keyboard.press('Enter');
     await page.waitForFunction((id) => document.querySelector('#fcard .fc-id')?.textContent === id, real, { timeout: LONG });
     assert.equal(await page.getAttribute('#searchField', 'aria-invalid'), null);
