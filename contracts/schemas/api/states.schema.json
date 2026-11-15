@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mudskipper.invalid/schemas/v1/api/states.schema.json",
+  "title": "GET /api/states",
+  "description": "states.json plus the fixture flag.",
+  "allOf": [
+    {
+      "$ref": "../states.schema.json"
+    }
+  ],
+  "required": [
+    "fixture"
+  ]
+}

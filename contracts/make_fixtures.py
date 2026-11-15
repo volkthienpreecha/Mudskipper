@@ -474,6 +474,14 @@ def dump_collection(head, features):
     return head_s + ',"features":[\n' + lines + "\n]}\n"
 
 
+def dump_states(obj):
+    """states.json: header and id lists compact, one field per line in `states`."""
+    head = {k: v for k, v in obj.items() if k != "states"}
+    s = json.dumps(head, ensure_ascii=False, separators=(",", ":"), allow_nan=False)[:-1]
+    rows = ",\n".join(json.dumps(x) for x in obj["states"])
+    return s + ',"states":[\n' + rows + "\n]}\n"
+
+
 def dump_jsonl(rows):
     return "".join(json.dumps(r, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n" for r in rows)
 
@@ -601,6 +609,8 @@ def build(out: pathlib.Path):
     (run / "field_summary.jsonl").write_text(dump_jsonl(summaries[k] for k in sorted(summaries)), encoding="utf-8")
     (run / "detectability.json").write_text(dump(detect), encoding="utf-8")
     (run / "story.json").write_text(dump(story), encoding="utf-8")
+    states = rules.states([p["field_id"] for p in props], passes, observations, RUN_ID, fixture=True)
+    (run / "states.json").write_text(dump_states(states), encoding="utf-8")
     (run / "district_check.json").write_text(dump(district), encoding="utf-8")
     (run / "checks.json").write_text(dump(checks), encoding="utf-8")
     (run / "overlays" / "index.json").write_text(dump(overlays), encoding="utf-8")
@@ -702,6 +712,7 @@ def build_api(api, run, aoi, features, passes, observations, summaries, story, d
     files["passes"] = {**hdr(), "passes": passes}
     files["detectability"] = detect
     files["provenance"] = provenance
+    files["states"] = json.loads((run / "states.json").read_text(encoding="utf-8"))
     files["checks"] = {**hdr(), "season_shape": checks["season_shape"], "opera": checks["opera"], "district": district}
 
     def row(f):

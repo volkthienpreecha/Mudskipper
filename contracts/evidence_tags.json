@@ -69,6 +69,9 @@
       "counts.pct_fields_with_enough_looks": "INFERRED",
       "headline.text": "FROM_HEADLINE_TAG"
     },
+    "states": {
+      "states[]": "INFERRED"
+    },
     "audit_response": {
       "ranked[].score": "INFERRED",
       "ranked[].weight": "ASSUMED",

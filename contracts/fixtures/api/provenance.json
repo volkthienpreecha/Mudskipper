@@ -132,6 +132,10 @@
       "sha256": "5255d79f1893aea98654bf99975280e29f02cfbeb10012aed5d8291cacbeaf77"
     },
     {
+      "path": "states.json",
+      "sha256": "4da4e39f740d5abe5976ffc2855ca15d8f5a4136d2b70a2de162c4a43427111b"
+    },
+    {
       "path": "story.json",
       "sha256": "0a10d0a129c01104d79a26b9bd1a35f96be81cb64b3cbe5c8c759d109c98adb5"
     }

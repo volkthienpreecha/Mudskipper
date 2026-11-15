@@ -1,0 +1,18 @@
+{
+  "name": "mudskipper",
+  "private": true,
+  "description": "NISAR radar evidence of rice-field drainage, field by field. NASA Space Apps 2026.",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "workspaces": [
+    "core",
+    "platform"
+  ],
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  }
+}

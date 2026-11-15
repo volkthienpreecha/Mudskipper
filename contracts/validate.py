@@ -51,6 +51,7 @@ RUN_FILES = {  # name -> (schema, kind)
     "checks.json": ("checks", "json"),
     "provenance.json": ("provenance", "json"),
     "story.json": ("story", "json"),
+    "states.json": ("states", "json"),
     "claims.sample.geojson": ("claims", "json"),
     "overlays/index.json": ("overlays_index", "json"),
 }
@@ -58,13 +59,13 @@ REQUIRED = {
     "pipeline": ["aoi.json", "fields.geojson", "passes.json", "observations.jsonl", "provenance.json",
                  "overlays/index.json"],
     "published": ["aoi.json", "fields.geojson", "passes.json", "observations.jsonl", "provenance.json",
-                  "overlays/index.json", "detectability.json", "field_summary.jsonl", "story.json"],
+                  "overlays/index.json", "detectability.json", "field_summary.jsonl", "story.json", "states.json"],
 }
 DAY2 = ["checks.json", "district_check.json"]
 API_FILES = {
     "health.json": "api/health", "meta.json": "api/meta", "story.json": "api/story", "passes.json": "api/passes",
     "fields.json": "api/fields_page", "detectability.json": "api/detectability", "checks.json": "api/checks",
-    "provenance.json": "api/provenance", "audit.request.json": "api/audit_request",
+    "provenance.json": "api/provenance", "states.json": "api/states", "audit.request.json": "api/audit_request",
     "audit.response.json": "api/audit_response",
 }
 
@@ -424,6 +425,11 @@ def _validate_run(run: pathlib.Path, schemas: Schemas, rep: Report, stage: str, 
         expected = rules.story(aoi, props, summaries, len(used), story["run_id"], story.get("fixture"))
         for key in ("hero_tile", "hero_field_id", "headline", "counts"):
             rep.check(story[key] == expected[key], "story.json", f"{key} = {story[key]!r}, rule gives {expected[key]!r}")
+    st_doc = data.get("states.json")
+    if st_doc:
+        expected = rules.states(list(field_by_id), passes, [o for _, o in obs_rows], st_doc["run_id"], st_doc.get("fixture"))
+        for key in ("pass_ids", "field_ids", "states"):
+            rep.check(st_doc[key] == expected[key], "states.json", f"{key} disagrees with passes/observations (B3.13)")
     dc = data.get("district_check.json")
     if dc and summaries:
         check_district(dc, props, summaries, rep)
@@ -658,7 +664,8 @@ def _validate_api(root: pathlib.Path, schemas: Schemas, rep: Report):
             return None
 
     for api_name, run_name in (("story.json", "story.json"), ("passes.json", "passes.json"),
-                               ("detectability.json", "detectability.json"), ("provenance.json", "provenance.json")):
+                               ("detectability.json", "detectability.json"), ("provenance.json", "provenance.json"),
+                               ("states.json", "states.json")):
         if api_name in docs:
             rep.check(docs[api_name] == run_json(run_name), f"api/{api_name}", f"must equal run/{run_name}")
     if "checks.json" in docs:

@@ -28,3 +28,7 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# Platform build output (assembled site + static API) and local Wrangler state
+platform/.site/
+*.tsbuildinfo
