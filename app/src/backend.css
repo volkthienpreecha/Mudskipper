@@ -132,7 +132,7 @@
 #backendTools .bt-archive-states .is-u { color: #995000; }
 #backendTools .bt-signal-chart { margin-block: 26px 20px; min-width: 0; }
 #backendTools .bt-signal-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-#backendTools .bt-signal-chart text { font: 10px system-ui, sans-serif; fill: var(--dim); }
+#backendTools .bt-signal-chart text { font: 10px var(--sans); fill: var(--dim); }
 #backendTools .bt-chart-grid { stroke: var(--line); stroke-width: 1; }
 #backendTools .bt-signal-legend { justify-content: flex-end; margin: 16px 0 0; font-size: 12px; color: var(--dim); }
 #backendTools .bt-signal-legend span { display: inline-flex; align-items: center; gap: 8px; }
@@ -227,7 +227,6 @@
 #backendTools .bt-queue-list > li:nth-child(n+6) { animation-delay: .2s; }
 #backendTools .audit-row { transition: background .2s, padding .2s; }
 #backendTools button.audit-row:hover { background: #5145d708; padding-inline: 9px; }
-html.motion-paused #backendTools *, html.motion-paused #backendTools *::before, html.motion-paused #backendTools *::after { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
   #backendTools *, #backendTools *::before, #backendTools *::after { animation: none !important; transition: none !important; }
 }

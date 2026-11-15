@@ -11,3 +11,5 @@ import "./journey.ts";
 import "./rice-particles.ts";
 import "./rice-story.css";
 import "./page-scroll.ts";
+
+import "./continuous-story.css";

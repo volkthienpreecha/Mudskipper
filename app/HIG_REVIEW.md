@@ -1,3 +1,5 @@
+Current typography: the November 15 user request supersedes the system-font choice below. ROMANS Regular is hosted locally and applied throughout the interface; native system fonts remain fallback. The interaction, contrast and responsive checks below remain applicable.
+
 # Apple Human Interface Guidelines review
 
 Reviewed the active Ishaan redesign against Apple's [Typography](https://developer.apple.com/design/human-interface-guidelines/typography), [Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility) and [Buttons](https://developer.apple.com/design/human-interface-guidelines/buttons) guidance. The original photographic scenes, section order, map composition and teal/coral radar states remain the design reference.

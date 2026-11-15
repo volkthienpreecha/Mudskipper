@@ -266,5 +266,4 @@
   .ms-demo *, .ms-demo *::before, .ms-demo *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .ms-beam-motion { stroke-dasharray: none; opacity: .4; }
 }
-.motion-paused .ms-demo *, .motion-paused .ms-demo *::before, .motion-paused .ms-demo *::after { animation: none !important; transition: none !important; }
 @media (prefers-contrast: more) { .ms-demo { --line: #587278; --dim: #435570; } .ms-pass-mark { opacity: .8; } }

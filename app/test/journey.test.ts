@@ -19,6 +19,7 @@ async function open(reducedMotion: 'reduce' | 'no-preference' = 'no-preference')
   await page.goto(server.origin + '/?dataset=snapshot');
   await page.locator('#pvPasses .pcol').first().waitFor();
   await page.locator('#ms-how-sequence').waitFor();
+  await page.evaluate(()=>document.fonts.ready);
   return page;
 }
 async function scrollProgress(page:Page,id:string,progress:number) {
@@ -62,25 +63,29 @@ test('scroll story follows real pass dates and states without taking over docume
     const y = await page.evaluate(() => scrollY);
     await page.waitForTimeout(180);
     assert.equal(await page.evaluate(() => scrollY), y, 'The scene must never snap or advance document scrolling');
+    await page.locator('.journey-open').focus();
+    await chapter(page,0);
+    assert.equal(await page.evaluate(()=>document.activeElement?.id),'journey','Leaving a focused chapter retains focus on its scene');
   } finally { await page.context().close(); }
 });
 
-test('Pause freezes rice particles and exposes every narrative stage in normal flow',async()=>{
+test('visible animation runs automatically and ignores the former stored pause setting',async()=>{
   const page=await open();
   try {
+    await page.evaluate(()=>localStorage.setItem('mudskipper:motion-paused','1'));
+    await page.reload();
+    await page.locator('#ms-how-sequence').waitFor();
+    assert.equal(await page.locator('#motionToggle').count(),0);
     await page.waitForFunction(()=>Number(document.querySelector<HTMLCanvasElement>('#riceParticles')?.dataset.frame)>3);
-    await page.locator('#motionToggle').click();
-    await page.waitForFunction(()=>!document.querySelector('#journey')?.classList.contains('is-pinned'));
     const frame=await page.locator('#riceParticles').getAttribute('data-frame');
-    await page.waitForTimeout(180);
-    assert.equal(await page.locator('#riceParticles').getAttribute('data-frame'),frame);
+    await page.waitForFunction(prior=>document.querySelector('#riceParticles')?.getAttribute('data-frame')!==prior,frame);
+    assert.equal(await page.locator('#journey').evaluate(e=>e.classList.contains('is-pinned')),true);
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(()=>document.querySelector('#riceParticles')?.getAttribute('data-motion')==='static');
+    await page.waitForFunction(()=>[...document.querySelectorAll('.ms-scroll-sequence')].every(e=>!e.classList.contains('is-scroll-pinned')));
     for(const id of ['ms-claim-sequence','ms-how-sequence','ms-method-sequence']){
       assert.equal(await page.locator('#'+id+' [data-scroll-stage]:not([inert])').count(),3);
-      assert.equal(await page.locator('#'+id).evaluate(e=>e.classList.contains('is-scroll-pinned')),false);
     }
-    assert.equal(await page.locator('.journey-chapter:not([inert])').count(),3);
-    await page.locator('#motionToggle').click();
-    await page.waitForFunction(prior=>document.querySelector('#riceParticles')?.getAttribute('data-frame')!==prior,frame);
   } finally {await page.context().close();}
 });
 
@@ -108,7 +113,7 @@ test('reduced motion and phone layouts preserve all chapters and the complete li
     for (const width of [390,320]) {
       await page.setViewportSize({width,height:844});
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-      assert.equal(await page.locator('#brandName').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth}),true,'The complete wordmark fits the phone, including native font differences');
+      assert.equal(await page.locator('.brand-lockup').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth}),true,'The complete wordmark fits the phone, including native font differences');
       for (const item of await page.locator('.journey-chapter').all()) assert.equal(await item.isVisible(), true);
       assert.notEqual(await page.locator('.journey-pin').evaluate(e => getComputedStyle(e).position), 'sticky');
       assert.equal(await page.locator('#preview [data-load="check"]').isVisible(), true);
@@ -116,7 +121,7 @@ test('reduced motion and phone layouts preserve all chapters and the complete li
   } finally { await page.context().close(); }
 });
 
-test('rice grains change pixels, freeze on pause and offscreen, and resume on return', async () => {
+test('rice grains change pixels while visible, stop offscreen, and resume on return', async () => {
   const page=await open();
   try {
     const canvas=page.locator('#riceParticles');
@@ -125,12 +130,6 @@ test('rice grains change pixels, freeze on pause and offscreen, and resume on re
     await page.mouse.move(240,420);
     await page.waitForTimeout(250);
     assert.notEqual(await canvas.evaluate(e=>(e as HTMLCanvasElement).toDataURL()),pixels);
-    await page.locator('#motionToggle').click();
-    const frozen=await canvas.getAttribute('data-frame');
-    await page.waitForTimeout(180);
-    assert.equal(await canvas.getAttribute('data-frame'),frozen);
-    await page.locator('#motionToggle').click();
-    await page.waitForFunction(prior=>document.querySelector('#riceParticles')?.getAttribute('data-frame')!==prior,frozen);
     await chapter(page,1);
     await page.waitForFunction(()=>document.querySelector<HTMLCanvasElement>('#riceParticles')?.dataset.motion==='offscreen');
     const offscreen=await canvas.getAttribute('data-frame');
@@ -184,6 +183,10 @@ test('field and acquisition selection preserve focus, selected identity and scro
 test('centered hero and wordmark use the supplied sky, and season reveals do not alter the data',async()=>{
   const page=await open();
   try {
+    assert.equal(await page.evaluate(()=>document.fonts.check('16px ROMANS')),true);
+    for(const selector of ['h1','nav a','#season .sub','#searchField','#seasonSvg text','#ms-api-response','#ms-run-request']) {
+      assert.ok((await page.locator(selector).first().evaluate(e=>getComputedStyle(e).fontFamily)).includes('ROMANS'),selector+' uses the supplied font');
+    }
     assert.equal((await page.locator('h1').innerText()).replace(/\s+/g,' '),'Check rice-field drainage from space.');
     for(const selector of ['h1','nav[aria-label="Main"]>ul']){
       const center=await page.locator(selector).evaluate(e=>{const r=e.getBoundingClientRect();return r.left+r.width/2});
@@ -191,16 +194,24 @@ test('centered hero and wordmark use the supplied sky, and season reveals do not
     }
     const image=await page.request.get(server.origin+'/img/rice-sky.png');
     assert.equal(image.status(),200);assert.equal((await image.body()).subarray(1,4).toString(),'PNG');
-    await scrollProgress(page,'brandInterlude',.1);
-    const first=await page.locator('#brandName').evaluate(e=>getComputedStyle(e).transform);
+    await scrollProgress(page,'brandInterlude',0);
+    const initialMask=await page.locator('.brand-card').evaluate(e=>getComputedStyle(e).clipPath);
+    assert.match(initialMask,/28% 22% 12%/);
+    assert.equal(await page.locator('.brand-wordmark-logo').count(),1);
+    const first=await page.locator('.brand-lockup').evaluate(e=>getComputedStyle(e).transform);
     await scrollProgress(page,'brandInterlude',.6);
-    assert.notEqual(await page.locator('#brandName').evaluate(e=>getComputedStyle(e).transform),first);
-    const center=await page.locator('#brandName').evaluate(e=>{const r=e.getBoundingClientRect();return r.left+r.width/2});
+    assert.notEqual(await page.locator('.brand-lockup').evaluate(e=>getComputedStyle(e).transform),first);
+    assert.notEqual(await page.locator('.brand-card').evaluate(e=>getComputedStyle(e).clipPath),initialMask);
+    const center=await page.locator('.brand-lockup').evaluate(e=>{const r=e.getBoundingClientRect();return r.left+r.width/2});
     assert.ok(Math.abs(center-720)<3);
     const data=await page.locator('#seasonTable tbody').innerText();
     await scrollProgress(page,'season',.1);const crop=await page.locator('#seasonSvg').evaluate(e=>getComputedStyle(e).clipPath);
     await scrollProgress(page,'season',.9);assert.notEqual(await page.locator('#seasonSvg').evaluate(e=>getComputedStyle(e).clipPath),crop);
     assert.equal(await page.locator('#seasonTable tbody').innerText(),data);
+    assert.equal(await page.locator('#season .stat').evaluateAll(items=>items.every(e=>{
+      const label=e.querySelector('span')!.getBoundingClientRect(),box=e.getBoundingClientRect(),style=getComputedStyle(e);
+      return label.top>=box.top && label.bottom<=box.bottom && style.borderTopWidth==='0px' && style.borderBottomWidth==='0px' && style.transform==='none';
+    })),true,'Metric labels stay inside their row without crossing animated dividers');
     await page.locator('#seasonTable summary').click();
     await page.waitForFunction(()=>!document.querySelector('#season')?.classList.contains('is-scroll-pinned'));
     assert.equal(await page.locator('#seasonSvg').evaluate(e=>getComputedStyle(e).clipPath),'none');

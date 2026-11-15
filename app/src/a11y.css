@@ -67,34 +67,6 @@ html { scroll-padding-top: calc(var(--nav-h, 72px) + 16px); scroll-padding-botto
 #seasonPlot:focus-visible { outline: 2px solid var(--water); outline-offset: 6px; border-radius: 4px; }
 :is(.chart-table-wrap, .bt-table-wrap, #backend-tool-content):focus-visible { outline: 2px solid var(--water); outline-offset: 4px; }
 
-/* 2.2.2: "Pause animations" in the navigation. */
-.motion-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 8px 14px;
-  flex-shrink: 0;
-  border: 1px solid var(--control-line);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--dim);
-  font: 500 var(--text-caption)/1.3 var(--sans);
-  cursor: pointer;
-}
-.motion-toggle svg { width: 16px; height: 16px; flex: none; }
-@media (min-width: 901px) { nav > ul { margin-left: auto; } }
-.motion-toggle:hover { background: #edf1f8; color: var(--ink); }
-.motion-toggle[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
-@media (max-width: 900px) {
-  .motion-toggle { padding: 8px 10px; }
-  .motion-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
-}
-/* Paused: no looping or long animation anywhere, the same as the reduced-motion setting. */
-html.motion-paused *:not(.horizon-drift):not(.orbital-swath), html.motion-paused *::before, html.motion-paused *::after { animation: none !important; transition: none !important; }
-html.motion-paused .slide { transform: none !important; }
-html.motion-paused .rv, html.motion-paused .cell { opacity: 1; transform: none; }
-html.motion-paused .step, html.motion-paused .card { opacity: 1 !important; transform: none !important; }
 /* The typing caret blinks for five seconds, then rests (2.2.2). */
 .pv-search .caret { animation-iteration-count: 5; }
 
