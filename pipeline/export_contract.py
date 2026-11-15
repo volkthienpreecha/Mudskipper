@@ -37,6 +37,21 @@ def gsha(v, tiles):
     return hashlib.sha256("".join(f"{t}:{v[t]}" for t in tiles if t in v).encode()).hexdigest()
 
 
+def granule_list(passes, prov, tiles):
+    """Every pass in passes.json (used or excluded) gets a granule entry (T3). Used passes carry the subset hash;
+    excluded passes carry it when a subset was cached, else null."""
+    by = {g["granule_id"]: g for g in prov["granules"]}
+    out, seen = [], set()
+    for p in passes:
+        gid = p["granule_id"]
+        if gid in seen:
+            continue
+        seen.add(gid)
+        g = by.get(gid)
+        out.append({"granule_id": gid, "crid": p["crid"], "subset_sha256": gsha(g["subset_sha256"], tiles) if g else None})
+    return out
+
+
 def pid(p):
     return f"{p['datetime'][:10].replace('-', '')}-T{int(p['track']):03d}{p['direction'][0].upper()}"
 
@@ -149,7 +164,10 @@ def main():
     # ---- observations: pick the field sample
     rows = [json.loads(l) for l in open(os.path.join(SRC, "observations.jsonl"))]
     tiles = sorted({r["tile"] for r in rows})
-    notrice = {r["field_id"] for r in rows if "not_rice_like" in r["flags"]}
+    notrice = {r["field_id"] for r in rows if "not_rice_like" in r["flags"] or "not_rice_2024" in r["flags"]}
+    rp = {}
+    if os.path.exists(os.path.join(SRC, "rice_prior.jsonl")):
+        rp = {json.loads(l)["field_id"]: json.loads(l)["rice_frac_2024"] for l in open(os.path.join(SRC, "rice_prior.jsonl"))}
     rng = np.random.default_rng(0); keep = set()
     for t in tiles:
         cand = sorted({r["field_id"] for r in rows if r["tile"] == t and r["field_id"] not in notrice})
@@ -185,7 +203,8 @@ def main():
                 continue
             from shapely.ops import unary_union
             gu = shp_transform(tr.transform, unary_union(geoms[i]).simplify(5))
-            area = float(seg["area_ha"][i]); cf = float(seg["crop_frac"][i])
+            area = float(seg["area_ha"][i - 1])  # segment labels start at 1; area_ha/crop_frac are 0-based
+            cf = rp.get(f"{t}_s{i:05d}", float(seg["crop_frac"][i - 1]))  # rice_mask_frac: 2024 rice map share
             c = gu.representative_point()
             feats.append({"type": "Feature", "id": f"{t}-{i:05d}", "geometry": mapping(gu),
                           "properties": {"field_id": f"{t}-{i:05d}", "tile": t, "district": DISTRICT[t],
@@ -228,8 +247,7 @@ def main():
     dc = prov.get("decomposition_check") or {}
     json.dump({**head, "git_sha": git if len(git) >= 7 else "0000000",
                "created_at": os.environ.get("RUN_CREATED_AT", "2026-11-14T00:00:00Z"),  # run config, not wall clock (T2)
-               "granules": [{"granule_id": g["granule_id"], "crid": g.get("crid", "P05023"), "subset_sha256": gsha(g["subset_sha256"], tiles)}
-                            for g in prov["granules"] if g["granule_id"] in used_g],
+               "granules": granule_list(passes, prov, tiles),
                "artifacts": arts,
                "decomposition_check": {"reference": dc.get("reference", "not run"), "max_abs_diff_db": dc.get("max_abs_diff_db")}},
               open(os.path.join(DST, "provenance.json"), "w"), indent=1)
