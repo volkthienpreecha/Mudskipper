@@ -40,7 +40,7 @@ export function runCoverage(dataset: DemoDataset): string {
     { key: 'inconsistent', label: 'Not consistent with AWD', color: 'mud' },
     { key: 'not_enough_evidence', label: 'Needs more evidence', color: 'neutral' },
   ];
-  return `<div class="bt-run-coverage"><p class="bt-kicker">Published field summaries</p><h3>Where inspection starts</h3>${groups.map((group) => {
+  return `<div class="bt-run-coverage"><p class="bt-kicker">Published field summaries</p><h3>AWD assessment by field</h3>${groups.map((group) => {
     const count = rows.filter((row) => row.awd_verdict === group.key).length;
     return `<div class="bt-coverage-row"><span>${group.label}</span><strong>${num(count)}</strong><div class="bt-coverage-track"><span class="bt-fill-${group.color}" style="width:${count / total * 100}%"></span></div></div>`;
   }).join('')}<p class="bt-fine">${num(rows.filter((row) => row.dsr_signal === 'dsr_signal').length)} fields show an early-season direct-seeding signal.</p></div>`;

@@ -194,7 +194,7 @@ html{background:#fcfdff}
 .depth{transform-style:preserve-3d;transition:transform .6s var(--ease)}
 .preview{transform:rotateY(-14deg) rotateX(6deg) translateZ(0);transform-style:preserve-3d;
   box-shadow:0 2px 0 rgba(16,29,66,.04) inset,0 40px 80px -20px rgba(0,0,0,.75),0 80px 160px -40px rgba(0,0,0,.6),-30px 30px 60px -30px rgba(63,208,201,.18)}
-.preview>*{transform:translateZ(var(--z,0px))}
+
 .pv-top{--z:50px} .pv-map{--z:30px} .pv-head{--z:60px} .passes{--z:80px} .pv-dates{--z:40px} .pv-foot{--z:40px}
 .float-chip{position:absolute;z-index:3;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:14px;
   background:rgba(16,26,31,.96);border:1px solid #edf1f8;font:12px var(--mono);color:var(--dim);
@@ -563,12 +563,12 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 <main id="main" tabindex="-1">
 <header class="hero" data-bg="0" id="opening">
   <div class="orbital-atmosphere" aria-hidden="true">
+    <canvas id="waterContours" aria-hidden="true"></canvas>
     <svg class="orbital-landscape" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
       <defs>
         <linearGradient id="night-sky" x2="0" y2="1"><stop stop-color="#081739"/><stop offset=".58" stop-color="#173b89"/><stop offset="1" stop-color="#87abe6"/></linearGradient>
         <linearGradient id="horizon-light" x2="0" y2="1"><stop stop-color="#dceaff"/><stop offset=".18" stop-color="#7ca5ed"/><stop offset=".64" stop-color="#315ea8"/><stop offset="1" stop-color="#112858"/></linearGradient>
         <filter id="horizon-blur" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="32"/></filter>
-        <filter id="sky-grain"><feTurbulence type="fractalNoise" baseFrequency=".55" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
       </defs>
       <path fill="url(#night-sky)" d="M0 0h1600v1000H0z"/>
       <g class="horizon-drift">
@@ -581,48 +581,69 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
       </g>
       <path class="orbital-track" d="M-100 260Q680 1280 1660 430" fill="none" stroke="#d7e8ff" stroke-width="1" opacity=".4" stroke-dasharray="3 12"/>
       <path class="orbital-swath" d="M-150 150Q650 1240 1710 340" fill="none" stroke="#c3dcff" stroke-width="2" opacity=".5" pathLength="1"/>
-      <path fill="#a8c9ff" filter="url(#sky-grain)" opacity=".055" d="M0 0h1600v1000H0z"/>
     </svg>
   </div>
-  <div class="hero-intro"><span>Satellite evidence for rice-field drainage</span><span>Punjab, India</span></div>
+  <div class="hero-intro"><span>Punjab, India</span></div>
   <div class="hero-copy">
-    <p class="hero-overline">A field changes.<br>The radar keeps a record.</p>
-    <h1>Water leaves.<br>Evidence stays.</h1>
-    <p class="lede">Read the drainage story of Punjab’s rice fields, one radar pass at a time.</p>
+    <h1>Use satellite radar to check whether rice fields were drained.</h1>
+    <p class="lede">Compare each field’s radar history, then choose where to inspect.</p>
     <div class="ctas">
       <button class="btn btn-primary" type="button" data-load="explore"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="spin"></span><span class="txt">Explore the map</span><span class="bar"></span></button>
       <button class="btn btn-ghost" type="button" data-load="tour"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg></span><span class="spin"></span><span class="txt">Take the tour</span><span class="bar"></span></button>
     </div>
 
   </div>
-  <div class="hero-bottom"><a href="#journey">Follow a field from space <span aria-hidden="true">↓</span></a><span>NASA–ISRO NISAR · L-band radar</span></div>
+  <div class="hero-bottom"><a href="#journey">See how it works <span aria-hidden="true">↓</span></a><span>NASA–ISRO NISAR · L-band radar</span></div>
 </header>
 
 <section class="journey" id="journey" aria-labelledby="journeyTitle">
-  <div class="journey-heading"><p class="label">From orbit to evidence</p><h2 id="journeyTitle">One field.<br>A season of changes.</h2><p>Drainage happens on the ground. Its radar signature can be read from space.</p></div>
-  <div class="journey-layout">
-    <div class="journey-chapters">
-      <article class="journey-chapter" data-chapter="0"><span class="chapter-index">01 / Locate</span><h3>Start with<br>a piece of land.</h3><p>Zoom into Punjab. Select a mapped field segment and follow the same boundary through the season.</p><p class="chapter-note">Fazilka &amp; Sri Muktsar Sahib</p></article>
-      <article class="journey-chapter" data-chapter="1"><span class="chapter-index">02 / Observe</span><h3>The clouds move in.<br>The radar looks through.</h3><p>NISAR records the returning radar signal. Read the flooded, drained and uncertain states inferred for each available pass.</p><p class="chapter-note">Every date stays attached to its observation.</p></article>
-      <article class="journey-chapter" data-chapter="2"><span class="chapter-index">03 / Inspect</span><h3>Give the next visit<br>a place to start.</h3><p>Open the field’s measurements, compare the drainage claim with the season, and rank the fields to inspect.</p><a class="journey-open" href="#analysis">Explore the model outputs <span aria-hidden="true">↗</span></a></article>
+  <div class="journey-pin">
+    <div class="journey-narration">
+      <h2 id="journeyTitle" class="sr-only">How Mudskipper checks drainage</h2>
+      <div class="journey-chapters">
+        <article class="journey-chapter" data-chapter="0"><p class="chapter-index">Satellite</p><h3>Radar sees through<br>the clouds.</h3><p>NISAR sends radar pulses toward the ground and measures the returning signal.</p></article>
+        <article class="journey-chapter" data-chapter="1"><p class="chapter-index">Field</p><h3>Same boundary.<br>Every pass.</h3><p>Follow flooded, drained and uncertain states within a mapped rice-field boundary.</p></article>
+        <article class="journey-chapter" data-chapter="2"><p class="chapter-index">Evidence</p><h3>Check the record.<br>Plan the visit.</h3><p>Compare radar measurements and model results, then rank fields for inspection.</p><a class="journey-open" href="#analysis">Open the analysis <span aria-hidden="true">↗</span></a></article>
+      </div>
+      <div class="scene-nav" role="group" aria-label="Story scenes"><button type="button" data-scene-jump="0" aria-pressed="true">Satellite</button><button type="button" data-scene-jump="1" aria-pressed="false">Field</button><button type="button" data-scene-jump="2" aria-pressed="false">Evidence</button></div>
     </div>
     <div class="journey-instrument">
-      <div class="journey-instrument-head"><span>Field observation record</span><span class="journey-stage" aria-hidden="true">Locate</span></div>
-  <div class="preview" id="preview" role="region" aria-label="Example field report">
+      <div class="journey-instrument-head"><span>Satellite to field</span><span class="journey-stage" aria-hidden="true">Satellite</span></div>
+  <div class="preview" id="preview" role="region" aria-label="Field report">
     <div class="pv-top">
       <button class="btn btn-primary pv-test" type="button" data-load="check"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></span><span class="spin"></span><span class="txt">Inspect another field</span><span class="bar"></span></button>
-      <div class="pv-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="sr-only">Field ID </span><span id="pvQuery">Loading</span><span class="caret" aria-hidden="true"></span></div>
+      <div class="pv-search"><span class="sr-only">Field ID </span><span id="pvQuery">Loading</span><span class="caret" aria-hidden="true"></span></div>
     </div>
+<div class="scene-orbit" aria-hidden="true">
+  <svg viewBox="0 0 800 600" class="satellite-scene">
+    <defs><linearGradient id="orbit-depth" x2="0" y2="1"><stop stop-color="#0b2150"/><stop offset="1" stop-color="#244d9c"/></linearGradient><linearGradient id="scan-volume" x2="0" y2="1"><stop stop-color="#a6cfff" stop-opacity=".45"/><stop offset="1" stop-color="#a6cfff" stop-opacity="0"/></linearGradient><pattern id="solar-grid" width="18" height="18" patternUnits="userSpaceOnUse"><rect width="18" height="18" fill="#2e5ea9"/><path d="M18 0H0V18" stroke="#a3c7f9" stroke-width=".7" fill="none"/></pattern></defs>
+    <path d="M0 0h800v600H0z" fill="url(#orbit-depth)"/>
+    <g class="orbit-ground" fill="none" stroke="#8eb8f0" stroke-width="1" opacity=".42"><ellipse cx="420" cy="540" rx="450" ry="145"/><ellipse cx="420" cy="540" rx="330" ry="108"/><ellipse cx="420" cy="540" rx="220" ry="70"/><path d="M-20 540H860M80 445Q420 610 750 445M250 410Q420 680 590 410M390 398Q420 680 450 398"/></g>
+    <g class="satellite-craft">
+      <path class="satellite-beam" d="M380 286 230 530Q420 610 625 500L429 272Z" fill="url(#scan-volume)"/>
+      <g transform="translate(390 220) rotate(-18)">
+        <path d="M-240-45H-56V47H-240ZM60-45H244V47H60Z" fill="url(#solar-grid)" stroke="#b7d4fa" stroke-width="2"/>
+        <path d="M-56-2H60" fill="none" stroke="#d3e6ff" stroke-width="8"/>
+        <path d="M-45-54H42L63-31V60H-23L-45 38Z" fill="#92b5e7" stroke="#e3eeff" stroke-width="2"/>
+        <path d="M-23-31H63M-23-31V60M-45-54-23-31 42-54" fill="none" stroke="#d6e7ff" stroke-width="1.5"/>
+        <path d="M20 58v38M-35 106Q20 160 77 106Z" fill="#bcd5f8" stroke="#e6f1ff" stroke-width="2"/><ellipse cx="21" cy="106" rx="56" ry="12" fill="#739bd6" stroke="#d6e7ff" stroke-width="2"/>
+        <path d="M20 95V74M20 74 3 105M20 74 38 105" fill="none" stroke="#e6f1ff" stroke-width="1.5"/>
+      </g>
+      <path d="M287 506 380 487 486 508 392 534Z" fill="#8ebeff" fill-opacity=".18" stroke="#c6dfff" stroke-width="1.5"/>
+      <path class="scan-return" d="M392 518 410 317" stroke="#daebff" stroke-width="2" fill="none" stroke-dasharray="6 10"/>
+    </g>
+  </svg><span class="scene-orbit-caption">NISAR · radar observation</span>
+</div>
     <div class="pv-map">
       <svg viewBox="0 0 400 150" preserveAspectRatio="none" id="pvMap" role="img" aria-label="Satellite view of the example field"></svg>
       <span class="pv-maplabel" id="pvLabel">Locating field…</span><span class="pv-coords" id="pvCoords"></span>
     </div>
+    <div class="journey-readout" role="region" aria-label="Field evidence">
     <div class="pv-head">
       <div><small id="pvMeta">Loading field</small><strong>Season observations</strong></div>
       <span class="verdict" id="pvVerdict">Loading</span>
     </div>
     <div class="journey-acquisition"><span>Radar pass</span><b id="journeyAcquisition">Loading observations</b></div>
-    <div class="pv-sub">What the radar saw on each pass</div>
     <div class="passes" id="pvPasses" role="list" aria-label="Radar state on each pass"></div>
     <div class="pv-legend">
       <span><span class="ic f" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.8C8 1.8 3.5 7 3.5 10a4.5 4.5 0 0 0 9 0C12.5 7 8 1.8 8 1.8Z"/></svg></span>Flooded</span>
@@ -634,28 +655,26 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
       <div><b id="pvPassCount">—</b>radar passes</div>
       <div><b id="pvFieldCount">—</b>mapped fields</div>
     </div>
+    </div>
   </div>
-
       <div class="journey-progress" aria-hidden="true"><span></span></div>
-      <p class="journey-source">The field, dates and measurements follow your selected dataset.</p>
     </div>
   </div>
 </section>
 
 <section id="story" data-bg="3">
   <div class="wrap story">
-    <p class="label rv"><b>01</b> The problem</p>
-    <h2 class="rv">From a drainage claim<br>to satellite evidence</h2>
-    <p class="sub rv">Follow the radar observations behind a rice field's drainage story.</p>
+    <p class="label rv">Claims</p>
+    <h2 class="rv">Compare a claim with the radar record</h2>
     <div id="storyDemo" class="ms-demo"><p class="sub">Loading the field evidence…</p></div>
   </div>
 </section>
 
 <section id="map" data-bg="1" tabindex="-1" aria-labelledby="mapTitle">
   <div class="wrap">
-    <p class="label rv"><b>02</b> The map</p>
-    <h2 class="rv" id="mapTitle">From the map of India to a single paddy</h2>
-    <p class="sub rv">Choose a district to fly in. Choose a dataset, then press play to watch the season unfold.</p>
+    <p class="label rv">Map</p>
+    <h2 class="rv" id="mapTitle">Inspect a field in Punjab</h2>
+    <p class="sub rv">Choose a district and field. Use the timeline to compare radar passes.</p>
     <div class="mapapp rv" id="mapapp">
       <div class="map-bar">
         <div class="seg" role="group" aria-label="Study area">
@@ -699,18 +718,17 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 
 <section id="how" data-bg="4">
   <div class="wrap">
-    <p class="label rv"><b>03</b> How to use it</p>
-    <h2 class="rv">One field, from boundary to evidence</h2>
-    <p class="sub rv">Explore the mapped fields and acquisition dates in the selected dataset.</p>
+    <p class="label rv">Field record</p>
+    <h2 class="rv">Choose a field. Read its record.</h2>
     <div id="walkthroughDemo" class="ms-demo"><p class="sub">Loading the field walkthrough…</p></div>
   </div>
 </section>
 
 <section id="season" data-bg="2">
   <div class="wrap">
-    <p class="label rv"><b>04</b> The season</p>
-    <h2 class="rv">Rice fields tracked across <em>Kharif 2026</em> from orbit</h2>
-    <p class="sub rv">Fazilka and Sri Muktsar Sahib, Punjab. The pass timeline shows the field states available in the selected dataset.</p>
+    <p class="label rv">Season</p>
+    <h2 class="rv">Rice-field states across Kharif 2026</h2>
+    <p class="sub rv">Compare flooded, drained and uncertain area across the season.</p>
     <div class="stats rv">
       <div class="stat"><strong id="liveFieldCount">—</strong><span>mapped rice fields</span></div>
       <div class="stat"><strong id="livePassCount">—</strong><span>radar passes</span></div>
@@ -733,9 +751,9 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 
 <section id="method" data-bg="3">
   <div class="wrap">
-    <p class="label rv"><b>05</b> The science</p>
+    <p class="label rv">Method</p>
     <h2 class="rv">How radar reads a rice field</h2>
-    <p class="sub rv">Explore the return path, then read the actual HH backscatter for the field.</p>
+    <p class="sub rv">See how water and rice plants change the returning radar signal.</p>
     <div id="methodDemo" class="ms-demo"><p class="sub">Loading the radar demonstration…</p></div>
   </div>
 </section>
@@ -744,9 +762,9 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 
 <section id="api" data-bg="4">
   <div class="wrap">
-    <p class="label rv"><b>06</b> Open data</p>
-    <h2 class="rv">Query the data behind the map</h2>
-    <p class="sub rv">Choose an endpoint. Make a live request. Take the response into your own work.</p>
+    <p class="label rv">Open data</p>
+    <h2 class="rv">Request the field data</h2>
+    <p class="sub rv">Choose an endpoint to retrieve its JSON response.</p>
     <div id="apiDemo" class="ms-demo"><p class="sub">Loading the API explorer…</p></div>
   </div>
 </section>

@@ -1168,7 +1168,6 @@ function interesting(t = tile) {
 }
 
 // hero mini-map: the real satellite view around the field, zooming in from the district to the paddy
-let heroAnim = 0;
 function heroMap(f, t) {
   const m = $("pvMap"),
     sat = SAT[t + "_fields"],
@@ -1194,21 +1193,7 @@ function heroMap(f, t) {
   m.innerHTML = `<image href="${esc(district.src)}" x="${da}" y="${db}" width="${dc - da}" height="${dd - db}" preserveAspectRatio="none"/><image href="${esc(sat.src)}" x="${a}" y="${b}" width="${c - a}" height="${d - b}" preserveAspectRatio="none"/>
     <path class="hf" d="M${pts.map((p) => p.map((v) => v.toFixed(2)).join(",")).join("L")}Z" fill="${col}" fill-opacity=".38" stroke="${col}" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
     <path class="hf-ring" d="M${pts.map((p) => p.map((v) => v.toFixed(2)).join(",")).join("L")}Z" fill="none" stroke="#fcfdff" stroke-width="1" vector-effect="non-scaling-stroke" stroke-dasharray="4 4"/>`;
-  const id = ++heroAnim,
-    t0 = performance.now(),
-    w0 = span * 7,
-    w1 = span,
-    ratio = 150 / 400;
-  const step = (now) => {
-    if (id !== heroAnim) return;
-    const t = motionOff() ? 1 : Math.min(1, (now - t0) / 1600),
-      e = 1 - Math.pow(1 - t, 3);
-    const w = Math.exp(Math.log(w0) + (Math.log(w1) - Math.log(w0)) * e),
-      h = w * ratio;
-    m.setAttribute("viewBox", `${cx - w / 2} ${cy - h / 2} ${w} ${h}`);
-    if (t < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
+  m.setAttribute("viewBox", `${cx - span / 2} ${cy - span * .375 / 2} ${span} ${span * .375}`);
   $("pvLabel").textContent = `This field · ${f.ha} ha`;
   const [lon, lat] = f.poly.reduce(
     (q, [x, y]) => [q[0] + x / f.poly.length, q[1] + y / f.poly.length],
@@ -1219,6 +1204,7 @@ function heroMap(f, t) {
     "aria-label",
     `Satellite view of field ${f.id}, outlined, near ${lat.toFixed(2)}° N, ${lon.toFixed(2)}° E`,
   );
+  return { cx, cy, span };
 }
 
 // hero card shows a real field too
@@ -1235,7 +1221,7 @@ async function heroField(i, t = tile) {
     }
   }
   if (DATA !== dataset || token !== heroVersion) return;
-  heroMap(f, t);
+  const camera = heroMap(f, t);
   const [v] = verdictLine(f.s);
   $("pvQuery").textContent = f.id;
   $("pvMeta").textContent = `${NICE[t]} · ${Number(f.ha).toFixed(2)} ha`;
@@ -1244,13 +1230,14 @@ async function heroField(i, t = tile) {
   $("pvConf").textContent = cs.length
     ? (cs.reduce((a, b) => a + b, 0) / cs.length).toFixed(2)
     : "Unavailable";
+  $("pvPasses").style.setProperty("--pass-count", String(DATA.passes.length));
   $("pvPasses").innerHTML = [...f.s]
     .map(
       (c, j) =>
         `<div class="pcol" role="listitem" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}"><span class="${c === "-" ? "u" : c}" aria-hidden="true">${stateGlyph(c)}</span><em aria-hidden="true">${fmt(DATA.passes[j]).replace(" ", "<br>")}</em><span class="sr-only">${fmt(DATA.passes[j])}: ${stateLabel(c)}</span></div>`,
     )
     .join("");
-  setJourneyField(f.s, DATA.passes);
+  setJourneyField(f.s, DATA.passes, camera);
 }
 
 // replace the placeholder hero button handlers with real ones
