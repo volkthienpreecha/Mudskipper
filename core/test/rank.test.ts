@@ -402,4 +402,17 @@ describe("review regressions (rules.py parity)", () => {
     await expect(readAuditBody(bom)).rejects.toMatchObject({ code: "invalid_json", status: 400 });
     await expect(readAuditBody("\ufeff" + text)).rejects.toMatchObject({ code: "invalid_json" });
   });
+
+  it("a degenerate polygon is invalid_geometry even with a valid field_id hint", async () => {
+    const hinted = [claim(DEGENERATE, { claim_id: "c1", field_id: FIELDS[0]!.properties.field_id })];
+    expect((await rankError(body([], 5, 7, hinted))).code).toBe("invalid_geometry");
+  });
+
+  it("a degenerate polygon after a duplicate claim_id is invalid_geometry, not duplicate_claim_id", async () => {
+    const pt = { type: "Point", coordinates: [FIELDS[0]!.properties.lon, FIELDS[0]!.properties.lat] };
+    const claims = [claim(pt, { claim_id: "x" }), claim(pt, { claim_id: "x" }), claim(DEGENERATE, { claim_id: "z" })];
+    const err = await rankError(body([], 5, 7, claims));
+    expect(err.code).toBe("invalid_geometry");
+    expect(err.message).toContain("claim z");
+  });
 });

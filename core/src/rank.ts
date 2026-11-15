@@ -289,18 +289,20 @@ export async function rank(
   if (!/^[0-9a-f]{64}$/.test(inputHash)) throw new RangeError("inputHash must be a lowercase sha256 hex digest");
   const seed = seedFor(req, inputHash);
 
-  // Claim ids, then geometry checks (all claims), then duplicates: the reference's order of errors.
+  // Claim ids, then geometry checks (all claims), then duplicates: the reference's order of errors. Like
+  // rules.rank, the first loop also computes every claim's point, so a degenerate ring is invalid_geometry
+  // even when a field_id hint would have matched, and wins over a duplicate_claim_id earlier in the upload.
   const ids: string[] = [];
+  const points: Array<[number, number]> = [];
   claims.forEach((claim, i) => {
     const cid = claim.properties.claim_id;
     ids.push(cid === undefined || cid === null ? `#${i + 1}` : cid);
-    if (claim.geometry.type !== "Point") {
-      try {
-        checkRings(claim.geometry);
-      } catch (err) {
-        if (err instanceof GeometryError) throw new RankError("invalid_geometry", `claim ${ids[ids.length - 1]}: ${err.message}`);
-        throw err;
-      }
+    try {
+      if (claim.geometry.type !== "Point") checkRings(claim.geometry);
+      points.push(representativePoint(claim.geometry));
+    } catch (err) {
+      if (err instanceof GeometryError) throw new RankError("invalid_geometry", `claim ${ids[ids.length - 1]}: ${err.message}`);
+      throw err;
     }
   });
   const seen = new Map<string, number>();
@@ -323,14 +325,7 @@ export async function rank(
     const claimed = PRACTICES.filter((c) => props.claimed.includes(c));
     let field = props.field_id ? byId.get(props.field_id) : undefined;
     if (field === undefined) {
-      let pt: [number, number];
-      try {
-        pt = representativePoint(claim.geometry);
-      } catch (err) {
-        if (err instanceof GeometryError) throw new RankError("invalid_geometry", `claim ${claimId}: ${err.message}`);
-        throw err;
-      }
-      const [px, py] = pt;
+      const [px, py] = points[i]!;
       boxes ??= ordered.map((f) => bboxOf(f.geometry));
       const at = ordered.findIndex((f, k) => bboxMayContain(boxes![k]!, px, py) && contains(f.geometry, px, py));
       field = at < 0 ? undefined : ordered[at];
