@@ -26,10 +26,16 @@ Software (planned or in use; each lane confirms when it lands)
   PMTiles ................ BSD-3-Clause https://github.com/protomaps/PMTiles
   MapLibre GL JS ......... BSD-3-Clause https://github.com/maplibre/maplibre-gl-js
   Hono ................... MIT          https://github.com/honojs/hono
+  Ajv (build-time codegen) MIT          https://github.com/ajv-validator/ajv
+  Wrangler, Miniflare,
+  workerd, Vitest plugin . MIT/Apache-2.0 https://github.com/cloudflare/workers-sdk
+  Vitest ................. MIT          https://github.com/vitest-dev/vitest
+  sharp (icon rendering) . Apache-2.0   https://github.com/lovell/sharp
 
 Fonts (self-hosted)
   Fraunces ............... SIL OFL 1.1  https://github.com/undercasetype/Fraunces
   IBM Plex Sans / Mono ... SIL OFL 1.1  https://github.com/IBM/plex
+  (latin subsets from Google Fonts in platform/placeholder/fonts/, with their OFL texts)
 
 Data
   NISAR L2 GCOV (NASA-ISRO), via the Alaska Satellite Facility DAAC.
