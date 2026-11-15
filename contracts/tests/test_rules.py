@@ -408,6 +408,13 @@ class RankTests(unittest.TestCase):
                 self.rank(_body([], 5, seed=1, extra=bad))
             self.assertEqual(ctx.exception.code, "invalid_geometry")
 
+    def test_non_json_bodies_are_invalid_json(self):
+        good = _body(self.fields, 5, seed=1)
+        for bad in (b"\xef\xbb\xbf" + good, good.replace(b'"budget": 5', b'"budget": NaN'), b"\xff\xfe{"):
+            with self.assertRaises(rules.RankError) as ctx:
+                self.rank(bad)
+            self.assertEqual(ctx.exception.code, "invalid_json")
+
     def test_seed_zero_is_a_seed(self):
         body = _body(self.fields, 10, seed=0)
         self.assertEqual(self.rank(body)["seed"], 0)

@@ -510,7 +510,15 @@ def rank(body: bytes, fields: Sequence[dict], summaries: dict, run_id: str, crea
     """CONTRACTS.md B6 ranking. body = exact request bytes; fields = GeoJSON features."""
     import json
 
-    request = json.loads(body.decode("utf-8"))
+    def _no_nonfinite(token):
+        raise RankError("invalid_json", f"non-finite number {token} is not JSON")
+
+    if body.startswith(b"\xef\xbb\xbf"):
+        raise RankError("invalid_json", "request body must not start with a byte order mark")
+    try:
+        request = json.loads(body.decode("utf-8"), parse_constant=_no_nonfinite)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RankError("invalid_json", f"request body is not UTF-8 JSON: {type(exc).__name__}") from None
     claims = request["claims"]["features"]
     budget = int(request["budget"])
     input_hash = hashlib.sha256(body).hexdigest()

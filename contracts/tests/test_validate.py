@@ -271,6 +271,13 @@ class GeoStage(Base):
         self.assertEqual(validate.main([str(self.geo), "--stage", "geo", "--quiet"]), 0)
 
 
+class EcmaPatterns(unittest.TestCase):
+    def test_trailing_newline_does_not_match_anchored_pattern(self):
+        errors = SCHEMAS.errors("live", {"v": 1, "run_id": "r01\n", "fixture": False})
+        self.assertTrue(any("run_id" in e for e in errors), errors)
+        self.assertEqual(SCHEMAS.errors("live", {"v": 1, "run_id": "r01", "fixture": False}), [])
+
+
 class CommandLine(unittest.TestCase):
     def test_exit_codes(self):
         self.assertEqual(validate.main([str(FIXTURES), "--quiet"]), 0)
