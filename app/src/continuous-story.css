@@ -1,0 +1,51 @@
+/* The image arrives as a card, opens into a scene, then dissolves into the field. */
+html #opening::after { content:""; position:absolute; inset:auto 0 0; height:160px; z-index:-1; background:linear-gradient(transparent,#0b2456); pointer-events:none; }
+html #brandInterlude { background:linear-gradient(#0b2456 0%,#193b74 56%,#eaf2fc 100%); }
+html #brandInterlude.is-scroll-pinned { height:160svh; }
+.brand-pin { overflow:visible; }
+.brand-card { position:absolute; inset:0; isolation:isolate; overflow:hidden; clip-path:inset(var(--brand-inset-top,6%) var(--brand-inset-x,4%) var(--brand-inset-bottom,6%) round var(--brand-radius,24px)); display:grid; place-items:center; }
+.brand-card .brand-sky { filter:blur(12px); }
+.brand-lockup { display:flex; align-items:center; justify-content:center; gap:2vw; position:relative; z-index:1; transform:translateY(var(--brand-y,0)) scale(var(--brand-scale,1)); opacity:var(--brand-opacity,1); }
+html #brandName { font-size:min(14vw,19rem)!important; transform:none; opacity:1; }
+.brand-wordmark-logo { width:10vw; height:10vw; max-width:210px; max-height:210px; flex:none; }
+.brand-handoff { position:absolute; inset:0; z-index:2; background:#eaf2fc; opacity:var(--brand-handoff,0); pointer-events:none; }
+
+/* One shared surface replaces the hard section borders and oversized gutters. */
+html :is(#story,#map,#how,#season,#method,#analysis,#api) { background:#eaf2fc; border:0; padding-top:56px; padding-bottom:40px; }
+html :is(#story,#how,#method) .ms-demo { margin-top:24px; }
+html :is(#story,#map,#how,#season,#method,#analysis,#api)>.wrap>.label { margin-bottom:8px; }
+html :is(#story,#map,#how,#season,#method,#analysis,#api)>.wrap>h2 { margin-bottom:20px; }
+html :is(#story,#map,#how,#season,#method,#analysis,#api)>.wrap>.sub { margin-top:8px; margin-bottom:24px; }
+html .journey.is-pinned { height:270svh; position:relative; z-index:1; margin-top:-42svh; border-radius:32px 32px 0 0; }
+html .ms-demo .ms-scroll-sequence.is-scroll-pinned { height:240svh; }
+html #season.is-scroll-pinned { height:190svh; padding-top:0; padding-bottom:0; }
+
+/* Keep labels fixed in their metrics row. Only the numerals float into place. */
+html #season .stats { border:0!important; perspective:none; }
+html #season .stat,html #season .stat+.stat { border:0!important; transform:none!important; }
+html #season .stat strong { transform:translateY(var(--stat-y,0)); }
+html #season .stat span { position:relative; transform:none; margin-top:12px; padding-bottom:4px; }
+
+/* Neighbouring visual states overlap while their captions retain a single reading order. */
+@media(min-width:1000px) and (min-height:780px) and (prefers-reduced-motion:no-preference) {
+  html .ms-demo .ms-how-sequence.is-scroll-pinned .ms-walk-stage,
+  html .ms-demo .ms-method-sequence.is-scroll-pinned .ms-method-stage { opacity:1; visibility:visible; transform:none; pointer-events:none; }
+  html .ms-demo .ms-how-sequence.is-scroll-pinned .ms-walk-copy,
+  html .ms-demo .ms-method-sequence.is-scroll-pinned :is(.ms-scene-caption,.ms-scene-mobile-note) { visibility:hidden; }
+  html .ms-demo .ms-scroll-sequence.is-scroll-pinned [data-scroll-stage].is-scroll-active .ms-walk-copy,
+  html .ms-demo .ms-scroll-sequence.is-scroll-pinned [data-scroll-stage].is-scroll-active :is(.ms-scene-caption,.ms-scene-mobile-note) { visibility:visible; }
+  html .ms-demo .ms-how-sequence.is-scroll-pinned .ms-product-window,
+  html .ms-demo .ms-method-sequence.is-scroll-pinned .ms-science-scene,
+  html .ms-demo .ms-method-sequence.is-scroll-pinned :is(.ms-method-reading,.ms-method-comparison) { opacity:var(--stage-opacity,0); transform:translateY(var(--stage-y,24px)); transition:none; }
+  html .ms-demo .ms-scroll-sequence.is-scroll-pinned .is-scroll-active { pointer-events:auto; }
+  html .ms-demo .ms-claim-sequence.is-scroll-pinned .ms-evidence-flow>:is(.ms-flow-source,.ms-flow-bridge,.ms-flow-result) { visibility:visible; opacity:var(--flow-opacity,0); transform:translateY(var(--flow-y,24px)); transition:none; }
+}
+@media(max-width:999px) {
+  html :is(#story,#map,#how,#season,#method,#analysis,#api) { padding-top:48px; padding-bottom:32px; }
+  .brand-pin { overflow:hidden; }
+  html #brandName { font-size:14vw!important; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .brand-lockup { transform:none; opacity:1; }
+  .brand-handoff { opacity:0; }
+}

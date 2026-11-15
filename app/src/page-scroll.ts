@@ -4,21 +4,28 @@ const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const brand = document.querySelector<HTMLElement>('#brandInterlude');
 if (brand) bindScrollSequence(brand, { onProgress(progress) {
   const moving = brand.classList.contains('is-scroll-pinned');
-  const enter = clamp(progress / .5);
-  const exit = clamp((progress - .68) / .32);
-  brand.style.setProperty('--brand-y', `${moving ? 18 * (1 - enter) - exit * 8 : 0}vh`);
-  brand.style.setProperty('--brand-scale', String(moving ? .88 + enter * .12 + exit * .28 : 1));
-  brand.style.setProperty('--brand-opacity', String(moving ? 1 - exit * .45 : 1));
-  brand.style.setProperty('--brand-sky-scale', String(moving ? 1.08 + progress * .12 : 1.08));
+  const t = clamp(progress / .46);
+  const expand = t * t * (3 - 2 * t);
+  const exit = moving ? clamp((progress - .73) / .27) : 0;
+  brand.style.setProperty('--brand-inset-x', `${moving ? (1 - expand) * 22 : 4}%`);
+  brand.style.setProperty('--brand-inset-top', `${moving ? (1 - expand) * 28 : 6}%`);
+  brand.style.setProperty('--brand-inset-bottom', `${moving ? (1 - expand) * 12 : 6}%`);
+  brand.style.setProperty('--brand-radius', `${moving ? (1 - expand) * 40 : 24}px`);
+  brand.style.setProperty('--brand-y', `${moving ? 8 * (1 - expand) - exit * 10 : 0}vh`);
+  brand.style.setProperty('--brand-scale', String(moving ? .6 + expand * .4 + exit * .12 : 1));
+  brand.style.setProperty('--brand-opacity', String(1 - exit));
+  brand.style.setProperty('--brand-handoff', String(exit));
+  brand.style.setProperty('--brand-sky-scale', String(moving ? 1.06 + progress * .12 : 1.06));
 }});
 
 const season = document.querySelector<HTMLElement>('#season');
+const seasonStats = season ? [...season.querySelectorAll<HTMLElement>('.stat')] : [];
 if (season) bindScrollSequence(season, { fitTarget:'#seasonTable', onProgress(progress) {
   const moving = season.classList.contains('is-scroll-pinned');
-  season.style.setProperty('--season-crop', `${moving ? (1 - clamp((progress - .18) / .68)) * 100 : 0}%`);
-  season.querySelectorAll<HTMLElement>('.stat').forEach((stat, index) => {
+  season.style.setProperty('--season-crop', `${moving ? (1 - (.4 + .6 * clamp(progress / .86))) * 100 : 0}%`);
+  seasonStats.forEach((stat, index) => {
     const shown = moving ? clamp((progress - index * .07) / .18) : 1;
-    stat.style.setProperty('--stat-y', `${(1 - shown) * 28}px`);
+    stat.style.setProperty('--stat-y', `${-(1 - shown) * 12}px`);
   });
 }});
 

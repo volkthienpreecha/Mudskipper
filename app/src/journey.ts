@@ -1,30 +1,33 @@
-/** The document scrolls normally; one viewport stays pinned inside the story. */
+import { registerScrollClient, requestScrollFrame, type ScrollFrame } from './scroll-frame';
+
+/** A real field record follows native scroll through one measured, pinned scene. */
 const opening = document.querySelector<HTMLElement>('#opening');
 const journey = document.querySelector<HTMLElement>('#journey');
-const pin = document.querySelector<HTMLElement>('.journey-pin');
 const map = document.querySelector<SVGSVGElement>('#pvMap');
 const preview = document.querySelector<HTMLElement>('#preview');
 const readout = document.querySelector<HTMLElement>('.journey-readout');
 const chapters = [...document.querySelectorAll<HTMLElement>('.journey-chapter')];
 const stage = document.querySelector<HTMLElement>('.journey-stage');
-const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-const desktop = matchMedia('(min-width:1000px) and (min-height:680px)');
-const clamp = (n: number) => Math.max(0,Math.min(1,n));
-const between = (p:number,a:number,b:number) => clamp((p-a)/(b-a));
-const ease = (p:number) => p*p*(3-2*p);
+const clamp = (n: number) => Math.max(0, Math.min(1, n));
+const between = (p: number, a: number, b: number) => clamp((p-a)/(b-a));
+const ease = (p: number) => p*p*(3-2*p);
 const names = ['Satellite','Field','Evidence'];
-let scheduled = false;
-let lastProgress = 0;
-let active = 0;
 let observations: {states:string;passes:string[];camera:{cx:number;cy:number;span:number}} | null = null;
 let shownPass = -1;
+let geometryDirty = true;
+let settings = -1;
+let lastProgress = -1;
+let lastPinned = false;
+let lastChapter = -1;
+let lastOpening = -1;
+let geometry = { height:600, width:700, readout:240, borderX:2, borderY:2, staticMapHeight:240 };
 
 export function setJourneyField(states:string,passes:string[],camera:{cx:number;cy:number;span:number}) {
   observations = {states,passes,camera};
   shownPass = -1;
+  geometryDirty = true;
   showPass(passes.length-1);
-  paint(lastProgress);
-  schedule();
+  requestScrollFrame();
 }
 function showPass(index:number) {
   if (!observations || index===shownPass || index<0) return;
@@ -40,77 +43,90 @@ function showPass(index:number) {
   if(polygon){polygon.style.fill=colors[state];polygon.style.stroke=colors[state];}
   passes.forEach((pass,i)=>pass.classList.toggle('is-observed',i===index));
 }
-function rich() { return desktop.matches && !reduced.matches && !document.documentElement.classList.contains('motion-paused') && parseFloat(getComputedStyle(document.documentElement).fontSize)<=24; }
 function activate(index:number,pinned:boolean) {
-  active=index;
-  if(journey) journey.dataset.chapter=String(index);
+  if (!journey) return;
+  journey.dataset.chapter=String(index);
   if(stage) stage.textContent=names[index];
   chapters.forEach((chapter,i)=>{
-    chapter.inert=pinned && i!==index;
-    chapter.setAttribute('aria-hidden',String(pinned && i!==index));
+    const hidden = pinned && i!==index;
+    if (hidden && chapter.contains(document.activeElement)) journey.focus({preventScroll:true});
+    chapter.inert=hidden;
+    chapter.setAttribute('aria-hidden',String(hidden));
   });
 }
-function paint(progress:number) {
-  if(!journey) return;
-  lastProgress=progress;
-  const pinned=rich();
-  const field=ease(between(progress,.16,.44));
-  const record=ease(between(progress,.64,.88));
-  const camera=ease(between(progress,.22,.65));
-  const viewportHeight=preview?.clientHeight ?? 600;
-  // Reserve the actual record height, including wrapped dates and enlarged text.
-  const finalMapHeight=Math.max(0,Math.min(viewportHeight*.32,viewportHeight-(readout?.scrollHeight ?? 240)-80));
-  const mapHeight=(viewportHeight-68)*(1-record)+finalMapHeight*record;
-  const values:Record<string,string>={
-    '--journey-progress':String(progress),
-    '--orbit-opacity':String(1-field),
-    '--orbit-scale':String(1+field*.55),
-    '--orbit-y':`${-field*14}%`,
-    '--satellite-y':`${-field*120}px`,
-    '--satellite-turn':`${-field*24}deg`,
-    '--return-offset':String(-progress*380),
-    '--map-opacity':String(ease(between(progress,.2,.36))),
-    '--map-height':`${mapHeight}px`,
-    '--map-y':`${(1-field)*100}px`,
-    '--map-tilt':`${(1-field)*36}deg`,
-    '--map-scale':String(.65+field*.35),
-    '--record-opacity':String(record),
-    '--record-y':`${(1-record)*100}px`,
-  };
-  for(const [name,value] of Object.entries(values)) journey.style.setProperty(name,value);
-  activate(progress<.32?0:progress<.7?1:2,pinned);
-  if(observations && map){
-    const {cx,cy,span}=observations.camera;
-    const width=span*(pinned?Math.exp(Math.log(15)*(1-camera)):1);
-    const parent=map.parentElement!;
-    const ratio=parent.clientHeight/Math.max(1,parent.clientWidth);
-    const height=width*ratio;
-    map.setAttribute('viewBox',`${cx-width/2} ${cy-height/2} ${width} ${height}`);
-    if(pinned) showPass(Math.min(observations.passes.length-1,Math.floor(between(progress,.36,.82)*observations.passes.length)));
-  }
-}
-function render(){
-  scheduled=false;
-  if(!journey || !pin || document.hidden) return;
-  const pinned=rich();
-  const changed=journey.classList.contains('is-pinned')!==pinned;
-  journey.classList.toggle('is-pinned',pinned);
-  const paused=reduced.matches || document.documentElement.classList.contains('motion-paused');
-  const nav=document.querySelector('nav[aria-label="Main"]')?.getBoundingClientRect().height ?? 73;
-  const box=journey.getBoundingClientRect();
-  const progress=clamp((nav-box.top)/Math.max(1,box.height-(innerHeight-nav)));
-  if(!paused || changed){
-    paint(pinned?progress:1);
-    if(opening) opening.style.setProperty('--opening-progress',String(clamp(-opening.getBoundingClientRect().top/innerHeight)));
-  }
-  if(!pinned){activate(0,false);if(observations)showPass(observations.passes.length-1);}
-}
-function schedule(){if(scheduled || document.hidden)return;scheduled=true;requestAnimationFrame(render);}
-addEventListener('scroll',schedule,{passive:true});
-addEventListener('resize',schedule,{passive:true});
-addEventListener('pageshow',schedule);
-reduced.addEventListener('change',schedule);
-desktop.addEventListener('change',schedule);
-new MutationObserver(schedule).observe(document.documentElement,{attributes:true,attributeFilter:['class','style']});
-document.addEventListener('visibilitychange',schedule);
-if(journey){new ResizeObserver(schedule).observe(journey);schedule();}
+type State = { pinned:boolean; modeChanged:boolean; progress:number; opening:number; geometryChanged:boolean; mapHeight:number; cameraWidth:number; cameraHeight:number };
+if (journey && preview) registerScrollClient<State>({
+  measure(frame:ScrollFrame) {
+    const pinned=frame.width>=1000 && frame.height>=680 && !frame.reducedMotion && frame.fontSize<=24;
+    const actualPinned=journey.classList.contains('is-pinned');
+    const openingProgress = opening ? clamp(-opening.getBoundingClientRect().top/frame.height) : 0;
+    if (pinned!==actualPinned) return {pinned,modeChanged:true,progress:pinned?0:1,opening:openingProgress,geometryChanged:true,mapHeight:0,cameraWidth:0,cameraHeight:0};
+    const rect=journey.getBoundingClientRect();
+    const progress=pinned?clamp((frame.navHeight-rect.top)/Math.max(1,rect.height-(frame.height-frame.navHeight))):1;
+    const needsGeometry=geometryDirty || settings!==frame.settingsVersion || lastPinned!==pinned;
+    if (!needsGeometry && progress===lastProgress && openingProgress===lastOpening) return;
+    if (needsGeometry) {
+      const parent=map?.parentElement;
+      const style=parent?getComputedStyle(parent):null;
+      geometry={
+        height:preview.clientHeight || 600,
+        width:preview.clientWidth || 700,
+        readout:readout?.scrollHeight ?? 240,
+        borderX:style?parseFloat(style.borderLeftWidth)+parseFloat(style.borderRightWidth):2,
+        borderY:style?parseFloat(style.borderTopWidth)+parseFloat(style.borderBottomWidth):2,
+        staticMapHeight:parent?.clientHeight ?? 240,
+      };
+      geometryDirty=false;
+      settings=frame.settingsVersion;
+    }
+    const record=ease(between(progress,.64,.88));
+    const finalHeight=Math.max(0,Math.min(geometry.height*.32,geometry.height-geometry.readout-80));
+    const mapHeight=(geometry.height-68)*(1-record)+finalHeight*record;
+    const camera=ease(between(progress,.22,.65));
+    const cameraWidth=(observations?.camera.span ?? 1)*(pinned?Math.exp(Math.log(15)*(1-camera)):1);
+    const cameraHeight=cameraWidth*(pinned?Math.max(1,mapHeight-geometry.borderY):geometry.staticMapHeight)/Math.max(1,geometry.width-geometry.borderX);
+    return {pinned,modeChanged:false,progress,opening:openingProgress,geometryChanged:needsGeometry,mapHeight,cameraWidth,cameraHeight};
+  },
+  render(state) {
+    journey.classList.toggle('is-pinned',state.pinned);
+    if (state.modeChanged) {geometryDirty=true;requestScrollFrame();return;}
+    if (state.opening!==lastOpening && opening) {
+      opening.style.setProperty('--opening-progress',String(state.opening));
+      lastOpening=state.opening;
+    }
+    if (state.progress!==lastProgress || state.pinned!==lastPinned || state.geometryChanged) {
+      const progress=state.progress;
+      const field=ease(between(progress,.16,.44));
+      const record=ease(between(progress,.64,.88));
+      const values:Record<string,string>={
+        '--journey-progress':String(progress),
+        '--orbit-opacity':String(1-field),
+        '--orbit-scale':String(1+field*.55),
+        '--orbit-y':`${-field*14}%`,
+        '--satellite-y':`${-field*120}px`,
+        '--satellite-turn':`${-field*24}deg`,
+        '--return-offset':String(-progress*380),
+        '--map-opacity':String(ease(between(progress,.2,.36))),
+        '--map-height':`${state.mapHeight}px`,
+        '--map-y':`${(1-field)*100}px`,
+        '--map-tilt':`${(1-field)*36}deg`,
+        '--map-scale':String(.65+field*.35),
+        '--record-opacity':String(record),
+        '--record-y':`${(1-record)*100}px`,
+      };
+      for(const [name,value] of Object.entries(values)) journey.style.setProperty(name,value);
+      const index=state.pinned?(progress<.32?0:progress<.7?1:2):0;
+      if(index!==lastChapter || state.pinned!==lastPinned) activate(index,state.pinned);
+      lastChapter=index;
+      if(observations && map){
+        const {cx,cy}=observations.camera;
+        map.setAttribute('viewBox',`${cx-state.cameraWidth/2} ${cy-state.cameraHeight/2} ${state.cameraWidth} ${state.cameraHeight}`);
+        showPass(state.pinned?Math.min(observations.passes.length-1,Math.floor(between(progress,.36,.82)*observations.passes.length)):observations.passes.length-1);
+      }
+      lastProgress=progress;lastPinned=state.pinned;
+    }
+  },
+});
+const resize = new ResizeObserver(()=>{geometryDirty=true;requestScrollFrame();});
+if(preview) resize.observe(preview);
+if(readout) resize.observe(readout);

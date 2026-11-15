@@ -1,0 +1,16 @@
+@font-face {
+  font-family: "ROMANS";
+  src: url("/fonts/romans.woff") format("woff");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+:root {
+  --sans: "ROMANS", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+  --font-family-body: var(--sans);
+  --font-family-heading: var(--sans);
+  --font-family-code: var(--sans);
+  --serif: var(--sans);
+  --mono: var(--sans);
+}
+body, button, input, select, textarea, code, pre, svg text { font-family: var(--sans); }

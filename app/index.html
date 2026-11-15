@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preload" as="image" href="/img/rice-sky.png" fetchpriority="high">
+<link rel="preload" href="/fonts/romans.woff" as="font" type="font/woff" crossorigin>
+<link rel="stylesheet" href="/typography.css">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <title>Mudskipper · Check rice-field drainage with satellite radar</title>
 
@@ -11,7 +13,7 @@
 :root{
   --bg:#fcfdff; --bg2:#edf1f8; --line:#ccd5e4; --ink:#101d42; --dim:#4c5f7a; --faint:#566681; --violet:#5145d7; --rice:#277b53;
   --water:#5145d7; --mud:#cf4628; --haze:#65738a;
-  --sans:-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif; --serif:var(--sans); --mono:var(--sans);
+  --sans:"ROMANS",-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif; --serif:var(--sans); --mono:var(--sans);
   --ease:cubic-bezier(.22,1,.36,1);
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -558,7 +560,6 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 <nav aria-label="Main">
   <div class="brand"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#101d42"/><g fill="#fcfdff"><path d="M8 40c6-3 14-5 22-5.5 6-.4 11-2.2 15-5.6 2.4-2 5.6-2.4 8-.6 2.6 2 3.4 5.6 1.6 8.4-1.6 2.6-4.6 4-7.8 4.4-10 1.2-23 1-34-.2L6 45l2-5z"/><circle cx="48" cy="27" r="3.4"/><circle cx="53.4" cy="28.4" r="3"/><path d="M22 35.4c1-5 4.6-8.6 9.4-9.6l2.6 7.6z"/><path d="M37 41c1 3.4 3.4 5.8 6.8 6.2l-1.2-6z"/><path d="M24 41.4c-.6 3-2.6 5.4-5.6 6l1.6-5.8z"/></g><circle cx="48.6" cy="26.4" r="1.1" fill="#101d42"/><circle cx="53.8" cy="27.8" r="1" fill="#101d42"/></svg><span>Mudskipper</span></div>
   <ul><li><a href="#brandInterlude">How it works</a></li><li><a href="#map">Map</a></li><li><a href="#season">Season</a></li><li><a href="#method">Method</a></li><li><a href="#analysis">Analysis</a></li><li><a href="#api">API</a></li><li class="dd"><a href="/credits.html">Legal</a><div class="ddm"><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="/credits.html">Data and licences</a></div></li></ul>
-  <button class="motion-toggle" id="motionToggle" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg><span>Pause animations</span></button>
 </nav>
 
 <main id="main" tabindex="-1">
@@ -577,9 +578,9 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
   <div class="hero-bottom"><a href="#brandInterlude">See how it works <span aria-hidden="true">↓</span></a><span>NASA–ISRO NISAR · L-band radar</span></div>
 </header>
 
-<section class="brand-interlude" id="brandInterlude" aria-labelledby="brandName"><div class="brand-pin" data-scroll-pin><div class="brand-sky" aria-hidden="true"></div><canvas id="brandRice" aria-hidden="true"></canvas><h2 id="brandName">Mudskipper</h2></div></section>
+<section class="brand-interlude" id="brandInterlude" aria-labelledby="brandName"><div class="brand-pin" data-scroll-pin><div class="brand-card"><div class="brand-sky" aria-hidden="true"></div><canvas id="brandRice" aria-hidden="true"></canvas><div class="brand-lockup"><h2 id="brandName">Mudskipper</h2><svg class="brand-wordmark-logo" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#102a61"/><g fill="#fcfdff"><path d="M8 40c6-3 14-5 22-5.5 6-.4 11-2.2 15-5.6 2.4-2 5.6-2.4 8-.6 2.6 2 3.4 5.6 1.6 8.4-1.6 2.6-4.6 4-7.8 4.4-10 1.2-23 1-34-.2L6 45l2-5z"/><circle cx="48" cy="27" r="3.4"/><circle cx="53.4" cy="28.4" r="3"/><path d="M22 35.4c1-5 4.6-8.6 9.4-9.6l2.6 7.6z"/><path d="M37 41c1 3.4 3.4 5.8 6.8 6.2l-1.2-6z"/><path d="M24 41.4c-.6 3-2.6 5.4-5.6 6l1.6-5.8z"/></g><circle cx="48.6" cy="26.4" r="1.1" fill="#102a61"/><circle cx="53.8" cy="27.8" r="1" fill="#102a61"/></svg></div><div class="brand-handoff" aria-hidden="true"></div></div></div></section>
 
-<section class="journey" id="journey" aria-labelledby="journeyTitle">
+<section class="journey" id="journey" tabindex="-1" aria-labelledby="journeyTitle">
   <div class="journey-pin">
     <div class="journey-narration">
       <h2 id="journeyTitle" class="sr-only">How Mudskipper checks drainage</h2>

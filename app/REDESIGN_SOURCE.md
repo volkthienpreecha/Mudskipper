@@ -4,6 +4,6 @@ Design and original snapshot/map renderer imported from [IshaanLingichetty/mudsk
 
 Integration adds the shared core API client, explicit coherent dataset selection, lazy field measurements, indexed radar imagery, detectability simulation, inspection ranking and source evidence. Snapshot confidence is kept as confidence; it is never reconstructed into flooded probability. Scientific thresholds and publication checks are unchanged.
 
-Map imagery: Sentinel-2 cloudless 2016 by EOX IT Services GmbH, CC BY 4.0, containing modified Copernicus Sentinel data 2016. Country borders: Natural Earth, public domain. API-run contextual imagery uses Esri and contributors. Source photo and software credits remain on the credits page. Typography now uses the device system font, with San Francisco on Apple platforms. No Apple font files are distributed. Earlier font assets and their licences remain in `public/fonts` but are not loaded by the app.
+Map imagery: Sentinel-2 cloudless 2016 by EOX IT Services GmbH, CC BY 4.0, containing modified Copernicus Sentinel data 2016. Country borders: Natural Earth, public domain. API-run contextual imagery uses Esri and contributors. Source photo and software credits remain on the credits page. Typography now uses the user-supplied ROMANS Regular WOFF in `public/fonts`, with native system fonts as fallback.
 
 Polish follows Unslop by Damir Sokolovsky (@heydamir), CC BY 4.0, https://github.com/heydamir/unslop, and the installed Impeccable workflow.

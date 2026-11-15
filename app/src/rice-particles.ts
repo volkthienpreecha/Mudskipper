@@ -59,7 +59,6 @@ function installRice(canvas: HTMLCanvasElement, host: HTMLElement, context: Canv
 
   function mode() {
     if (reduced.matches) return 'static';
-    if (document.documentElement.classList.contains('motion-paused')) return 'paused';
     if (document.hidden) return 'hidden';
     return onScreen ? 'running' : 'offscreen';
   }
@@ -115,7 +114,8 @@ function installRice(canvas: HTMLCanvasElement, host: HTMLElement, context: Canv
 
   function tick(now: number) {
     request = 0;
-    if (mode() !== 'running') return;
+    const currentMode = mode();
+    if (currentMode !== 'running') { canvas.dataset.motion = currentMode; return; }
     if (!last) last = now - interval;
     const delta = now - last;
     if (delta >= interval - .5) {
@@ -168,7 +168,6 @@ function installRice(canvas: HTMLCanvasElement, host: HTMLElement, context: Canv
     update();
   }, { threshold: 0 }).observe(canvas);
   new ResizeObserver(resize).observe(canvas);
-  new MutationObserver(update).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   reduced.addEventListener('change', update);
   document.addEventListener('visibilitychange', update);
   resize();

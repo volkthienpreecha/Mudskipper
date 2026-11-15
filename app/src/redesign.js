@@ -127,13 +127,11 @@ function errorText(error) {
 const n = () => {};
 const sfx = { tick: n, step: n, chime: n, whoosh: n };
 // Mudskipper demo: real r01v1 fields (375 of them) rendered as an interactive map.
-// Motion is off when the system asks for reduced motion or the visitor presses "Pause animations"
-// (WCAG 2.2.2). Read it at the moment of each animation so either change applies at once.
+// Ambient and scroll motion run automatically; only the system motion preference reduces them.
 const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
-const MOTION_KEY = "mudskipper:motion-paused";
-const motionOff = () =>
-  motionQuery.matches ||
-  document.documentElement.classList.contains("motion-paused");
+const motionOff = () => motionQuery.matches;
+// The old manual pause preference no longer controls this interface.
+document.documentElement.classList.remove("motion-paused");
 const $ = (id) => document.getElementById(id);
 const announceMap = (text) => {
   const region = $("mapAnnounce");
@@ -142,8 +140,6 @@ const announceMap = (text) => {
   region.textContent = "";
   setTimeout(() => (region.textContent = text), 60);
 };
-// Wire the pause control before data loads, so it works even when the map cannot load.
-installMotionToggle();
 // Keep focused elements clear of the fixed navigation at any height (WCAG 2.4.11): scroll padding follows it.
 {
   const nav = document.querySelector("nav");
@@ -1669,35 +1665,5 @@ function installControls() {
     if (row.querySelector("code")?.textContent === "GET") {
       code.innerHTML = `<a href="${esc((import.meta.env.VITE_API_BASE_URL || "https://mudskipper-nisar.pages.dev") + path)}" target="_blank" rel="noreferrer">${esc(path)}<span class="sr-only"> (opens in a new tab)</span></a>`;
     }
-  });
-}
-
-// "Pause animations" stops every looping or long animation on the page (WCAG 2.2.2). It starts on when
-// the system asks for reduced motion, and the visitor's choice is remembered on this device.
-function installMotionToggle() {
-  const button = $("motionToggle");
-  if (!button) return;
-  let stored = null;
-  try {
-    stored = localStorage.getItem(MOTION_KEY);
-  } catch {
-    /* Storage can be unavailable; the toggle still works for this visit. */
-  }
-  const apply = (paused) => {
-    document.documentElement.classList.toggle("motion-paused", paused);
-    button.setAttribute("aria-pressed", String(paused));
-  };
-  apply(stored === null ? motionQuery.matches : stored === "1");
-  button.onclick = () => {
-    const paused = button.getAttribute("aria-pressed") !== "true";
-    apply(paused);
-    try {
-      localStorage.setItem(MOTION_KEY, paused ? "1" : "0");
-    } catch {
-      /* Not remembered when storage is blocked. */
-    }
-  };
-  motionQuery.addEventListener("change", (e) => {
-    if (e.matches) apply(true);
   });
 }

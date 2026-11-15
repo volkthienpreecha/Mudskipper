@@ -25,9 +25,9 @@ const theme = defineTheme({
     '--color-icon-accent': '#5145d7',
     '--color-overlay-hover': '#101d4214',
     '--color-overlay-pressed': '#101d4226',
-    '--font-family-body': '-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif',
-    '--font-family-heading': '-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif',
-    '--font-family-code': '-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif',
+    '--font-family-body': 'var(--sans)',
+    '--font-family-heading': 'var(--sans)',
+    '--font-family-code': 'var(--sans)',
     '--radius-element': '10px',
   },
 });

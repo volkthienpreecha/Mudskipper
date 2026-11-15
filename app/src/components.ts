@@ -133,15 +133,20 @@ export function mountComponents(options: Options) {
     root.querySelectorAll<HTMLButtonElement>('[data-flow-pass]').forEach((button) => button.onclick = () => choosePass(Number(button.dataset.flowPass), 'flow'));
     const sequence = root.querySelector<HTMLElement>('#ms-claim-sequence')!;
     restoreSequence(sequence, saved);
-    const syncVisual = (_progress: number, index: number) => {
+    const visuals = ['.ms-flow-source', '.ms-flow-bridge', '.ms-flow-result'].map(selector => sequence.querySelector<HTMLElement>(selector));
+    const syncVisual = (progress: number, index: number) => {
       const pinned = sequence.classList.contains('is-scroll-pinned');
-      ['.ms-flow-source', '.ms-flow-bridge', '.ms-flow-result'].forEach((selector, i) => {
-        const item = sequence.querySelector<HTMLElement>(selector);
+      visuals.forEach((item, i) => {
         if (!item) return;
+        const enter = i === 0 ? 1 : Math.max(0, Math.min(1, (progress - i / 3 + .065) / .13));
+        const leave = i === 2 ? 1 : Math.max(0, Math.min(1, ((i + 1) / 3 + .065 - progress) / .13));
+        const alpha = pinned ? Math.min(enter, leave) : 1;
+        item.style.setProperty('--flow-opacity', String(alpha));
+        item.style.setProperty('--flow-y', `${(1 - alpha) * 24}px`);
         const hidden = pinned && i !== index;
         if (hidden && item.contains(document.activeElement)) sequence.focus({ preventScroll: true });
         item.inert = hidden;
-        if (selector !== '.ms-flow-bridge') item.setAttribute('aria-hidden', String(pinned && i !== index));
+        if (i !== 1) item.setAttribute('aria-hidden', String(pinned && i !== index));
       });
     };
     syncVisual(Number(saved.progress), Number(saved.index));
@@ -362,7 +367,7 @@ export function mountComponents(options: Options) {
     try {
       await options.selectField?.(id);
       if (!valid(version, id)) return;
-      document.querySelector('#map')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('motion-paused') ? 'instant' : 'smooth' });
+      document.querySelector('#map')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
       if (message) message.textContent = `Selected ${id} on the map.`;
     } catch (error) { if (valid(version, id) && message) message.textContent = ERROR(error); }
   }

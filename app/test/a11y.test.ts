@@ -282,7 +282,7 @@ describe('keyboard only', { timeout: 30 * 60_000 }, () => {
       seen.push(stop);
     }
     const names = seen.map((stop) => stop.name).join('\n');
-    for (const expected of [/Skip to the map/, /Pause animations/, /Explore the map/, /Take the tour/, /Inspect another field/, /Explore Fazilka|Fazilka/, /datasetSelect/, /searchField/, /Zoom in/, /Pan left/, /pickbtn|Sri Muktsar Sahib/, /seasonPlot/, /backend-tab-detectability/, /Privacy policy/]) {
+    for (const expected of [/Skip to the map/, /Explore the map/, /Take the tour/, /Inspect another field/, /Explore Fazilka|Fazilka/, /datasetSelect/, /searchField/, /Zoom in/, /Pan left/, /pickbtn|Sri Muktsar Sahib/, /seasonPlot/, /backend-tab-detectability/, /Privacy policy/]) {
       assert.match(names, expected, `Tab order is missing ${expected}`);
     }
     // Shift+Tab walks back out of the page footer without getting stuck.
@@ -392,11 +392,7 @@ describe('keyboard only', { timeout: 30 * 60_000 }, () => {
     await page.waitForFunction(() => /flooded \d+%/.test(document.querySelector('#seasonAnnounce')?.textContent ?? ''));
     await page.keyboard.press('Escape');
 
-    // Pause animations toggles.
-    await focusOn('#motionToggle');
-    const pressed = await page.getAttribute('#motionToggle', 'aria-pressed');
-    await page.keyboard.press('Enter');
-    assert.notEqual(await page.getAttribute('#motionToggle', 'aria-pressed'), pressed);
+    assert.equal(await page.locator('#motionToggle').count(), 0);
 
     // Analysis tabs follow the ARIA tabs pattern: arrows move and select, focus stays on the tab.
     await focusOn('#backend-tab-detectability');

@@ -62,5 +62,4 @@ html #brandName { position:relative; z-index:1; max-width:none; width:max-conten
   html #opening .ctas { flex-direction:column; align-items:center; }
   .brand-pin { height:55svh; min-height:260px; }
 }
-html.motion-paused .scroll-arrive { transform:none; }
 @media(prefers-reduced-motion:reduce) { .scroll-arrive { transform:none; transition:none; } html #brandName { transform:none; opacity:1; } }

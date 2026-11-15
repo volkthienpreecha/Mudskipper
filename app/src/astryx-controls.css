@@ -22,4 +22,3 @@
 @media (max-width: 600px) {
   .astryx-island .astryx-tab { padding-inline: 10px; }
 }
-.motion-paused .astryx-island *, .motion-paused .astryx-island *::before, .motion-paused .astryx-island *::after { animation: none !important; transition: none !important; }
