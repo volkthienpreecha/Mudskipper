@@ -68,6 +68,16 @@ describe("fieldIndex", () => {
     expect(() => fieldIndex(FIELDS, { boxes: boxes.slice(1) })).toThrow(RangeError);
   });
 
+  it("a stored grid (index.grid) rebuilds the same index; a grid of other fields is refused", () => {
+    const sortedFields = [...FIELDS].sort((a, b) => byCodeUnits(a.properties.field_id, b.properties.field_id));
+    const a = fieldIndex(sortedFields);
+    const copy = { ...a.grid, start: Uint32Array.from(a.grid.start), items: Uint32Array.from(a.grid.items) };
+    const b = fieldIndex(sortedFields, { grid: copy });
+    for (const [x, y] of probes(FIELDS, 1000, 13)) expect(b.locate(x, y)).toBe(a.locate(x, y));
+    expect(() => fieldIndex(sortedFields.slice(0, 10), { grid: copy })).toThrow(RangeError);
+    expect(() => fieldIndex([...sortedFields].reverse(), { grid: copy })).toThrow(RangeError);
+  });
+
   it("rank() with a prebuilt index equals rank() with the list", async () => {
     const rng = mulberry32(5);
     const claims = Array.from({ length: 400 }, (_, i) => {
