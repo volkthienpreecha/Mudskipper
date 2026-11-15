@@ -35,6 +35,7 @@ import type {
   Verdict,
 } from "./contracts.gen.ts";
 import { parseJsonl } from "./json.ts";
+import { checkAuditId, parseFieldsQuery, QueryError } from "./query.ts";
 import { rank, RankError, readAuditBody, validateAuditRequest } from "./rank.ts";
 import { parseMs } from "./time.ts";
 
@@ -42,8 +43,6 @@ import { parseMs } from "./time.ts";
 export type Served<T> = Omit<T, "fixture"> & { fixture: boolean };
 
 export const PAGE_SIZE = 500;
-const VERDICTS: ReadonlyArray<Verdict> = ["consistent", "inconsistent", "not_enough_evidence"];
-const TILE_RE = /^[a-z][a-z0-9]{0,15}$/;
 
 /** Every file the fixtures source reads, relative to contracts/fixtures/. */
 export const FIXTURE_FILES = [
@@ -76,6 +75,10 @@ export type ClientOptions =
       readonly baseUrl?: string;
       /** Override `fetch` (tests, SSR). Default: the global `fetch`, looked up at call time. */
       readonly fetch?: typeof fetch;
+      /** Abort every request (and its body read) when this signal fires: `ApiError` status 0, code `aborted`. */
+      readonly signal?: AbortSignal;
+      /** Give up on a request after this many milliseconds: `ApiError` status 0, code `timeout`. */
+      readonly timeoutMs?: number;
     }
   | { readonly source: "fixtures"; readonly load: FixtureLoader };
 
@@ -125,18 +128,32 @@ export function createClient(options: ClientOptions): MudskipperClient {
 
 // ------------------------------------------------------------------------------------------------ api
 
-function apiClient(options: { readonly baseUrl?: string; readonly fetch?: typeof fetch }): MudskipperClient {
+function apiClient(options: {
+  readonly baseUrl?: string;
+  readonly fetch?: typeof fetch;
+  readonly signal?: AbortSignal;
+  readonly timeoutMs?: number;
+}): MudskipperClient {
   const base = (options.baseUrl ?? "").replace(/\/+$/, "");
 
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const doFetch = options.fetch ?? globalThis.fetch;
+    const signals = [options.signal, options.timeoutMs !== undefined ? AbortSignal.timeout(options.timeoutMs) : undefined].filter(
+      (s): s is AbortSignal => s !== undefined,
+    );
+    const signal = signals.length === 0 ? undefined : signals.length === 1 ? signals[0] : AbortSignal.any(signals);
     let res: Response;
+    let text: string;
     try {
-      res = await doFetch(base + path, init);
+      // The body is read inside the try: a connection that drops mid-body is a network error, not a crash.
+      res = await doFetch(base + path, signal ? { ...init, signal } : init);
+      text = await res.text();
     } catch (err) {
+      const name = err instanceof Error ? err.name : "";
+      if (name === "TimeoutError") throw new ApiError(0, "timeout", `request to ${path} took longer than ${options.timeoutMs} ms`);
+      if (name === "AbortError") throw new ApiError(0, "aborted", `request to ${path} was aborted`);
       throw new ApiError(0, "network_error", `request to ${path} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
-    const text = await res.text();
     let body: unknown;
     try {
       body = text === "" ? undefined : JSON.parse(text);
@@ -209,6 +226,16 @@ interface RunData {
 
 const byCodeUnits = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
+/** Run a query check; a QueryError becomes the API's 400 `invalid_request` with the same message. */
+function invalidRequest<T>(check: () => T): T {
+  try {
+    return check();
+  } catch (err) {
+    if (err instanceof QueryError) throw new ApiError(400, "invalid_request", err.message);
+    throw err;
+  }
+}
+
 function fixturesClient(load: FixtureLoader): MudskipperClient {
   const cache = new Map<FixtureName, Promise<unknown>>();
   const audits = new Map<string, AuditResponse>();
@@ -268,20 +295,15 @@ function fixturesClient(load: FixtureLoader): MudskipperClient {
   };
 
   async function getFields(query: FieldsQuery = {}): Promise<FieldsPage> {
-    const { tile, verdict } = query;
-    const page = query.page ?? 1;
-    if (!Number.isInteger(page) || page < 1) throw new ApiError(400, "invalid_request", "page must be an integer ≥ 1");
-    if (tile !== undefined && !TILE_RE.test(tile)) throw new ApiError(400, "invalid_request", `invalid tile ${JSON.stringify(tile)}`);
-    if (verdict !== undefined && !VERDICTS.includes(verdict)) {
-      throw new ApiError(400, "invalid_request", `verdict must be one of ${VERDICTS.join(", ")}`);
-    }
+    // The API's own checks (query.ts): an empty tile or verdict is no filter, pages run 1 to 9,999,999.
+    const { tile, verdict, page } = invalidRequest(() => parseFieldsQuery({ tile: query.tile, verdict: query.verdict, page: query.page }));
     const r = await runData();
     const rows: FieldRow[] = [];
     for (const f of r.features) {
       const p = f.properties;
       const s = r.summaries.get(p.field_id);
-      if (tile !== undefined && p.tile !== tile) continue;
-      if (verdict !== undefined && s?.awd.verdict !== verdict) continue;
+      if (tile !== null && p.tile !== tile) continue;
+      if (verdict !== null && s?.awd.verdict !== verdict) continue;
       rows.push({
         field_id: p.field_id,
         tile: p.tile,
@@ -306,7 +328,7 @@ function fixturesClient(load: FixtureLoader): MudskipperClient {
       page,
       page_size: PAGE_SIZE,
       total: rows.length,
-      filters: { tile: tile ?? null, verdict: verdict ?? null },
+      filters: { tile, verdict },
       fields: rows.slice(start, start + PAGE_SIZE),
       next_page: start + PAGE_SIZE < rows.length ? page + 1 : null,
     };
@@ -357,6 +379,7 @@ function fixturesClient(load: FixtureLoader): MudskipperClient {
   }
 
   async function getAudit(id: string): Promise<AuditResponse> {
+    invalidRequest(() => checkAuditId(id));
     const stored = audits.get(id);
     if (stored) return structuredClone(stored);
     const golden = await copy<AuditResponse>("api/audit.response.json");

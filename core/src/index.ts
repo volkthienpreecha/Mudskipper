@@ -64,6 +64,16 @@ export {
 export { fieldIndex, isFieldIndex, type FieldIndex, type FieldIndexOptions, type IndexedField } from "./field-index.ts";
 export { sha256Hex } from "./sha.ts";
 export {
+  AUDIT_ID_RE,
+  MAX_PAGE,
+  QueryError,
+  TILE_ID_RE,
+  VERDICT_VALUES,
+  checkAuditId,
+  parseFieldsQuery,
+  type FieldsFilter,
+} from "./query.ts";
+export {
   NOTICE,
   MAX_BODY_BYTES,
   MAX_CLAIMS,
