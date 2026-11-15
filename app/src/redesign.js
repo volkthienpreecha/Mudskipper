@@ -123,8 +123,34 @@ function errorText(error) {
 const n = () => {};
 const sfx = { tick: n, step: n, chime: n, whoosh: n };
 // Mudskipper demo: real r01v1 fields (375 of them) rendered as an interactive map.
-const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Motion is off when the system asks for reduced motion or the visitor presses "Pause animations"
+// (WCAG 2.2.2). Read it at the moment of each animation so either change applies at once.
+const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
+const MOTION_KEY = "mudskipper:motion-paused";
+const motionOff = () =>
+  motionQuery.matches ||
+  document.documentElement.classList.contains("motion-paused");
 const $ = (id) => document.getElementById(id);
+const announceMap = (text) => {
+  const region = $("mapAnnounce");
+  if (!region) return;
+  // Clear first so repeating the same message is announced again.
+  region.textContent = "";
+  setTimeout(() => (region.textContent = text), 60);
+};
+// Wire the pause control before data loads, so it works even when the map cannot load.
+installMotionToggle();
+// Keep focused elements clear of the fixed navigation at any height (WCAG 2.4.11): scroll padding follows it.
+{
+  const nav = document.querySelector("nav");
+  const setNavHeight = () =>
+    document.documentElement.style.setProperty(
+      "--nav-h",
+      Math.ceil(nav.getBoundingClientRect().height) + "px",
+    );
+  setNavHeight();
+  new ResizeObserver(setNavHeight).observe(nav);
+}
 const cap = $("tourCap");
 let touring = false,
   tourVersion = 0;
@@ -138,7 +164,8 @@ const NAMES = {
   u: "uncertain",
   "-": "no observation",
 };
-const wait = (ms) => new Promise((r) => setTimeout(r, reduce ? 0 : ms));
+// Playback and tour pacing are reading time, not motion, so they keep their timing when motion is off.
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const fmt = (iso) =>
   new Date(iso + "T00:00:00Z")
     .toLocaleDateString("en-GB", {
@@ -235,7 +262,7 @@ function fly(to, ms = 1800) {
   return new Promise((done) => {
     const step = (now) => {
       if (id !== anim) return done();
-      const t = reduce ? 1 : Math.min(1, (now - t0) / ms),
+      const t = motionOff() ? 1 : Math.min(1, (now - t0) / ms),
         e = ease(t);
       const w = Math.exp(
         Math.log(from[2]) + (Math.log(to[2]) - Math.log(from[2])) * e,
@@ -276,8 +303,10 @@ async function load() {
     selectField: async (id) => {
       const e = fieldEntry(id);
       if (e) {
-        $("mapapp").scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+        $("mapapp").scrollIntoView({ behavior: motionOff() ? "auto" : "smooth" });
         await select(e.index, e.tile);
+        // The ranked list is far below the map: move focus to the report that just opened (WCAG 2.4.3).
+        if (selected === e.index && tile === e.tile) card.focus({ preventScroll: true });
       }
     },
   });
@@ -319,14 +348,22 @@ function drawBase() {
       .join("");
   const [lx, ly] = P(70.2, 29.6),
     [ix, iy] = P(78.5, 22.5);
-  svg.innerHTML = `<defs><pattern id="hatch" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect fill="#2a3238"/><line x1="0" y1="0" x2="0" stroke="#8A8F98"/></pattern></defs><g id="gI">${images}</g><g id="gC">${ctry}<text class="clabel" x="${ix}" y="${iy}" font-size="900">India</text><text class="clabel" x="${lx}" y="${ly}" font-size="700">Pakistan</text></g><g id="gM">${markers}</g><g id="gR"></g><g id="gF"></g>`;
+  // Imagery, outlines and labels are background for the interactive markers and fields, so they are
+  // hidden from assistive technology; the markers and fields carry their own names.
+  svg.innerHTML = `<defs><pattern id="hatch" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect fill="#2a3238"/><line x1="0" y1="0" x2="0" stroke="#8A8F98"/></pattern></defs><g id="gI" aria-hidden="true">${images}</g><g id="gC" aria-hidden="true">${ctry}<text class="clabel" x="${ix}" y="${iy}" font-size="900">India</text><text class="clabel" x="${lx}" y="${ly}" font-size="700">Pakistan</text></g><g id="gM">${markers}</g><g id="gR" aria-hidden="true"></g><g id="gF"></g>`;
   svg.querySelectorAll(".mk").forEach((g) => {
-    const go = () => goTile(g.dataset.tile);
-    g.addEventListener("click", go);
+    const go = async (fromKeyboard) => {
+      cancelTour();
+      stopSeason();
+      await goTile(g.dataset.tile);
+      // The marker hides once the map flies in, so keyboard focus moves on to the fields.
+      if (fromKeyboard && view === "fields" && tile === g.dataset.tile) focusField();
+    };
+    g.addEventListener("click", () => go(false));
     g.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        go();
+        go(true);
       }
     });
   });
@@ -334,7 +371,7 @@ function drawBase() {
   controls.innerHTML = Object.keys(DATA.tiles)
     .map(
       (t) =>
-        `<button class="segbtn" data-tile="${esc(t)}" aria-pressed="false">${esc(NICE[t])}</button>`,
+        `<button type="button" class="segbtn" data-tile="${esc(t)}" aria-pressed="false">${esc(NICE[t])}</button>`,
     )
     .join("");
   controls.querySelectorAll("button").forEach(
@@ -401,6 +438,13 @@ async function activateDataset(dataset) {
     document.querySelector(".slider-box").append(el);
   }
   drawBase();
+  // Suggestions for the field search: every field ID in the active dataset.
+  if ($("fieldIds"))
+    $("fieldIds").innerHTML = allFields()
+      .map((f) => f.id)
+      .sort()
+      .map((id) => `<option value="${esc(id)}"></option>`)
+      .join("");
   updateStatistics();
   seasonChart();
   await heroField(interesting(tile), tile);
@@ -432,7 +476,8 @@ async function changeDataset(kind, fromRestore = false) {
   stopSeason();
   cancelTour();
   const token = ++changeVersion,
-    selectEl = $("datasetSelect");
+    selectEl = $("datasetSelect"),
+    hadFocus = document.activeElement === selectEl;
   selectEl.disabled = true;
   $("dataStatus").textContent = "Loading dataset";
   try {
@@ -441,6 +486,9 @@ async function changeDataset(kind, fromRestore = false) {
     await activateDataset(next);
     syncURL(true);
     $("dataStatus").textContent = "";
+    announceMap(
+      `${kind === "snapshot" ? "2026 radar snapshot" : "Published API run"} loaded: ${allFields().length} fields, ${DATA.passes.length} passes`,
+    );
   } catch (error) {
     if (token === changeVersion) {
       selectEl.value = DATA.kind;
@@ -448,7 +496,12 @@ async function changeDataset(kind, fromRestore = false) {
         `${errorText(error)}. Retry the dataset selection.`;
     }
   } finally {
-    if (token === changeVersion) selectEl.disabled = false;
+    if (token === changeVersion) {
+      selectEl.disabled = false;
+      // Disabling the focused select drops focus to the page; return it (WCAG 2.4.3).
+      if (hadFocus && (document.activeElement === document.body || !document.activeElement))
+        selectEl.focus();
+    }
   }
 }
 function updateStatistics() {
@@ -490,12 +543,65 @@ function countryCard() {
   )
     .map(
       (t) =>
-        `<button class="pickbtn" data-tile="${esc(t)}"><b>${esc(NICE[t])}</b><span>${DATA.tiles[t].fields.length} mapped fields</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 6l6 6-6 6"/></svg></button>`,
+        `<button class="pickbtn" type="button" data-tile="${esc(t)}"><b>${esc(NICE[t])}</b><span>${DATA.tiles[t].fields.length} mapped fields</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`,
     )
     .join("")}</div>`;
-  card
-    .querySelectorAll(".pickbtn")
-    .forEach((b) => (b.onclick = () => goTile(b.dataset.tile)));
+  card.querySelectorAll(".pickbtn").forEach(
+    (b) =>
+      (b.onclick = async () => {
+        cancelTour();
+        stopSeason();
+        await goTile(b.dataset.tile);
+        // The picker is replaced by the field list, so keep keyboard focus in the report.
+        if (view === "fields" && tile === b.dataset.tile) $("fieldPicker")?.focus();
+      }),
+  );
+}
+
+// Field report before a field is chosen: a keyboard-friendly list of every field in the study area,
+// wired to the same selection as clicking a polygon (WCAG 2.1.1, 2.5.8).
+function fieldsCard() {
+  const fs = DATA.tiles[tile].fields;
+  const order = fs
+    .map((f, i) => [f.id, i])
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  card.innerHTML = `<h3 class="fc-id">${esc(NICE[tile])}</h3><div class="fc-meta">${fs.length} mapped fields</div><p class="fc-empty fc-empty-top">Select a field on the map, or choose one from the list.</p><label class="fc-picker" for="fieldPicker"><span>Choose a field</span><select id="fieldPicker"><option value="">Field ID</option>${order.map(([id, i]) => `<option value="${i}">${esc(id)}</option>`).join("")}</select></label><button type="button" class="btn btn-ghost btn-sm fc-open" id="fieldPickerOpen">Open field report</button>`;
+  const picker = $("fieldPicker");
+  $("fieldPickerOpen").onclick = () => {
+    if (picker.value === "") {
+      announceMap("Choose a field from the list first");
+      picker.focus();
+      return;
+    }
+    cancelTour();
+    openField(Number(picker.value));
+  };
+  picker.onkeydown = (e) => {
+    if (e.key === "Enter" && picker.value !== "") {
+      e.preventDefault();
+      $("fieldPickerOpen").click();
+    }
+  };
+}
+// Select a field from a keyboard control and move focus to its report.
+async function openField(i, t = tile) {
+  await select(i, t);
+  if (selected === i && tile === t) {
+    focusField(i, false);
+    card.focus({ preventScroll: true });
+  }
+}
+// Keep one field polygon in the tab order (roving tabindex) and optionally focus it.
+function focusField(i = selected ?? 0, move = true) {
+  const paths = [...$("gF").querySelectorAll("path")];
+  if (!paths.length) return;
+  const index = Math.max(0, Math.min(paths.length - 1, i));
+  paths.forEach((path, k) => path.setAttribute("tabindex", k === index ? "0" : "-1"));
+  if (move) paths[index].focus({ preventScroll: false });
+}
+function fieldName(f, i) {
+  const c = f.s[pass];
+  return `Field ${f.id}, ${stateLabel(c).toLowerCase()} on ${fmt(DATA.passes[pass])}${selected === i ? ", selected" : ""}`;
 }
 
 function drawFields() {
@@ -503,7 +609,7 @@ function drawFields() {
   $("gF").innerHTML = fs
     .map(
       (f, i) =>
-        `<path data-i="${i}" tabindex="${i === 0 ? 0 : -1}" role="button" aria-label="Field ${esc(f.id)}" fill-rule="evenodd" d="${ringsOf(
+        `<path data-i="${i}" tabindex="${i === 0 ? 0 : -1}" role="button" aria-label="${esc(fieldName(f, i))}" fill-rule="evenodd" d="${ringsOf(
           f,
         )
           .map(
@@ -528,25 +634,25 @@ function drawFields() {
         if (!dragged) select(+p.dataset.i);
       };
       p.onkeydown = (e) => {
-        if (
-          ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)
-        ) {
+        const count = fs.length,
+          i = Number(p.dataset.i);
+        const next = {
+          ArrowRight: (i + 1) % count,
+          ArrowDown: (i + 1) % count,
+          ArrowLeft: (i - 1 + count) % count,
+          ArrowUp: (i - 1 + count) % count,
+          Home: 0,
+          End: count - 1,
+        }[e.key];
+        if (next !== undefined) {
           e.preventDefault();
-          const paths = [...$("gF").querySelectorAll("path")];
-          const next =
-            (Number(p.dataset.i) +
-              (["ArrowRight", "ArrowDown"].includes(e.key) ? 1 : -1) +
-              paths.length) %
-            paths.length;
-          paths.forEach((path, i) =>
-            path.setAttribute("tabindex", i === next ? "0" : "-1"),
-          );
-          paths[next].focus();
+          focusField(next);
           return;
         }
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          select(+p.dataset.i);
+          cancelTour();
+          select(i);
         }
       };
     });
@@ -570,10 +676,11 @@ async function goTile(t, fromSelection = false) {
       b.classList.toggle("on", active);
       b.setAttribute("aria-pressed", String(active));
     });
-  card.innerHTML =
-    '<p class="fc-empty">Select a field to inspect its observations</p>';
+  fieldsCard();
   $("gF").setAttribute("aria-hidden", "false");
   drawFields();
+  if (!fromSelection)
+    announceMap(`${NICE[t]}: ${DATA.tiles[t].fields.length} fields on the map`);
   const m = SAT[t + "_district"].b;
   await fly(
     boxOf(
@@ -595,6 +702,14 @@ function setFieldsMode(active) {
   document.querySelector(".slider-row").inert = !active;
   $("backBtn").disabled = !active;
   document.querySelector(".map-date").setAttribute("aria-hidden", String(!active));
+  // The district markers fade out over the fields, so they also leave the tab order (WCAG 2.4.3, 2.4.7).
+  const markers = $("gM");
+  if (markers) {
+    markers.setAttribute("aria-hidden", String(active));
+    markers
+      .querySelectorAll(".mk")
+      .forEach((g) => g.setAttribute("tabindex", active ? "-1" : "0"));
+  }
 }
 
 async function goCountry(push = true) {
@@ -615,6 +730,7 @@ async function goCountry(push = true) {
     .forEach((path) => path.setAttribute("tabindex", "-1"));
   countryCard();
   status.textContent = `India · ${Object.keys(DATA.tiles).length} study areas`;
+  if (push) announceMap(`Map of India: ${Object.keys(DATA.tiles).length} study areas`);
   $("gR").replaceChildren();
   await fly(COUNTRY_BOX(), 900);
   syncURL(push);
@@ -630,6 +746,8 @@ function paint() {
         "class",
         (c === "-" ? "n" : c) + (selected === i ? " sel" : ""),
       );
+      // The name carries the state too, so colour is never the only cue (WCAG 1.4.1, 4.1.2).
+      p.setAttribute("aria-label", fieldName(fs[i], i));
     });
   slider.value = day(DATA.passes[pass]);
   slider.setAttribute("aria-valuetext", fmt(DATA.passes[pass]));
@@ -659,19 +777,31 @@ async function renderCard(i, withLoad = true) {
   const token = fieldVersion;
   if (dataset.kind === "api" && !details.has(f.id)) {
     if (!withLoad) return;
-    card.innerHTML = '<p class="fc-empty">Loading field observations</p>';
+    card.innerHTML = '<p class="fc-empty" role="status">Loading field observations</p>';
     try {
       await detailFor(f);
     } catch (error) {
       if (DATA === dataset && token === fieldVersion) {
-        card.innerHTML = `<p class="fc-empty" role="alert">${esc(errorText(error))}</p><button id="retryField" class="btn btn-ghost">Retry field</button>`;
-        $("retryField").onclick = () => renderCard(i, true);
+        card.innerHTML = `<p class="fc-empty" role="alert">Field ${esc(f.id)} could not be loaded: ${esc(errorText(error))}</p><button type="button" id="retryField" class="btn btn-ghost">Retry field</button>`;
+        $("retryField").onclick = async () => {
+          await renderCard(i, true);
+          if (DATA === dataset && selected === i) card.focus({ preventScroll: true });
+        };
       }
       return;
     }
   }
   if (DATA !== dataset || token !== fieldVersion || selected !== i) return;
   const wasOpen = card.querySelector(".model-details")?.open;
+  // Re-rendering replaces the report's controls; put keyboard focus back where it was (WCAG 2.4.3).
+  const active = card.contains(document.activeElement) ? document.activeElement : null;
+  const restore = active?.dataset?.fieldPass
+    ? `[data-field-pass="${active.dataset.fieldPass}"]`
+    : active?.matches?.(".model-details summary")
+      ? ".model-details summary"
+      : active === card
+        ? "card"
+        : null;
   const [v, why] = verdictLine(f.s),
     vals = f.hh.filter(Number.isFinite),
     lo = vals.length ? Math.min(...vals) : 0,
@@ -695,7 +825,10 @@ async function renderCard(i, withLoad = true) {
     pts.push(p);
   });
   const conf = f.c[pass];
-  card.innerHTML = `<div class="fc-id">${esc(f.id)}</div><div class="fc-meta">${esc(NICE[tile])} · ${Number(f.ha).toFixed(2)} ha${f.rice === null ? "" : ` · ${Math.round(f.rice * 100)}% rice cover`}</div><div class="fc-verdict">${v}<small>${why}</small></div><div class="chips">${[...f.s].map((c, j) => `<button class="chip${j === pass ? " now" : ""}" data-field-pass="${j}" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}" aria-label="${fmt(DATA.passes[j])}, ${stateLabel(c)}"><span class="${c === "-" ? "n" : c}"></span><em>${fmt(DATA.passes[j]).replace(" ", "<br>")}</em></button>`).join("")}</div><div class="spark"><small><span>HH backscatter</span><span>${vals.length ? lo.toFixed(1) + " to " + hi.toFixed(1) + " dB" : "Unavailable"}</span></small><svg viewBox="-4 -4 308 62" preserveAspectRatio="none" role="img" aria-label="HH backscatter by acquisition"><path d="${path}" fill="none" stroke="#EAE6DA" stroke-width="1.5"/>${pts.map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#EAE6DA"/>`).join("")}</svg></div><div class="fc-foot"><div><b>${stateLabel(f.s[pass])}</b>${fmt(DATA.passes[pass])}</div><div><b>${conf == null ? "Unavailable" : conf.toFixed(2)}</b>classifier confidence</div></div>${detailMarkup(details.get(f.id))}`;
+  const hhText = f.hh
+    .map((value, j) => `${fmt(DATA.passes[j])} ${value == null ? "unavailable" : value.toFixed(1) + " dB"}`)
+    .join("; ");
+  card.innerHTML = `<h3 class="fc-id">${esc(f.id)}</h3><div class="fc-meta">${esc(NICE[tile])} · ${Number(f.ha).toFixed(2)} ha${f.rice === null ? "" : ` · ${Math.round(f.rice * 100)}% rice cover`}</div><div class="fc-verdict">${v}<small>${why}</small></div><div class="chips" role="group" aria-label="Radar state on each pass. Choose a pass to show it on the map.">${[...f.s].map((c, j) => `<button type="button" class="chip${j === pass ? " now" : ""}" data-field-pass="${j}" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}" aria-label="${fmt(DATA.passes[j])}, ${stateLabel(c)}"${j === pass ? ' aria-current="true"' : ""}><span class="${c === "-" ? "n" : c}">${stateGlyph(c)}</span><em>${fmt(DATA.passes[j]).replace(" ", "<br>")}</em></button>`).join("")}</div><div class="spark"><small><span>HH backscatter</span><span>${vals.length ? lo.toFixed(1) + " to " + hi.toFixed(1) + " dB" : "Unavailable"}</span></small><svg viewBox="-4 -4 308 62" preserveAspectRatio="none" role="img" aria-label="HH backscatter by acquisition: ${esc(hhText)}"><path d="${path}" fill="none" stroke="#EAE6DA" stroke-width="1.5"/>${pts.map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#EAE6DA"/>`).join("")}</svg></div><div class="fc-foot"><div><b>${stateLabel(f.s[pass])}</b>${fmt(DATA.passes[pass])}</div><div><b>${conf == null ? "Unavailable" : conf.toFixed(2)}</b>classifier confidence</div></div>${detailMarkup(details.get(f.id))}`;
   if (wasOpen && card.querySelector(".model-details"))
     card.querySelector(".model-details").open = true;
   card.querySelectorAll("[data-field-pass]").forEach(
@@ -707,6 +840,16 @@ async function renderCard(i, withLoad = true) {
         syncURL();
       }),
   );
+  if (restore === "card") card.focus({ preventScroll: true });
+  else if (restore) card.querySelector(restore)?.focus({ preventScroll: true });
+}
+// A small shape inside each state swatch, so flooded and drained differ by more than colour (WCAG 1.4.1).
+function stateGlyph(c) {
+  if (c === "f")
+    return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2S4 6.8 4 9.6a4 4 0 0 0 8 0C12 6.8 8 2.2 8 2.2Z"/></svg>';
+  if (c === "d")
+    return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3l2 4-2 2 2 4M10.5 3l-1 3 3 2-2 5"/></svg>';
+  return "";
 }
 async function select(i, t, push = true) {
   stopSeason();
@@ -730,9 +873,12 @@ async function select(i, t, push = true) {
   if (DATA === dataset && ownSelection === selectionVersion) syncURL(push);
 }
 
-$("backBtn").addEventListener("click", () => {
+$("backBtn").addEventListener("click", async () => {
+  const hadFocus = document.activeElement === $("backBtn");
   cancelTour();
-  goCountry();
+  await goCountry();
+  // The back button hides in the country view; keep keyboard focus on the first district marker.
+  if (hadFocus && view === "country") svg.querySelector(".mk")?.focus();
 });
 slider.addEventListener("keydown", (event) => {
   if (
@@ -784,8 +930,8 @@ const playBtn = $("playBtn");
 let playToken = 0;
 function setPlayLabel(on) {
   playBtn.querySelector(".txt").textContent = on ? "Pause" : "Play";
+  // The name changes between Play and Pause, so it is not also a pressed toggle (WCAG 4.1.2).
   playBtn.setAttribute("aria-label", on ? "Pause season" : "Play season");
-  playBtn.setAttribute("aria-pressed", String(on));
   playBtn.querySelector(".ico").innerHTML =
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">${on ? '<path d="M8 5v14M16 5v14"/>' : '<path d="m8 5 11 7-11 7z"/>'}</svg>`;
 }
@@ -794,6 +940,7 @@ async function playSeason() {
     dataset = DATA;
   playing = true;
   setPlayLabel(true);
+  announceMap("Playing the season");
   for (let index = 0; index < dataset.passes.length; index++) {
     if (me !== playToken || DATA !== dataset) return;
     pass = index;
@@ -816,6 +963,7 @@ async function playSeason() {
     setPlayLabel(false);
     paint();
     syncURL();
+    announceMap(`Season finished on ${fmt(DATA.passes[pass])}`);
   }
 }
 
@@ -828,7 +976,11 @@ function stopSeason() {
   paint();
 }
 playBtn.addEventListener("click", async () => {
-  if (playing) return stopSeason();
+  if (playing) {
+    stopSeason();
+    announceMap(`Paused on ${fmt(DATA.passes[pass])}`);
+    return;
+  }
   if (view !== "fields") await goTile(tile);
   playSeason();
 });
@@ -874,7 +1026,7 @@ function seasonChart() {
     FD = (j) => share[j].f + share[j].d;
   svgS.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svgS.innerHTML = `<defs><pattern id="gapHatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="rgba(234,230,218,.02)"/><line x1="0" y1="0" x2="0" y2="8" stroke="rgba(234,230,218,.12)" stroke-width="2"/></pattern>
-      <pattern id="uHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#26353b"/><line x1="0" y1="0" x2="0" y2="6" stroke="#5d6a70" stroke-width="2"/></pattern></defs>
+      <pattern id="uHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#26353b"/><line x1="0" y1="0" x2="0" y2="6" stroke="#7d888e" stroke-width="2"/></pattern></defs>
     ${[0, 0.25, 0.5, 0.75, 1].map((v) => `<line class="grid" x1="${L}" x2="${W - 8}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v * 100}%</text>`).join("")}
     <path class="area" d="${area(() => 0, F)}" fill="var(--water)" fill-opacity=".85"/>
     <path class="area" d="${area(F, FD)}" fill="var(--mud)" fill-opacity=".85"/>
@@ -883,10 +1035,35 @@ function seasonChart() {
       () => 1,
     )}" fill="#182326"/>
     <path class="area" d="${area(FD, (j) => share[j].f + share[j].d + share[j].u)}" fill="url(#uHatch)"/>
-    ${gaps.map(({ g0, g1 }) => `<rect class="band" x="${x(g0)}" y="0" width="${x(g1) - x(g0)}" height="${H - B}"/><text class="ax" x="${(x(g0) + x(g1)) / 2}" y="16" text-anchor="middle">No data</text>`).join("")}
+    <path class="edge" d="M${days.map((d, j) => `${x(d)},${y(F(j))}`).join("L")}"/>
+    <path class="edge" d="M${days.map((d, j) => `${x(d)},${y(FD(j))}`).join("L")}"/>
+    ${gaps.map(({ g0, g1 }) => `<rect class="band" x="${x(g0)}" y="0" width="${x(g1) - x(g0)}" height="${H - B}"/><text class="ax gap-label" x="${(x(g0) + x(g1)) / 2}" y="16" text-anchor="middle">No data</text>`).join("")}
     ${days.map((d, j) => `<circle cx="${x(d)}" cy="${y(F(j))}" r="2.5" fill="#0E1A1F" stroke="var(--water)"/><text class="ax" x="${x(d)}" y="${H - 8}" text-anchor="middle">${fmt(DATA.passes[j])}</text>`).join("")}
     <line class="cursor" id="sCur" y1="0" y2="${H - B}"/>`;
-  const cur = $("sCur");
+  const cur = $("sCur"),
+    plot = $("seasonPlot"),
+    pct = (v) => Math.round(v * 100) + "%";
+  const summary = (j) => {
+    const s = share[j];
+    return `${fmt(DATA.passes[j])}: flooded ${pct(s.f)}, drained ${pct(s.d)}, uncertain ${pct(s.u)}${s.n > 0 ? `, no observation ${pct(s.n)}` : ""}`;
+  };
+  let shown = -1;
+  const show = (j) => {
+    shown = j;
+    const r = svgS.getBoundingClientRect();
+    cur.setAttribute("x1", x(days[j]));
+    cur.setAttribute("x2", x(days[j]));
+    cur.classList.add("on");
+    const s = share[j];
+    tip.innerHTML = `<b>${fmt(DATA.passes[j])}</b><i style="background:var(--water)"></i>flooded ${pct(s.f)}<br><i style="background:var(--mud)"></i>drained ${pct(s.d)}<br><i style="background:#7d888e"></i>uncertain ${pct(s.u)}${s.n > 0 ? `<br>No observation ${pct(s.n)}` : ""}`;
+    tip.style.left =
+      Math.max(0, Math.min(r.width - 150, (x(days[j]) / W) * r.width + 12)) + "px";
+    tip.style.opacity = 1;
+  };
+  const hide = () => {
+    tip.style.opacity = 0;
+    cur.classList.remove("on");
+  };
   svgS.onpointermove = (e) => {
     const r = svgS.getBoundingClientRect(),
       px = ((e.clientX - r.left) / r.width) * W;
@@ -894,17 +1071,54 @@ function seasonChart() {
     days.forEach((d, k) => {
       if (Math.abs(x(d) - px) < Math.abs(x(days[j]) - px)) j = k;
     });
-    cur.setAttribute("x1", x(days[j]));
-    cur.setAttribute("x2", x(days[j]));
-    const s = share[j],
-      pct = (v) => Math.round(v * 100) + "%";
-    tip.innerHTML = `<b>${fmt(DATA.passes[j])}</b><i style="background:var(--water)"></i>flooded ${pct(s.f)}<br><i style="background:var(--mud)"></i>drained ${pct(s.d)}<br><i style="background:#5d6a70"></i>uncertain ${pct(s.u)}${s.n > 0 ? `<br>No observation ${pct(s.n)}` : ""}`;
-    tip.style.left =
-      Math.min(r.width - 150, (x(days[j]) / W) * r.width + 12) + "px";
-    tip.style.opacity = 1;
+    show(j);
   };
-  svgS.onpointerleave = () => (tip.style.opacity = 0);
+  svgS.onpointerleave = () => {
+    if (document.activeElement !== plot) hide();
+  };
+  // Keyboard reading of the same chart (WCAG 2.1.1), announced politely (4.1.3); Escape dismisses
+  // the tooltip without moving focus or the pointer (1.4.13).
+  plot.onkeydown = (e) => {
+    const last = days.length - 1;
+    const next = {
+      ArrowRight: Math.min(last, shown + 1),
+      ArrowDown: Math.min(last, shown + 1),
+      ArrowLeft: Math.max(0, shown < 0 ? 0 : shown - 1),
+      ArrowUp: Math.max(0, shown < 0 ? 0 : shown - 1),
+      Home: 0,
+      End: last,
+    }[e.key];
+    if (e.key === "Escape") {
+      hide();
+      return;
+    }
+    if (next === undefined) return;
+    e.preventDefault();
+    show(next);
+    $("seasonAnnounce").textContent = summary(next);
+  };
+  plot.onfocus = () => {
+    if (shown < 0) shown = 0;
+  };
+  plot.onblur = hide;
+  svgS.setAttribute(
+    "aria-label",
+    `Stacked area chart of the share of ${all.length.toLocaleString()} fields flooded, drained and uncertain on each of ${days.length} passes, ${fmt(DATA.passes[0])} to ${fmt(DATA.passes.at(-1))}. The data table below lists every value.`,
+  );
+  // Text alternative for the chart (WCAG 1.1.1, 1.4.1).
+  $("seasonTable").querySelector("tbody").innerHTML = share
+    .map(
+      (s, j) =>
+        `<tr><th scope="row">${fmt(DATA.passes[j])}</th><td>${pct(s.f)}</td><td>${pct(s.d)}</td><td>${pct(s.u)}</td><td>${pct(s.n)}</td></tr>`,
+    )
+    .join("");
 }
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const tip = $("seasonTip");
+    if (tip && +getComputedStyle(tip).opacity > 0) tip.style.opacity = 0;
+  }
+});
 
 // pick a field with a clear flood-then-dry story for demos
 function interesting(t = tile) {
@@ -956,7 +1170,7 @@ function heroMap(f, t) {
     ratio = 150 / 400;
   const step = (now) => {
     if (id !== heroAnim) return;
-    const t = reduce ? 1 : Math.min(1, (now - t0) / 1600),
+    const t = motionOff() ? 1 : Math.min(1, (now - t0) / 1600),
       e = 1 - Math.pow(1 - t, 3);
     const w = Math.exp(Math.log(w0) + (Math.log(w1) - Math.log(w0)) * e),
       h = w * ratio;
@@ -970,6 +1184,10 @@ function heroMap(f, t) {
     [0, 0],
   );
   $("pvCoords").textContent = `${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E`;
+  m.setAttribute(
+    "aria-label",
+    `Satellite view of field ${f.id}, outlined, near ${lat.toFixed(2)}° N, ${lon.toFixed(2)}° E`,
+  );
 }
 
 // hero card shows a real field too
@@ -998,7 +1216,7 @@ async function heroField(i, t = tile) {
   $("pvPasses").innerHTML = [...f.s]
     .map(
       (c, j) =>
-        `<div class="pcol" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}"><span class="${c === "-" ? "u" : c}"></span><em>${fmt(DATA.passes[j]).replace(" ", "<br>")}</em></div>`,
+        `<div class="pcol" role="listitem" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}"><span class="${c === "-" ? "u" : c}" aria-hidden="true">${stateGlyph(c)}</span><em aria-hidden="true">${fmt(DATA.passes[j]).replace(" ", "<br>")}</em><span class="sr-only">${fmt(DATA.passes[j])}: ${stateLabel(c)}</span></div>`,
     )
     .join("");
 }
@@ -1038,15 +1256,18 @@ async function testRandom(b) {
   requestAnimationFrame(() => pv.classList.remove("scanning"));
   sfx.chime();
   txt.textContent = "Inspect another field";
+  announceMap(`Example field ${$("pvQuery").textContent}: ${$("pvVerdict").textContent}`);
 }
 rewire('[data-load="check"]', testRandom);
 rewire('[data-load="explore"]', async () => {
   $("mapapp").scrollIntoView({
-    behavior: reduce ? "auto" : "smooth",
+    behavior: motionOff() ? "auto" : "smooth",
     block: "center",
   });
-  await wait(700);
-  if (view === "country") goTile("fazilka");
+  await wait(motionOff() ? 0 : 700);
+  if (view === "country") await goTile(Object.keys(DATA.tiles)[0]);
+  // Continue where the button leads: keyboard focus moves to the first field on the map (WCAG 2.4.3).
+  if (view === "fields") focusField(selected ?? 0);
 });
 
 function cancelTour() {
@@ -1055,23 +1276,38 @@ function cancelTour() {
   cap.textContent = "";
   cap.classList.remove("on");
   $("mapapp").classList.remove("touring");
-  const b = document.querySelector('[data-load="tour"] .txt');
-  if (b) b.textContent = "Take the tour";
-}
-rewire('[data-load="tour"]', async (b) => {
-  if (touring) {
-    cancelTour();
-    return;
+  const b = document.querySelector('[data-load="tour"]');
+  if (b) {
+    b.querySelector(".txt").textContent = "Take the tour";
+    b.classList.remove("loading");
   }
+}
+// The tour moves the map and plays the season for several seconds, so its button stays usable
+// as "Stop tour" while it runs (WCAG 2.2.2).
+{
+  const old = document.querySelector('[data-load="tour"]');
+  const b = old.cloneNode(true);
+  old.replaceWith(b);
+  b.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (touring) {
+      cancelTour();
+      announceMap("Tour stopped");
+      return;
+    }
+    runTour(b);
+  });
+}
+async function runTour(b) {
   const current = ++tourVersion;
   touring = true;
   const valid = () => current === tourVersion;
   stopSeason();
   $("mapapp").scrollIntoView({
-    behavior: reduce ? "auto" : "smooth",
+    behavior: motionOff() ? "auto" : "smooth",
     block: "center",
   });
-  b.querySelector(".txt").textContent = "Tour running";
+  b.querySelector(".txt").textContent = "Stop tour";
   $("mapapp").classList.add("touring");
   say("Choose a study area");
   await goCountry(false);
@@ -1088,8 +1324,11 @@ rewire('[data-load="tour"]', async (b) => {
   await select(interesting());
   if (!valid()) return;
   await wait(2000);
-  if (valid()) cancelTour();
-});
+  if (valid()) {
+    cancelTour();
+    announceMap("Tour finished");
+  }
+}
 
 function updateRadar() {
   const group = $("gR"),
@@ -1189,7 +1428,7 @@ async function restoreLocation() {
 function installControls() {
   const navigation = document.querySelector("nav"),
     links = navigation.querySelector("ul");
-  navigation.setAttribute("aria-label", "Main navigation");
+  navigation.setAttribute("aria-label", "Main");
   links.id = "mainNavigation";
   const menu = document.createElement("button");
   menu.className = "nav-toggle";
@@ -1210,49 +1449,111 @@ function installControls() {
   links.addEventListener("click", (event) => {
     if (event.target.closest("a")) closeMenu();
   });
+  const legal = navigation.querySelector(".dd");
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && navigation.classList.contains("menu-open")) {
+    if (event.key !== "Escape") return;
+    if (navigation.classList.contains("menu-open")) {
       closeMenu();
       menu.focus();
     }
+    // The Legal submenu opens on hover and focus; Escape hides it (WCAG 1.4.13). Focus inside the hidden
+    // submenu returns to the Legal link so it stays visible.
+    if (legal?.matches(":hover, :focus-within")) {
+      legal.classList.add("dismissed");
+      if (legal.querySelector(".ddm")?.contains(document.activeElement))
+        legal.querySelector("a")?.focus();
+    }
+  });
+  legal?.addEventListener("pointerleave", () => legal.classList.remove("dismissed"));
+  legal?.addEventListener("focusout", (event) => {
+    if (!legal.contains(event.relatedTarget)) legal.classList.remove("dismissed");
   });
   document.addEventListener("pointerdown", (event) => {
     if (!navigation.contains(event.target)) closeMenu();
   });
+  // An open phone menu covers the page, so it closes when keyboard focus leaves it (WCAG 2.4.11).
+  navigation.addEventListener("focusout", (event) => {
+    if (event.relatedTarget && !navigation.contains(event.relatedTarget)) closeMenu();
+  });
   const bar = document.querySelector(".map-bar");
   bar.insertAdjacentHTML(
     "beforeend",
-    `<form id="fieldSearch" class="field-search"><label class="sr-only" for="searchField">Field ID</label><input id="searchField" placeholder="Search field ID" required autocomplete="off"><button aria-label="Find field" title="Find field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></svg></button></form><span id="dataStatus" role="status"></span>`,
+    `<form id="fieldSearch" class="field-search" role="search" aria-label="Find a field" novalidate><label class="sr-only" for="searchField">Field ID</label><input id="searchField" placeholder="Search field ID" autocomplete="off" spellcheck="false" list="fieldIds" aria-describedby="dataStatus"><datalist id="fieldIds"></datalist><button type="submit" aria-label="Find field" title="Find field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></svg></button></form><span id="dataStatus" role="status"></span>`,
   );
+  const search = $("searchField");
+  const searchError = (text) => {
+    search.setAttribute("aria-invalid", "true");
+    $("dataStatus").textContent = text;
+    search.focus();
+  };
+  search.addEventListener("input", () => {
+    if (search.getAttribute("aria-invalid") === "true") {
+      search.removeAttribute("aria-invalid");
+      $("dataStatus").textContent = "";
+    }
+  });
   $("fieldSearch").onsubmit = async (e) => {
     e.preventDefault();
     cancelTour();
     stopSeason();
-    const found = fieldEntry($("searchField").value.trim());
-    if (!found) {
-      $("dataStatus").textContent = "Field ID unavailable in this dataset";
+    const query = search.value.trim();
+    // Errors are named in text and suggest the expected form (WCAG 3.3.1, 3.3.3).
+    if (!query) {
+      searchError("Enter a field ID, for example " + allFields()[0].id + ".");
       return;
     }
+    const found =
+      fieldEntry(query) ||
+      fieldEntry(query.toLowerCase()) ||
+      (allFields().filter((f) => f.id.endsWith(query.toLowerCase())).length === 1
+        ? fieldEntry(allFields().find((f) => f.id.endsWith(query.toLowerCase())).id)
+        : null);
+    if (!found) {
+      searchError(
+        `No field “${query}” in this dataset. Field IDs look like ${allFields()[0].id}; pick one from the suggestions.`,
+      );
+      return;
+    }
+    search.removeAttribute("aria-invalid");
     $("dataStatus").textContent = "";
     await select(found.index, found.tile);
+    if (selected === found.index && tile === found.tile)
+      announceMap(`Opened field ${found.field.id}`);
   };
   $("datasetSelect").onchange = () => changeDataset($("datasetSelect").value);
   document
     .querySelector(".slider-row")
     .insertAdjacentHTML(
       "beforeend",
-      '<button class="radar-switch" id="radarToggle" aria-pressed="false" disabled>Radar image</button>',
+      '<button type="button" class="radar-switch" id="radarToggle" aria-pressed="false" disabled>Radar image</button>',
     );
   $("radarToggle").onclick = () => {
     overlayOn = !overlayOn;
     updateRadar();
   };
+  // Map controls: zoom, reset, and panning buttons as the single-pointer and keyboard alternative to
+  // dragging the map (WCAG 2.5.7, 2.1.1). Symbols are hidden; each button has a spoken name.
+  const arrow = (d) =>
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="${d}"/></svg>`;
   document
     .querySelector(".map-bottom-bar")
     .insertAdjacentHTML(
       "beforeend",
-      `<div class="map-controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button><button id="resetView" aria-label="Reset map">Reset</button></div>`,
+      `<div class="map-controls" role="group" aria-label="Map view"><button type="button" id="zoomIn" aria-label="Zoom in"><span aria-hidden="true">+</span></button><button type="button" id="zoomOut" aria-label="Zoom out"><span aria-hidden="true">−</span></button><button type="button" class="pan" data-pan="left" aria-label="Pan left">${arrow("M15 6l-6 6 6 6")}</button><button type="button" class="pan" data-pan="up" aria-label="Pan up">${arrow("M6 15l6-6 6 6")}</button><button type="button" class="pan" data-pan="down" aria-label="Pan down">${arrow("M6 9l6 6 6-6")}</button><button type="button" class="pan" data-pan="right" aria-label="Pan right">${arrow("M9 6l6 6-6 6")}</button><button type="button" id="resetView">Reset</button></div>`,
     );
+  document.querySelectorAll(".map-controls .pan").forEach((b) => {
+    b.onclick = () => {
+      cancelTour();
+      stopSeason();
+      anim++;
+      navVersion++;
+      selectionVersion++;
+      const [dx, dy] = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[
+        b.dataset.pan
+      ];
+      setVB([vb[0] + dx * vb[2] * 0.2, vb[1] + dy * vb[3] * 0.2, vb[2], vb[3]]);
+    };
+  });
   const zoom = (factor, point) => {
     anim++;
     navVersion++;
@@ -1346,7 +1647,37 @@ function installControls() {
     if (!code || code.textContent.includes(":")) return;
     const path = code.textContent;
     if (row.querySelector("code")?.textContent === "GET") {
-      code.innerHTML = `<a href="${esc((import.meta.env.VITE_API_BASE_URL || "https://mudskipper-nisar.pages.dev") + path)}" target="_blank" rel="noreferrer">${esc(path)}</a>`;
+      code.innerHTML = `<a href="${esc((import.meta.env.VITE_API_BASE_URL || "https://mudskipper-nisar.pages.dev") + path)}" target="_blank" rel="noreferrer">${esc(path)}<span class="sr-only"> (opens in a new tab)</span></a>`;
     }
+  });
+}
+
+// "Pause animations" stops every looping or long animation on the page (WCAG 2.2.2). It starts on when
+// the system asks for reduced motion, and the visitor's choice is remembered on this device.
+function installMotionToggle() {
+  const button = $("motionToggle");
+  if (!button) return;
+  let stored = null;
+  try {
+    stored = localStorage.getItem(MOTION_KEY);
+  } catch {
+    /* Storage can be unavailable; the toggle still works for this visit. */
+  }
+  const apply = (paused) => {
+    document.documentElement.classList.toggle("motion-paused", paused);
+    button.setAttribute("aria-pressed", String(paused));
+  };
+  apply(stored === null ? motionQuery.matches : stored === "1");
+  button.onclick = () => {
+    const paused = button.getAttribute("aria-pressed") !== "true";
+    apply(paused);
+    try {
+      localStorage.setItem(MOTION_KEY, paused ? "1" : "0");
+    } catch {
+      /* Not remembered when storage is blocked. */
+    }
+  };
+  motionQuery.addEventListener("change", (e) => {
+    if (e.matches) apply(true);
   });
 }
