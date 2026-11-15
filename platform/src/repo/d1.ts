@@ -119,7 +119,7 @@ export class D1Repo implements Repo {
       return dt;
     };
     // Rows come back in primary-key order (pass_id); orderedObservationRows sorts by datetime like the bundle.
-    const observations = (obs?.results ?? []).map(rowToObservation);
+    const observations = (obs?.results ?? []).map((r) => rowToObservation(r, id));
     const summaryRow = s?.results[0];
     const summary = summaryRow ? rowToSummary(summaryRow, id, live.fixture) : undefined;
     return fieldDetail(id, live.fixture, rowToField(fieldRowDb), orderedObservationRows(observations, datetimeOf), summary);

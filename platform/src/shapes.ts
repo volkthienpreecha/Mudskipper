@@ -45,7 +45,7 @@ export function header(runId: string, fixture: boolean): { v: 1; run_id: string;
 }
 
 /** A run document as an API response: header first (schema key order), `fixture` always a boolean (T8). */
-export function asResponse(doc: JsonObject, runId: string, fixture: boolean): Doc {
+export function asResponse(doc: Record<string, unknown>, runId: string, fixture: boolean): Doc {
   const { v: _v, run_id: _r, fixture: _f, ...rest } = doc;
   return { ...header(runId, fixture), ...rest } as Doc;
 }
@@ -120,7 +120,7 @@ export function observationRow(o: Observation, datetime: string): ObservationRow
     n_px: o.n_px,
     valid_frac: o.valid_frac,
     observed: o.observed,
-    inferred: o.inferred as JsonObject,
+    inferred: o.inferred,
     flags: o.flags,
   };
 }

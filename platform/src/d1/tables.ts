@@ -69,13 +69,13 @@ export function fieldToRow(runId: string, f: FieldFeature): Row {
 export function rowToField(r: Row): FieldFeature {
   return {
     type: "Feature",
-    geometry: JSON.parse(r["geometry"] as string) as JsonObject,
+    geometry: JSON.parse(r["geometry"] as string) as FieldFeature["geometry"],
     properties: {
       field_id: r["field_id"] as string,
       tile: r["tile"] as string,
       district: r["district"] as string,
       area_ha: r["area_ha"] as number,
-      source: r["source"] as string,
+      source: r["source"] as FieldFeature["properties"]["source"],
       rice_mask_frac: r["rice_mask_frac"] as number,
       lon: r["lon"] as number,
       lat: r["lat"] as number,
@@ -110,23 +110,25 @@ export function observationToRow(runId: string, o: Observation): Row {
   };
 }
 
-export function rowToObservation(r: Row): Observation {
+export function rowToObservation(r: Row, runId: string): Observation {
   const present = new Set(String(r["observed_keys"] ?? "").split(",").filter(Boolean));
-  const observed: JsonObject = { hh_db: r["hh_db"] ?? null, hv_db: r["hv_db"] ?? null };
+  const observed: Record<string, Cell> = { hh_db: r["hh_db"] ?? null, hv_db: r["hv_db"] ?? null };
   for (const k of QP_KEYS) if (present.has(k)) observed[k] = r[k] ?? null;
   observed["hh_hv_db"] = r["hh_hv_db"] ?? null;
   return {
+    v: 1,
+    run_id: runId,
     field_id: r["field_id"] as string,
     pass_id: r["pass_id"] as string,
     n_px: r["n_px"] as number,
     valid_frac: r["valid_frac"] as number,
-    observed,
+    observed: observed as unknown as Observation["observed"],
     stage: r["stage"] as Observation["stage"],
     inferred: {
-      state: r["state"] as string,
+      state: r["state"] as Observation["inferred"]["state"],
       p_flooded: (r["p_flooded"] as number | null) ?? null,
       confidence: (r["confidence"] as number | null) ?? null,
-      method: r["method"] as string,
+      method: r["method"] as Observation["inferred"]["method"],
     },
     flags: JSON.parse(r["flags"] as string) as string[],
   };
@@ -149,7 +151,7 @@ export function rowToSummary(r: Row, runId: string, fixture: boolean): FieldSumm
     fixture,
     field_id: r["field_id"] as string,
     awd: {
-      window: { start: r["window_start"] as string, end: r["window_end"] as string, source: r["window_source"] as string },
+      window: { start: r["window_start"] as string, end: r["window_end"] as string, source: r["window_source"] as "inferred" | "assumed" },
       clear_looks: r["clear_looks"] as number,
       drained_hits: r["drained_hits"] as number,
       p_catch_ge1_if_awd: r["p_catch"] as number,

@@ -126,7 +126,7 @@ export async function loadD1(opts: LoadOptions): Promise<LoadReport> {
     report.statements = res.statements;
     report.rows_written = res.rowsWritten;
     if (opts.live) {
-      const live = await execute(db, [liveStatement(bundle.live as unknown as Record<string, never>)]);
+      const live = await execute(db, [liveStatement(bundle.live)]);
       report.rows_written += live.rowsWritten;
       report.live = true;
     }

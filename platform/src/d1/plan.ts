@@ -7,7 +7,6 @@
  * secondary index, so one changed row costs one write. Unchanged rows cost nothing twice over: they are not
  * sent (the diff), and if they were, the upsert's WHERE guard turns them into no-ops.
  */
-import type { JsonObject } from "../contracts.ts";
 import type { BundleManifest } from "../repo/types.ts";
 import type { ApiDocs, RunData } from "../shapes.ts";
 import {
@@ -46,10 +45,10 @@ export interface TablePlan {
 export function planRun(run: RunData, docs: ApiDocs, manifest: BundleManifest): TablePlan[] {
   const id = run.run_id;
   const docRows: Row[] = [];
-  const named: [string, JsonObject | null][] = [
+  const named: [string, object | null][] = [
     ["meta", docs.meta], ["story", docs.story], ["passes", docs.passes], ["detectability", docs.detectability],
     ["states", docs.states], ["checks", docs.checks], ["provenance", docs.provenance],
-    ["manifest", manifest as unknown as JsonObject],
+    ["manifest", manifest],
   ];
   for (const [name, body] of named) if (body) docRows.push({ run_id: id, name, body: JSON.stringify(body) });
   return [
@@ -202,7 +201,7 @@ export async function execute(
 }
 
 /** Point the D1 copy of live.json at a run (guarded: 0 writes when it already does). */
-export function liveStatement(live: JsonObject): Statement {
+export function liveStatement(live: object): Statement {
   return {
     sql: "INSERT INTO meta (key, value) VALUES ('live', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value WHERE meta.value IS NOT excluded.value",
     params: [JSON.stringify(live)],

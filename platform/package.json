@@ -6,8 +6,8 @@
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
-    "types": "wrangler types --env-interface Env worker-configuration.d.ts",
-    "types:check": "wrangler types --env-interface Env worker-configuration.d.ts --check",
+    "types": "wrangler types --env-interface Env --include-runtime=false worker-configuration.d.ts",
+    "types:check": "wrangler types --env-interface Env --include-runtime=false worker-configuration.d.ts --check",
     "gen": "node scripts/gen-validators.ts",
     "gen:check": "node scripts/gen-validators.ts --check",
     "typecheck": "npm run types:check && npm run gen:check && tsc -p tsconfig.json && tsc -p tsconfig.scripts.json",
