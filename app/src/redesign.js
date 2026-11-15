@@ -27,12 +27,14 @@ let snapshot,
   changeVersion = 0,
   navVersion = 0,
   fieldVersion = 0,
+  selectionVersion = 0,
   heroVersion = 0,
   overlays = null,
   overlayOn = false,
   backend,
   dragged = false,
-  restoring = false;
+  restoring = false,
+  restoreVersion = 0;
 const details = new Map(),
   detailPending = new Map();
 const allFields = () => Object.values(DATA.tiles).flatMap((t) => t.fields);
@@ -354,6 +356,7 @@ async function activateDataset(dataset) {
     Math.min(dataset.passes.length, 10),
   );
   datasetVersion++;
+  selectionVersion++;
   navVersion++;
   fieldVersion++;
   heroVersion++;
@@ -388,8 +391,15 @@ async function activateDataset(dataset) {
         `<span style="left:${(100 * (day(d) - Number(slider.min))) / span}%">${fmt(d)}</span>`,
     )
     .join("");
-  document.querySelectorAll(".pass-gap").forEach(el=>el.remove());
-  for(const gap of DATA.gaps){const el=document.createElement("span");el.className="pass-gap";el.title=`No data: ${fmt(gap.start)} to ${fmt(gap.end)}`;el.style.left=(100*(day(gap.start)-Number(slider.min))/span)+"%";el.style.width=(100*(day(gap.end)-day(gap.start))/span)+"%";document.querySelector(".slider-box").append(el);}
+  document.querySelectorAll(".pass-gap").forEach((el) => el.remove());
+  for (const gap of DATA.gaps) {
+    const el = document.createElement("span");
+    el.className = "pass-gap";
+    el.title = `No data: ${fmt(gap.start)} to ${fmt(gap.end)}`;
+    el.style.left = (100 * (day(gap.start) - Number(slider.min))) / span + "%";
+    el.style.width = (100 * (day(gap.end) - day(gap.start))) / span + "%";
+    document.querySelector(".slider-box").append(el);
+  }
   drawBase();
   updateStatistics();
   seasonChart();
@@ -413,7 +423,12 @@ async function activateDataset(dataset) {
       });
   }
 }
-async function changeDataset(kind) {
+async function changeDataset(kind, fromRestore = false) {
+  if (!fromRestore) {
+    restoreVersion++;
+    restoring = false;
+  }
+  selectionVersion++;
   stopSeason();
   cancelTour();
   const token = ++changeVersion,
@@ -513,11 +528,21 @@ function drawFields() {
         if (!dragged) select(+p.dataset.i);
       };
       p.onkeydown = (e) => {
-        if (["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)) {
+        if (
+          ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)
+        ) {
           e.preventDefault();
-          const paths=[...$("gF").querySelectorAll("path")];
-          const next=(Number(p.dataset.i)+(["ArrowRight","ArrowDown"].includes(e.key)?1:-1)+paths.length)%paths.length;
-          paths.forEach((path,i)=>path.setAttribute("tabindex",i===next?"0":"-1")); paths[next].focus(); return;
+          const paths = [...$("gF").querySelectorAll("path")];
+          const next =
+            (Number(p.dataset.i) +
+              (["ArrowRight", "ArrowDown"].includes(e.key) ? 1 : -1) +
+              paths.length) %
+            paths.length;
+          paths.forEach((path, i) =>
+            path.setAttribute("tabindex", i === next ? "0" : "-1"),
+          );
+          paths[next].focus();
+          return;
         }
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -528,8 +553,9 @@ function drawFields() {
   status.textContent = `${NICE[tile]} · ${fs.length} fields`;
   paint();
 }
-async function goTile(t) {
+async function goTile(t, fromSelection = false) {
   if (!DATA.tiles[t]) return;
+  if (!fromSelection) selectionVersion++;
   const token = ++navVersion;
   const switching = view === "fields";
   tile = t;
@@ -542,6 +568,7 @@ async function goTile(t) {
     .forEach((b) => b.classList.toggle("on", b.dataset.tile === t));
   card.innerHTML =
     '<p class="fc-empty">Select a field to inspect its observations</p>';
+  $("gF").setAttribute("aria-hidden", "false");
   drawFields();
   const m = SAT[t + "_district"].b;
   await fly(
@@ -557,21 +584,26 @@ async function goTile(t) {
   if (token !== navVersion) return;
   await fly(tileBox(t), 900);
   if (token !== navVersion) return;
-  syncURL();
+  if (!fromSelection) syncURL(true);
 }
-async function goCountry() {
+async function goCountry(push = true) {
   stopSeason();
+  selectionVersion++;
   navVersion++;
   fieldVersion++;
   view = "country";
   selected = null;
   $("mapapp").classList.remove("infields");
   document.querySelectorAll(".segbtn").forEach((b) => b.classList.remove("on"));
+  $("gF").setAttribute("aria-hidden", "true");
+  $("gF")
+    .querySelectorAll("path")
+    .forEach((path) => path.setAttribute("tabindex", "-1"));
   countryCard();
   status.textContent = `India · ${Object.keys(DATA.tiles).length} study areas`;
   $("gR").replaceChildren();
   await fly(COUNTRY_BOX(), 900);
-  syncURL();
+  syncURL(push);
 }
 
 function paint() {
@@ -664,18 +696,59 @@ async function renderCard(i, withLoad = true) {
 }
 async function select(i, t, push = true) {
   stopSeason();
-  const dataset = DATA;
-  if (view !== "fields" || (t && t !== tile)) await goTile(t || tile);
-  if (DATA !== dataset) return;
+  const dataset = DATA,
+    targetTile = t || tile,
+    target = dataset.tiles[targetTile]?.fields[i],
+    ownSelection = ++selectionVersion;
+  if (!target) return;
+  if (view !== "fields" || targetTile !== tile) await goTile(targetTile, true);
+  if (
+    DATA !== dataset ||
+    ownSelection !== selectionVersion ||
+    tile !== targetTile ||
+    view !== "fields"
+  )
+    return;
   selected = i;
   fieldVersion++;
   paint();
   await renderCard(i, true);
-  if (DATA === dataset) syncURL(push);
+  if (DATA === dataset && ownSelection === selectionVersion) syncURL(push);
 }
+
 $("backBtn").addEventListener("click", () => {
   cancelTour();
   goCountry();
+});
+slider.addEventListener("keydown", (event) => {
+  if (
+    ![
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowDown",
+      "ArrowUp",
+      "Home",
+      "End",
+    ].includes(event.key)
+  )
+    return;
+  event.preventDefault();
+  cancelTour();
+  stopSeason();
+  pass =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? DATA.passes.length - 1
+        : Math.max(
+            0,
+            Math.min(
+              DATA.passes.length - 1,
+              pass + (["ArrowRight", "ArrowUp"].includes(event.key) ? 1 : -1),
+            ),
+          );
+  paint();
+  syncURL();
 });
 slider.addEventListener("input", () => {
   cancelTour();
@@ -756,19 +829,19 @@ function seasonChart() {
     (d) => (Date.parse(d) - Date.parse(DATA.passes[0])) / 864e5,
   );
   const share = DATA.passes.map((_, j) => {
-    const c = { f: 0, d: 0, u: 0 };
+    const c = { f: 0, d: 0, u: 0, n: 0 };
     all.forEach((f) => {
-      const k = f.s[j];
+      const k = f.s[j] === "-" ? "n" : f.s[j];
       if (k in c) c[k]++;
     });
-    const n = c.f + c.d + c.u || 1;
-    return { f: c.f / n, d: c.d / n, u: c.u / n };
+    const n = all.length || 1;
+    return { f: c.f / n, d: c.d / n, u: c.u / n, n: c.n / n };
   });
   const W = 1000,
     H = 300,
     L = 44,
     B = 28,
-    x = (d) => L + (d / days[days.length - 1]) * (W - L - 8),
+    x = (d) => L + (d / Math.max(1, days[days.length - 1])) * (W - L - 8),
     y = (v) => (H - B) * (1 - v);
   const gaps = DATA.gaps.map((g) => ({
     g0: (day(g.start) - day(DATA.passes[0])) / 864e5,
@@ -791,7 +864,11 @@ function seasonChart() {
     ${[0, 0.25, 0.5, 0.75, 1].map((v) => `<line class="grid" x1="${L}" x2="${W - 8}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v * 100}%</text>`).join("")}
     <path class="area" d="${area(() => 0, F)}" fill="var(--water)" fill-opacity=".85"/>
     <path class="area" d="${area(F, FD)}" fill="var(--mud)" fill-opacity=".85"/>
-    <path class="area" d="${area(FD, () => 1)}" fill="url(#uHatch)"/>
+    <path class="area" d="${area(
+      (j) => share[j].f + share[j].d + share[j].u,
+      () => 1,
+    )}" fill="#182326"/>
+    <path class="area" d="${area(FD, (j) => share[j].f + share[j].d + share[j].u)}" fill="url(#uHatch)"/>
     ${gaps.map(({ g0, g1 }) => `<rect class="band" x="${x(g0)}" y="0" width="${x(g1) - x(g0)}" height="${H - B}"/><text class="ax" x="${(x(g0) + x(g1)) / 2}" y="16" text-anchor="middle">No data</text>`).join("")}
     ${days.map((d, j) => `<circle cx="${x(d)}" cy="${y(F(j))}" r="2.5" fill="#0E1A1F" stroke="var(--water)"/><text class="ax" x="${x(d)}" y="${H - 8}" text-anchor="middle">${fmt(DATA.passes[j])}</text>`).join("")}
     <line class="cursor" id="sCur" y1="0" y2="${H - B}"/>`;
@@ -807,7 +884,7 @@ function seasonChart() {
     cur.setAttribute("x2", x(days[j]));
     const s = share[j],
       pct = (v) => Math.round(v * 100) + "%";
-    tip.innerHTML = `<b>${fmt(DATA.passes[j])}</b><i style="background:var(--water)"></i>flooded ${pct(s.f)}<br><i style="background:var(--mud)"></i>drained ${pct(s.d)}<br><i style="background:#5d6a70"></i>uncertain ${pct(s.u)}`;
+    tip.innerHTML = `<b>${fmt(DATA.passes[j])}</b><i style="background:var(--water)"></i>flooded ${pct(s.f)}<br><i style="background:var(--mud)"></i>drained ${pct(s.d)}<br><i style="background:#5d6a70"></i>uncertain ${pct(s.u)}${s.n > 0 ? `<br>No observation ${pct(s.n)}` : ""}`;
     tip.style.left =
       Math.min(r.width - 150, (x(days[j]) / W) * r.width + 12) + "px";
     tip.style.opacity = 1;
@@ -983,7 +1060,7 @@ rewire('[data-load="tour"]', async (b) => {
   b.querySelector(".txt").textContent = "Tour running";
   $("mapapp").classList.add("touring");
   say("Choose a study area");
-  await goCountry();
+  await goCountry(false);
   if (!valid()) return;
   await wait(1500);
   if (!valid()) return;
@@ -1038,7 +1115,7 @@ function syncURL(push = false) {
   if (restoring || !DATA) return;
   const q = new URLSearchParams();
   q.set("dataset", DATA.kind);
-  q.set("tile", tile);
+  if (view === "fields") q.set("tile", tile);
   q.set("pass", DATA.passIds[pass]);
   if (selected !== null && DATA.tiles[tile]?.fields[selected])
     q.set("field", DATA.tiles[tile].fields[selected].id);
@@ -1047,6 +1124,11 @@ function syncURL(push = false) {
   history[push ? "pushState" : "replaceState"]({}, "", url);
 }
 async function restoreLocation() {
+  const ownRestore = ++restoreVersion;
+  changeVersion++;
+  selectionVersion++;
+  navVersion++;
+  anim++;
   const path = location.pathname,
     q = new URLSearchParams(location.search),
     wanted =
@@ -1057,19 +1139,23 @@ async function restoreLocation() {
       (path.startsWith("/field/") ? decodeURIComponent(path.slice(7)) : null);
   restoring = true;
   try {
-    if (wanted !== DATA.kind) await changeDataset(wanted);
+    if (wanted !== DATA.kind) await changeDataset(wanted, true);
+    if (ownRestore !== restoreVersion) return;
     if (id && !fieldEntry(id) && !q.has("dataset") && DATA.kind === "snapshot")
-      await changeDataset("api");
+      await changeDataset("api", true);
+    if (ownRestore !== restoreVersion) return;
     const index = DATA.passIds.indexOf(q.get("pass") || "");
     if (index >= 0) pass = index;
     const entry = id ? fieldEntry(id) : null;
     if (entry) await select(entry.index, entry.tile, false);
     else if (q.get("tile") && DATA.tiles[q.get("tile")])
       await goTile(q.get("tile"));
+    else if (view !== "country") await goCountry(false);
+    if (ownRestore !== restoreVersion) return;
     if (["/lab", "/scarecrow", "/evidence"].includes(path)) {
       const name =
         path === "/lab"
-          ? "lab"
+          ? "detectability"
           : path === "/scarecrow"
             ? "inspection"
             : "evidence";
@@ -1079,11 +1165,46 @@ async function restoreLocation() {
     } else if (path === "/methods") $("method").scrollIntoView();
     else if (path === "/judges") $("story").scrollIntoView();
   } finally {
-    restoring = false;
-    syncURL();
+    if (ownRestore === restoreVersion) {
+      restoring = false;
+      $("datasetSelect").disabled = false;
+      syncURL();
+    }
   }
 }
 function installControls() {
+  const navigation = document.querySelector("nav"),
+    links = navigation.querySelector("ul");
+  navigation.setAttribute("aria-label", "Main navigation");
+  links.id = "mainNavigation";
+  const menu = document.createElement("button");
+  menu.className = "nav-toggle";
+  menu.type = "button";
+  menu.setAttribute("aria-expanded", "false");
+  menu.setAttribute("aria-controls", "mainNavigation");
+  menu.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span>';
+  navigation.insertBefore(menu, links);
+  const closeMenu = () => {
+    navigation.classList.remove("menu-open");
+    menu.setAttribute("aria-expanded", "false");
+  };
+  menu.onclick = () => {
+    const open = navigation.classList.toggle("menu-open");
+    menu.setAttribute("aria-expanded", String(open));
+  };
+  links.addEventListener("click", (event) => {
+    if (event.target.closest("a")) closeMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && navigation.classList.contains("menu-open")) {
+      closeMenu();
+      menu.focus();
+    }
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!navigation.contains(event.target)) closeMenu();
+  });
   const bar = document.querySelector(".map-bar");
   bar.insertAdjacentHTML(
     "beforeend",
@@ -1120,6 +1241,8 @@ function installControls() {
     );
   const zoom = (factor, point) => {
     anim++;
+    navVersion++;
+    selectionVersion++;
     const [cx, cy] = point || [vb[0] + vb[2] / 2, vb[1] + vb[3] / 2],
       w = Math.max(0.5, Math.min(COUNTRY_BOX()[2] * 1.4, vb[2] * factor)),
       ratio = w / vb[2];
@@ -1187,6 +1310,8 @@ function installControls() {
       dragged = true;
     if (dragged) {
       anim++;
+      navVersion++;
+      selectionVersion++;
       const d = dragging;
       setVB([d.vb[0] - (p.x - d.x), d.vb[1] - (p.y - d.y), d.vb[2], d.vb[3]]);
     }
