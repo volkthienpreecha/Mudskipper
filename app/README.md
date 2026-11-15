@@ -1,6 +1,8 @@
 # Mudskipper frontend
 
-The production entrypoint is the imported Ishaan redesign, with local Asimovian, its Earth/field photography and country-to-field map. Source revision and licences are recorded in REDESIGN_SOURCE.md. The prior dashboard is archived in legacy/solid-dashboard and is not imported into the production bundle.
+The production entrypoint is the imported Ishaan redesign, with Apple-first system typography, its Earth/field photography and country-to-field map. Source revision and licences are recorded in REDESIGN_SOURCE.md. The prior dashboard is archived in legacy/solid-dashboard and is not imported into the production bundle.
+
+The type stack uses San Francisco on Apple devices and the native system sans serif on other platforms. Apple font files are not redistributed. See HIG_REVIEW.md for the design checks and refinements.
 
 Run from the repository root with Node 24.12 or newer:
 

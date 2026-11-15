@@ -7,11 +7,10 @@
 <title>Mudskipper · Was this rice field really drained?</title>
 
 <style>
-@font-face{font-family:Asimovian;src:url("/fonts/Asimovian-Regular.ttf") format("truetype");font-display:swap}
 :root{
   --bg:#0E1A1F; --bg2:#16262D; --line:#2C3E46; --ink:#EAE6DA; --dim:#9FB0A8; --faint:#6f817a; --violet:#A99BFF; --rice:#7BC67E;
   --water:#3FD0C9; --mud:#E2725B; --haze:#8A8F98;
-  --serif:Asimovian,system-ui,sans-serif; --sans:Asimovian,system-ui,sans-serif; --mono:Asimovian,system-ui,sans-serif;
+  --sans:-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif; --serif:var(--sans); --mono:var(--sans);
   --ease:cubic-bezier(.22,1,.36,1);
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -551,9 +550,9 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 </style>
 </head>
 <body>
+<a class="skip-link" href="#map">Skip to the map</a>
 
 <div class="bg" aria-hidden="true"><div class="slide on" style="background-image:url('/img/0.jpg')" data-alt="Satellite above Earth"></div><div class="slide" style="background-image:url('/img/1.jpg')" data-alt="Aerial view of a rice field"></div><div class="slide" style="background-image:url('/img/2.jpg')" data-alt="Aerial view of an empty rice field"></div><div class="slide" style="background-image:url('/img/3.jpg')" data-alt="Satellite above a coastline"></div><div class="slide" style="background-image:url('/img/4.jpg')" data-alt="Overhead view of green fields"></div><div class="shade"></div></div>
-<div class="credit" id="credit">Photo: Unsplash</div>
 <nav>
   <div class="brand"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#EDEAE2"/><g fill="#0E1A1F"><path d="M8 40c6-3 14-5 22-5.5 6-.4 11-2.2 15-5.6 2.4-2 5.6-2.4 8-.6 2.6 2 3.4 5.6 1.6 8.4-1.6 2.6-4.6 4-7.8 4.4-10 1.2-23 1-34-.2L6 45l2-5z"/><circle cx="48" cy="27" r="3.4"/><circle cx="53.4" cy="28.4" r="3"/><path d="M22 35.4c1-5 4.6-8.6 9.4-9.6l2.6 7.6z"/><path d="M37 41c1 3.4 3.4 5.8 6.8 6.2l-1.2-6z"/><path d="M24 41.4c-.6 3-2.6 5.4-5.6 6l1.6-5.8z"/></g><circle cx="48.6" cy="26.4" r="1.1" fill="#EDEAE2"/><circle cx="53.8" cy="27.8" r="1" fill="#EDEAE2"/></svg><span>Mudskipper</span></div>
   <ul><li><a href="#story">Our story</a></li><li><a href="#map">Map</a></li><li><a href="#season">Season</a></li><li><a href="#method">Method</a></li><li><a href="#analysis">Analysis</a></li><li><a href="#api">API</a></li><li class="dd"><a href="/credits.html" aria-haspopup="true">Legal</a><div class="ddm"><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="/credits.html">Data and licences</a></div></li></ul>
@@ -619,7 +618,7 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
     <p class="sub rv">Click a district to fly in. Choose a dataset, then press play to watch the season unfold.</p>
     <div class="mapapp rv" id="mapapp">
       <div class="map-bar">
-        <div class="seg" role="tablist">
+        <div class="seg" role="group" aria-label="Study area">
           <button class="segbtn" data-tile="fazilka">Fazilka</button>
           <button class="segbtn" data-tile="muktsar">Sri Muktsar Sahib</button>
         </div>
@@ -629,10 +628,12 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
         <div class="map-wrap">
           <svg id="fieldMap" role="group" aria-label="Map of rice fields coloured by radar state"></svg>
           <div class="tour-cap" id="tourCap" aria-live="polite"></div>
-          <button class="map-back" id="backBtn">Back to India</button>
+          <div class="map-topbar">
+            <div class="map-date"><small>NISAR pass</small><strong id="mapDate">Jul 2</strong></div>
+            <button class="map-back" id="backBtn">Back to India</button>
+          </div>
           <div class="map-loader" id="mapLoader"><span class="spin"></span>Loading map…</div>
-          <div class="map-attr">Imagery: Sentinel-2 cloudless 2016, EOX (CC BY 4.0) · background only</div>
-          <div class="map-date"><small>NISAR pass</small><strong id="mapDate">Jul 2</strong></div>
+          <div class="map-bottom-bar"><div class="map-attr">Imagery: Sentinel-2 cloudless 2016, EOX (CC BY 4.0) · background only</div></div>
         </div>
         <aside class="fcard" id="fcard">
           <p class="fc-empty">Click any field on the map to open its report</p>
@@ -725,7 +726,7 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
   <div class="foot-brand"><div class="brand"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#EDEAE2"/><g fill="#0E1A1F"><path d="M8 40c6-3 14-5 22-5.5 6-.4 11-2.2 15-5.6 2.4-2 5.6-2.4 8-.6 2.6 2 3.4 5.6 1.6 8.4-1.6 2.6-4.6 4-7.8 4.4-10 1.2-23 1-34-.2L6 45l2-5z"/><circle cx="48" cy="27" r="3.4"/><circle cx="53.4" cy="28.4" r="3"/><path d="M22 35.4c1-5 4.6-8.6 9.4-9.6l2.6 7.6z"/><path d="M37 41c1 3.4 3.4 5.8 6.8 6.2l-1.2-6z"/><path d="M24 41.4c-.6 3-2.6 5.4-5.6 6l1.6-5.8z"/></g><circle cx="48.6" cy="26.4" r="1.1" fill="#EDEAE2"/><circle cx="53.8" cy="27.8" r="1" fill="#EDEAE2"/></svg><span>Mudskipper</span></div><p>Built for NASA Space Apps 2026, "Dancing with the SARs".</p></div>
   <div class="foot-col"><b>Project</b><a href="#story">Story</a><a href="#map">Map</a><a href="#method">Science</a></div>
   <div class="foot-col"><b>Legal</b><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="/credits.html">Data, licences and credits</a></div>
-  <div class="foot-meta"><span>Open source under GPL-3.0-only</span></div>
+  <div class="foot-meta"><span>Open source under GPL-3.0-only</span><span class="credit" id="credit"></span></div>
 </footer>
 
 <script type="module">
