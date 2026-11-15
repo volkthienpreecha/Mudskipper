@@ -6,10 +6,12 @@
  *
  *   node scripts/smoke.ts                                   # https://mudskipper-nisar.pages.dev
  *   node scripts/smoke.ts --base http://localhost:8788
- *   node scripts/smoke.ts --audit require                   # Phase 2: POST must rank (201/200) and round-trip
  *   node scripts/smoke.ts --expect-run fixture --json
+ *   node scripts/smoke.ts --audit skip                      # no POST (e.g. a read-only check)
  *
- * --audit auto (default): 501 not_implemented is accepted while core's ranking is not deployed (Phase 1).
+ * The audit check POSTs the exact bytes of contracts/fixtures/api/audit.request.json, expects 201 (or 200 if
+ * that audit is already stored: same bytes, same audit_id, nothing new is written), then GETs it back. While
+ * the fixture run is live, the ranking must equal contracts/fixtures/api/audit.response.json (created_at aside).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,7 +29,7 @@ interface Check {
 
 export interface SmokeOptions {
   base: string;
-  audit?: "auto" | "require" | "skip";
+  audit?: "require" | "skip";
   expectRun?: string;
   log?: (line: string) => void;
 }
@@ -182,19 +184,21 @@ export async function smoke(opts: SmokeOptions): Promise<{ ok: boolean; checks: 
     await check("POST /api/audit (golden request)", async () => {
       const body = readFileSync(join(REPO_ROOT, "contracts", "fixtures", "api", "audit.request.json"));
       const res = await get("/api/audit", { method: "POST", body, headers: { "content-type": "application/json" } });
-      if (res.status === 501 && opts.audit !== "require") {
-        const err = (await res.json()) as Record<string, unknown>;
-        schemaOk("api/error.schema.json", err);
-        assert((err["error"] as { code: string }).code === "not_implemented", "501 without not_implemented");
-        return "501 not_implemented (ranking lands with core, Phase 2)";
-      }
       assert(res.status === 201 || res.status === 200, `HTTP ${res.status}`);
       const result = (await res.json()) as Record<string, unknown>;
       schemaOk("api/audit_response.schema.json", result);
       const id = String(result["audit_id"]);
+      assert(res.headers.get("location") === `/api/audit/${id}`, "missing Location");
+      let golden = "";
+      if (live?.fixture && live.run_id === "fixture") {
+        const want = JSON.parse(readFileSync(join(REPO_ROOT, "contracts", "fixtures", "api", "audit.response.json"), "utf8")) as Record<string, unknown>;
+        const strip = (o: Record<string, unknown>) => JSON.stringify({ ...o, created_at: null });
+        assert(strip(result) === strip(want), "ranking differs from contracts/fixtures/api/audit.response.json");
+        golden = ", equals the golden ranking";
+      }
       const back = await json(`/api/audit/${id}`, "api/audit_response.schema.json");
       assert(JSON.stringify(back) === JSON.stringify(result), "GET /api/audit/:id differs from the POST result");
-      return `${res.status} ${id}, round trip ok`;
+      return `${res.status} ${id}${golden}; GET round trip ok`;
     });
     await check("POST /api/audit invalid → 400", async () => {
       const res = await get("/api/audit", { method: "POST", body: "{", headers: { "content-type": "application/json" } });
@@ -253,20 +257,20 @@ async function main() {
   const { values } = parseArgs({
     options: {
       base: { type: "string", default: PRODUCTION_URL },
-      audit: { type: "string", default: "auto" },
+      audit: { type: "string", default: "require" },
       "expect-run": { type: "string" },
       json: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
   });
   if (values.help) {
-    console.log("usage: node scripts/smoke.ts [--base URL] [--audit auto|require|skip] [--expect-run ID] [--json]");
+    console.log("usage: node scripts/smoke.ts [--base URL] [--audit require|skip] [--expect-run ID] [--json]");
     return;
   }
-  if (!["auto", "require", "skip"].includes(values.audit)) throw new Error("--audit must be auto, require or skip");
+  if (!["require", "skip"].includes(values.audit)) throw new Error("--audit must be require or skip");
   const res = await smoke({
     base: values.base,
-    audit: values.audit as "auto",
+    audit: values.audit as "require",
     ...(values["expect-run"] ? { expectRun: values["expect-run"] } : {}),
     ...(values.json ? { log: () => {} } : {}),
   });
