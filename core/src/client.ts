@@ -126,6 +126,18 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * A `meta.assets` URL as the contract allows it (`^/tiles/\S+$`, api/meta schema). The client fetches it
+ * relative to `baseUrl`, so anything else (an absolute or protocol-relative URL such as `//host/x`, a
+ * traversal) would point the app at another origin: refused as `invalid_response` (docs/SECURITY.md, K-344).
+ */
+export function checkAssetPath(url: unknown, key: string): string {
+  if (typeof url !== "string" || !/^\/tiles\/\S+$/.test(url) || /(^|\/)\.\.?(\/|$)|\\|%2e|%2f|%5c/i.test(url.slice(7))) {
+    throw new ApiError(0, "invalid_response", `meta.assets.${key} is not a /tiles/ path`);
+  }
+  return url;
+}
+
 export function createClient(options: ClientOptions): MudskipperClient {
   return options.source === "api" ? apiClient(options) : fixturesClient(options.load);
 }
@@ -181,7 +193,7 @@ function apiClient(options: {
     });
     const url = (await meta).assets[key];
     if (url === null) throw new ApiError(404, "not_found", `the live run has no ${key} asset`);
-    return get<T>(url);
+    return get<T>(checkAssetPath(url, key));
   };
 
   return {
@@ -218,7 +230,7 @@ function apiClient(options: {
         throw err;
       });
       const url = (await meta).assets.overlays_index;
-      return url === null ? null : get<OverlaysIndex>(url);
+      return url === null ? null : get<OverlaysIndex>(checkAssetPath(url, "overlays_index"));
     },
   };
 }

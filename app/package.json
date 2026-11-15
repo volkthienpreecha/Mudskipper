@@ -12,8 +12,7 @@
     "test:a11y": "node --test --test-concurrency=1 test/a11y.test.ts"
   },
   "dependencies": {
-    "@mudskipper/core": "*",
-    "maplibre-gl": "6.18.0"
+    "@mudskipper/core": "*"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

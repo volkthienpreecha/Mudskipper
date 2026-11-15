@@ -14,7 +14,7 @@
  * (`index.grid`, rebuilt from the same boxes by `fieldIndex` at bundle time) so a cold isolate skips that
  * step too. A lookup touches a handful of fields instead of all 4,600.
  */
-import { bboxMayContain, bboxOf, contains, type AreaGeometryInput, type BBox } from "./geometry.ts";
+import { bboxMayContain, bboxOf, contains, containsFlat, type AreaGeometryInput, type BBox, type FlatPolygons } from "./geometry.ts";
 
 /** What the index reads from a field (`fields.geojson` features and rank's `RankField` are assignable). */
 export interface IndexedField {
@@ -122,6 +122,76 @@ function buildGrid(boxes: ReadonlyArray<BBox>, cellDeg: number | undefined): Fie
     for (let j = s[2]; j <= s[3]; j++) for (let i = s[0]; i <= s[1]; i++) items[fill[j * g.nx + i]!++] = k;
   });
   return { ...g, start, items };
+}
+
+/**
+ * A run's fields as columns: ids, boxes and polygons in typed arrays, and field objects only on request.
+ * The Worker's ranking input (platform/src/repo/rank-input.ts) is stored this way, so a cold isolate maps a
+ * buffer instead of building thousands of objects.
+ */
+export interface FieldColumns<F extends IndexedField> extends FlatPolygons {
+  /** Field ids in field_id (UTF-16 code-unit) order. */
+  readonly ids: ReadonlyArray<string>;
+  /** `bboxOf` of every field, four numbers each: minX, minY, maxX, maxY. */
+  readonly boxes: Float64Array;
+  /** The grid `fieldIndex` builds over these boxes (its `.grid`). */
+  readonly grid: FieldGrid;
+  /** The field at position k (called only for the fields a lookup returns; the caller may cache). */
+  field(k: number): F;
+}
+
+/**
+ * `fieldIndex` over columns. `locate` and `byId` return exactly what `fieldIndex` returns for the same fields
+ * (containment is `containsFlat`, the same arithmetic as `contains`; for a repeated id, the last one wins).
+ */
+export function columnarFieldIndex<F extends IndexedField>(cols: FieldColumns<F>): FieldIndex<F> {
+  const { ids, boxes, grid } = cols;
+  const n = ids.length;
+  if (boxes.length !== 4 * n || cols.parts.length !== n + 1) throw new RangeError("columns must have one entry per field");
+  for (let k = 1; k < n; k++) if (ids[k - 1]! > ids[k]!) throw new RangeError("a prebuilt grid needs the fields in field_id order");
+  const { x0, y0, x1, y1, nx, ny, size, start, items } = grid;
+  if (start.length !== nx * ny + 1) throw new RangeError("the grid does not belong to these fields");
+  for (let t = 0; t < items.length; t++) if (items[t]! >= n) throw new RangeError("the grid does not belong to these fields");
+
+  /** Position of the last `id` in the sorted ids, or -1. */
+  const positionOf = (id: string): number => {
+    let lo = 0;
+    let hi = n;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (ids[mid]! <= id) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo > 0 && ids[lo - 1] === id ? lo - 1 : -1;
+  };
+
+  return {
+    size: n,
+    grid,
+    byId(id) {
+      const k = positionOf(id);
+      return k < 0 ? undefined : cols.field(k);
+    },
+    locate(px, py) {
+      if (!(px >= x0 && px <= x1 && py >= y0 && py <= y1)) return undefined;
+      // cellOf and bboxMayContain, inlined over the typed arrays (the same operations in the same order).
+      const i = Math.min(nx - 1, Math.max(0, Math.floor((px - x0) / size)));
+      const j = Math.min(ny - 1, Math.max(0, Math.floor((py - y0) / size)));
+      const c = j * nx + i;
+      for (let t = start[c]!; t < start[c + 1]!; t++) {
+        const k = items[t]!;
+        const minX = boxes[4 * k]!;
+        const minY = boxes[4 * k + 1]!;
+        const maxX = boxes[4 * k + 2]!;
+        const maxY = boxes[4 * k + 3]!;
+        if (!(py >= minY && py < maxY)) continue;
+        const pad = 1e-9 * (Math.abs(minX) + Math.abs(maxX) + 1);
+        if (!(px >= minX - pad && px <= maxX + pad)) continue;
+        if (containsFlat(cols, k, px, py)) return cols.field(k);
+      }
+      return undefined;
+    },
+  };
 }
 
 export function fieldIndex<F extends IndexedField>(fields: ReadonlyArray<F>, options: FieldIndexOptions = {}): FieldIndex<F> {

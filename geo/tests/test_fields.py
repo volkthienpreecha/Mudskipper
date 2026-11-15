@@ -1,6 +1,5 @@
 """The FTW filter chain (geo/fields.py) on synthetic polygons: clip, repair, area, rice, cap, ids, labels."""
 import geopandas as gpd
-import numpy as np
 import pytest
 import shapely
 

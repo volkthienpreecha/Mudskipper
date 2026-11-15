@@ -3,55 +3,72 @@
  * read by POST /api/audit on the static backend, so a cold isolate never parses the 3.8 MB fields.geojson
  * (about 25 ms of CPU on its own, over the free plan's 10 ms).
  *
- * Layout (little-endian): "MSKR", u32 version (1), u32 header length, the header as UTF-8 JSON, zero padding to
+ * Layout (little-endian): "MSKR", u32 version (2), u32 header length, the header as UTF-8 JSON, zero padding to
  * a multiple of 8, then the typed sections the header names by [byte offset, element count]:
  *
- *   bbox   Float64[4n]   bboxOf(geometry) per field (core/geometry.ts), so the grid needs no pass over vertices
- *   parts  Uint32[n+1]   field k owns polygons parts[k] .. parts[k+1]
- *   rings  Uint32[P+1]   polygon p owns rings rings[p] .. rings[p+1] (outer ring first)
- *   verts  Uint32[R+1]   ring r owns positions verts[r] .. verts[r+1]
- *   coords Float64[2V]   lon, lat of every position (altitude is never read by ranking)
+ *   bbox    Float64[4n]   bboxOf(geometry) per field (core/geometry.ts), so the grid needs no pass over vertices
+ *   coords  Float64[2V]   lon, lat of every position (altitude is never read by ranking)
+ *   area    Float64[n]    properties.area_ha
+ *   parts   Uint32[n+1]   field k owns polygons parts[k] .. parts[k+1]
+ *   rings   Uint32[P+1]   polygon p owns rings rings[p] .. rings[p+1] (outer ring first)
+ *   verts   Uint32[R+1]   ring r owns positions verts[r] .. verts[r+1]
+ *   district Uint32[n]    index into the header's `districts`
+ *   clear, drained Uint32[n]   the summary's awd.clear_looks and awd.drained_hits (0 without a summary)
  *   gridStart, gridItems Uint32   core's fieldIndex grid over these boxes (its `.grid`; scalars in the header)
  *
- * The header carries what ranking reads besides geometry: field ids (sorted), district, area_ha and the
- * summary columns (verdict, clear_looks, drained_hits, DSR signal), with `null` where a field has no summary.
- * Float64 keeps every coordinate's exact double, so containment is bit-for-bit the GeoJSON's (tests compare
- * whole rankings against core on the parsed fields). Geometry objects are built only for fields a claim's
- * point falls in the box of, and kept for the isolate's lifetime.
+ * The header carries the field ids (sorted), the district names, and one character per field for the geometry
+ * type and the summary's verdict and DSR signal ("-" where a field has no summary). Version 2 (DECISIONS.md
+ * K-352) moved every per-field number out of the JSON header into typed sections, and decoding builds no
+ * per-field objects: the sections are views on the buffer, ranking reads them through core's
+ * `columnarFieldIndex` (point-in-polygon on the typed arrays, `containsFlat`), and a field object is made
+ * only for a field a claim matches. Float64 keeps every coordinate's and area's exact double, so containment
+ * and scores are bit-for-bit the GeoJSON's (tests compare whole rankings against core on the parsed fields).
  */
-import { bboxOf, fieldIndex, type BBox, type FieldGrid, type FieldIndex, type RankField, type RankSummary } from "@mudskipper/core";
+import {
+  bboxOf,
+  columnarFieldIndex,
+  fieldIndex,
+  type BBox,
+  type FieldColumns,
+  type FieldGrid,
+  type FieldIndex,
+  type RankField,
+  type RankSummary,
+} from "@mudskipper/core";
 import type { DsrSignal, FieldFeature, FieldSummary, Verdict } from "../contracts.ts";
 
 const MAGIC = 0x524b534d; // "MSKR" read as a little-endian u32
-const VERSION = 1;
+const VERSION = 2;
 const VERDICT_CODE: Record<Verdict, string> = { consistent: "c", inconsistent: "i", not_enough_evidence: "n" };
 const DSR_CODE: Record<DsrSignal, string> = { transplant_signal: "t", unknown: "u", dsr_signal: "d" };
 const VERDICT_OF: Record<string, Verdict> = { c: "consistent", i: "inconsistent", n: "not_enough_evidence" };
 const DSR_OF: Record<string, DsrSignal> = { t: "transplant_signal", u: "unknown", d: "dsr_signal" };
 
 interface Header {
-  v: 1;
+  v: 2;
   run_id: string;
   n: number;
   ids: string[];
   districts: string[];
-  district: number[];
-  area: number[];
   /** "P" (Polygon) or "M" (MultiPolygon) per field. */
   types: string;
   /** Per field: verdict code, or "-" without a summary. */
   verdicts: string;
   /** Per field: DSR code, or "-" without a summary. */
   dsr: string;
-  clear: (number | null)[];
-  drained: (number | null)[];
   grid: Pick<FieldGrid, "x0" | "y0" | "x1" | "y1" | "size" | "nx" | "ny">;
   sections: Record<SectionName, [number, number]>;
 }
 
-type SectionName = "bbox" | "parts" | "rings" | "verts" | "coords" | "gridStart" | "gridItems";
+type SectionName = "bbox" | "coords" | "area" | "parts" | "rings" | "verts" | "district" | "clear" | "drained" | "gridStart" | "gridItems";
 
 const byCodeUnits = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/** A count stored in a Uint32 section: anything else would not round-trip, so the bundle build stops. */
+function count(v: number, what: string): number {
+  if (!(Number.isInteger(v) && v >= 0 && v <= 0xffffffff)) throw new RangeError(`rank.bin: ${what} ${v} is not a uint32`);
+  return v;
+}
 
 /** Encode a run's fields and summaries (bundle time). Deterministic for the same input. */
 export function encodeRankInput(runId: string, features: ReadonlyArray<FieldFeature>, summaries: ReadonlyArray<FieldSummary>): Uint8Array<ArrayBuffer> {
@@ -63,6 +80,8 @@ export function encodeRankInput(runId: string, features: ReadonlyArray<FieldFeat
   const verts: number[] = [0];
   const coords: number[] = [];
   const bbox: number[] = [];
+  const clear: number[] = [];
+  const drained: number[] = [];
   let types = "";
   let verdicts = "";
   let dsr = "";
@@ -82,37 +101,39 @@ export function encodeRankInput(runId: string, features: ReadonlyArray<FieldFeat
     const s = sums.get(f.properties.field_id);
     verdicts += s ? VERDICT_CODE[s.awd.verdict] : "-";
     dsr += s ? DSR_CODE[s.dsr.signal] : "-";
+    clear.push(s ? count(s.awd.clear_looks, "clear_looks") : 0);
+    drained.push(s ? count(s.awd.drained_hits, "drained_hits") : 0);
   }
   const boxes: BBox[] = [];
   for (let k = 0; k < fields.length; k++) boxes.push([bbox[4 * k]!, bbox[4 * k + 1]!, bbox[4 * k + 2]!, bbox[4 * k + 3]!]);
   const { start, items, ...gridScalars } = fieldIndex(fields as unknown as RankField[], { boxes }).grid;
-  const sections: Header["sections"] = { bbox: [0, 0], parts: [0, 0], rings: [0, 0], verts: [0, 0], coords: [0, 0], gridStart: [0, 0], gridItems: [0, 0] };
   const arrays: [SectionName, Float64Array | Uint32Array][] = [
     ["bbox", Float64Array.from(bbox)],
     ["coords", Float64Array.from(coords)],
+    ["area", Float64Array.from(fields, (f) => f.properties.area_ha)],
     ["parts", Uint32Array.from(parts)],
     ["rings", Uint32Array.from(rings)],
     ["verts", Uint32Array.from(verts)],
+    ["district", Uint32Array.from(fields, (f) => districts.indexOf(f.properties.district))],
+    ["clear", Uint32Array.from(clear)],
+    ["drained", Uint32Array.from(drained)],
     ["gridStart", start],
     ["gridItems", items],
   ];
+  const sections = Object.fromEntries(arrays.map(([name]) => [name, [0, 0]])) as Header["sections"];
   const header: Header = {
-    v: 1,
+    v: 2,
     run_id: runId,
     n: fields.length,
     ids: fields.map((f) => f.properties.field_id),
     districts,
-    district: fields.map((f) => districts.indexOf(f.properties.district)),
-    area: fields.map((f) => f.properties.area_ha),
     types,
     verdicts,
     dsr,
-    clear: fields.map((f) => sums.get(f.properties.field_id)?.awd.clear_looks ?? null),
-    drained: fields.map((f) => sums.get(f.properties.field_id)?.awd.drained_hits ?? null),
     grid: gridScalars,
     sections,
   };
-  // Offsets depend on the header length, which depends on the offsets' digits: settle them in two passes.
+  // Offsets depend on the header length, which depends on the offsets' digits: settle them in a few passes.
   let headerBytes = new Uint8Array(0);
   for (let pass = 0; pass < 3; pass++) {
     let off = align8(12 + headerBytes.byteLength);
@@ -142,35 +163,41 @@ export interface RankInputs {
   summaries: ReadonlyMap<string, RankSummary>;
 }
 
-/** One field as ranking reads it; its geometry is built from the typed sections on first access, then kept. */
-class LazyField implements RankField {
-  readonly properties: { field_id: string; district: string; area_ha: number };
-  readonly k: number;
-  private readonly src: Sections;
-  private g: AreaGeometry | undefined;
-
-  constructor(k: number, properties: LazyField["properties"], src: Sections) {
-    this.k = k;
-    this.properties = properties;
-    this.src = src;
-  }
-
-  get geometry(): AreaGeometry {
-    return (this.g ??= geometryOf(this.src, this.k));
-  }
-}
-
 type AreaGeometry = { type: "Polygon"; coordinates: number[][][] } | { type: "MultiPolygon"; coordinates: number[][][][] };
 
-interface Sections {
+interface Columns {
+  h: Header;
   types: string;
   coords: Float64Array;
   parts: Uint32Array;
   rings: Uint32Array;
   verts: Uint32Array;
+  area: Float64Array;
+  district: Uint32Array;
+  clear: Uint32Array;
+  drained: Uint32Array;
 }
 
-function geometryOf(s: Sections, k: number): AreaGeometry {
+/** One field as ranking reads it; made only when a lookup returns it. Its geometry is built on first access. */
+class LazyField implements RankField {
+  readonly properties: { field_id: string; district: string; area_ha: number };
+  readonly k: number;
+  private readonly src: Columns;
+  private g: AreaGeometry | undefined;
+
+  constructor(k: number, src: Columns) {
+    this.k = k;
+    this.src = src;
+    this.properties = { field_id: src.h.ids[k]!, district: src.h.districts[src.district[k]!]!, area_ha: src.area[k]! };
+  }
+
+  /** Not read by ranking (containment uses the typed arrays); kept so a field is still a RankField. */
+  get geometry(): AreaGeometry {
+    return (this.g ??= geometryOf(this.src, this.k));
+  }
+}
+
+function geometryOf(s: Columns, k: number): AreaGeometry {
   const polys: number[][][][] = [];
   for (let p = s.parts[k]!; p < s.parts[k + 1]!; p++) {
     const poly: number[][][] = [];
@@ -184,25 +211,26 @@ function geometryOf(s: Sections, k: number): AreaGeometry {
   return s.types[k] === "P" ? { type: "Polygon", coordinates: polys[0]! } : { type: "MultiPolygon", coordinates: polys };
 }
 
-/** A field_id → summary view over the header columns; a summary object is built on first access. */
+/** A field_id → summary view over the summary columns; a summary object is built on first access. */
 class SummaryView extends Map<string, RankSummary> {
   private readonly index: FieldIndex<RankField>;
-  private readonly h: Header;
+  private readonly src: Columns;
 
-  constructor(index: FieldIndex<RankField>, h: Header) {
+  constructor(index: FieldIndex<RankField>, src: Columns) {
     super();
     this.index = index;
-    this.h = h;
+    this.src = src;
   }
   override get(id: string): RankSummary | undefined {
     const hit = super.get(id);
     if (hit) return hit;
     const f = this.index.byId(id) as LazyField | undefined;
-    if (f === undefined || this.h.verdicts[f.k] === "-") return undefined;
+    const h = this.src.h;
+    if (f === undefined || h.verdicts[f.k] === "-") return undefined;
     const k = f.k;
     const s: RankSummary = {
-      awd: { verdict: VERDICT_OF[this.h.verdicts[k]!]!, clear_looks: this.h.clear[k]!, drained_hits: this.h.drained[k]! },
-      dsr: { signal: DSR_OF[this.h.dsr[k]!]! },
+      awd: { verdict: VERDICT_OF[h.verdicts[k]!]!, clear_looks: this.src.clear[k]!, drained_hits: this.src.drained[k]! },
+      dsr: { signal: DSR_OF[h.dsr[k]!]! },
     };
     super.set(id, s);
     return s;
@@ -212,30 +240,46 @@ class SummaryView extends Map<string, RankSummary> {
   }
   override get size(): number {
     let n = 0;
-    for (const c of this.h.verdicts) if (c !== "-") n++;
+    for (const c of this.src.h.verdicts) if (c !== "-") n++;
     return n;
   }
 }
 
-/** Decode rank.bin into a prebuilt spatial index (core's fieldIndex) and a summary lookup. */
+/** Map rank.bin onto core's columnar field index and a summary lookup (no per-field work up front). */
 export function decodeRankInput(buf: ArrayBuffer, expectRunId: string): RankInputs {
   const dv = new DataView(buf);
   if (buf.byteLength < 12 || dv.getUint32(0, true) !== MAGIC || dv.getUint32(4, true) !== VERSION) {
-    throw new Error("rank.bin: not a version-1 ranking input");
+    throw new Error(`rank.bin: not a version-${VERSION} ranking input`);
   }
   const len = dv.getUint32(8, true);
   const h = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 12, len))) as Header;
   if (h.run_id !== expectRunId) throw new Error(`rank.bin is for run ${h.run_id}, not ${expectRunId}`);
   const f64 = (name: SectionName) => new Float64Array(buf, h.sections[name][0], h.sections[name][1]);
   const u32 = (name: SectionName) => new Uint32Array(buf, h.sections[name][0], h.sections[name][1]);
-  const bbox = f64("bbox");
-  const src: Sections = { types: h.types, coords: f64("coords"), parts: u32("parts"), rings: u32("rings"), verts: u32("verts") };
-  const fields: LazyField[] = new Array(h.n);
-  const boxes: BBox[] = new Array(h.n);
-  for (let k = 0; k < h.n; k++) {
-    fields[k] = new LazyField(k, { field_id: h.ids[k]!, district: h.districts[h.district[k]!]!, area_ha: h.area[k]! }, src);
-    boxes[k] = [bbox[4 * k]!, bbox[4 * k + 1]!, bbox[4 * k + 2]!, bbox[4 * k + 3]!];
-  }
-  const index = fieldIndex<RankField>(fields, { boxes, grid: { ...h.grid, start: u32("gridStart"), items: u32("gridItems") } });
-  return { index, summaries: new SummaryView(index, h) };
+  const src: Columns = {
+    h,
+    types: h.types,
+    coords: f64("coords"),
+    parts: u32("parts"),
+    rings: u32("rings"),
+    verts: u32("verts"),
+    area: f64("area"),
+    district: u32("district"),
+    clear: u32("clear"),
+    drained: u32("drained"),
+  };
+  if (h.ids.length !== h.n || src.area.length !== h.n) throw new Error("rank.bin: sections do not match the field count");
+  const made: (LazyField | undefined)[] = new Array(h.n);
+  const cols: FieldColumns<LazyField> = {
+    ids: h.ids,
+    boxes: f64("bbox"),
+    parts: src.parts,
+    rings: src.rings,
+    verts: src.verts,
+    coords: src.coords,
+    grid: { ...h.grid, start: u32("gridStart"), items: u32("gridItems") },
+    field: (k) => (made[k] ??= new LazyField(k, src)),
+  };
+  const index = columnarFieldIndex<RankField>(cols);
+  return { index, summaries: new SummaryView(index, src) };
 }
