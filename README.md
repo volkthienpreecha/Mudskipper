@@ -106,6 +106,22 @@ make help             # everything else
 gap), all three verdicts, overlays, histograms, 60 synthetic claims, and one response per API endpoint. Every
 file says `"fixture": true`, and every granule id starts with `SAMPLE_`.
 
+## Moving run data between teammates
+
+Run folders (`artifacts/<run_id>/`) never go into git. Share and fetch them as GitHub Release assets, with a
+SHA-256 manifest checked on the way in (macOS, Linux or Windows; needs Python and the GitHub CLI):
+
+```sh
+python platform/scripts/run_transfer.py share r01v1        # pipeline: upload artifacts/r01v1
+python platform/scripts/run_transfer.py fetch r01v1        # platform: download it, verified
+python platform/scripts/run_transfer.py fetch geo-pipeline-tiles --dir artifacts/r01   # geo's fields for the pipeline's tiles
+python platform/scripts/run_transfer.py list
+make publish RUN_ID=r01v1                                  # compute, validate, deploy (platform/README.md)
+```
+
+Shared now: `geo-r01` (geo's recommended rice-dense tiles, 4,599 FTW fields) and `geo-pipeline-tiles` (FTW
+fields for the pipeline's current tiles, 2,329 fields). See DECISIONS.md K-113, K-114.
+
 ## For judges
 
 | Criterion | What we show |

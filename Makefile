@@ -7,7 +7,7 @@ VENV   := .venv
 VPY    := $(VENV)/bin/python
 RUN_ID ?= r01
 
-.PHONY: help setup fixtures fixtures-check validate validate-full test check publish smoke clean
+.PHONY: share-run fetch-run list-runs help setup fixtures fixtures-check validate validate-full test check publish smoke clean
 
 help: ## List targets
 	@awk 'BEGIN {FS = ":.*## "; printf "Mudskipper make targets\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -39,6 +39,15 @@ check: test validate fixtures-check ## Everything CI runs for contracts
 
 publish: $(VENV)/.ready ## Publish artifacts/$(RUN_ID) to https://mudskipper-nisar.pages.dev (FIXTURES=1: the sample set; ARGS=--dry-run)
 	npm run publish -w platform -- $(if $(FIXTURES),--fixtures,--run $(RUN_ID)) $(ARGS)
+
+share-run: ## Share artifacts/$(RUN_ID) with the team as a GitHub Release asset (DIR=… NAME=… to override)
+	$(PYTHON) platform/scripts/run_transfer.py share $(RUN_ID) $(if $(DIR),--dir $(DIR),) $(if $(NAME),--name $(NAME),)
+
+fetch-run: ## Download a shared run into artifacts/$(RUN_ID) (checksums verified; FORCE=1 replaces)
+	$(PYTHON) platform/scripts/run_transfer.py fetch $(RUN_ID) $(if $(FORCE),--force,)
+
+list-runs: ## List runs shared as GitHub Release assets
+	$(PYTHON) platform/scripts/run_transfer.py list
 
 smoke: ## Smoke-test the deployed site and API (BASE=http://localhost:8788 for a local `npm run dev -w platform`)
 	npm run smoke -w platform -- $(if $(BASE),--base $(BASE),)
