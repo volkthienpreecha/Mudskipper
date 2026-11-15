@@ -206,6 +206,71 @@ class NeverCrashes(Base):
         self.assertFails(rep, "passes.json: required at stage 'published' but missing")
 
 
+class GeoStage(Base):
+    """Stage "geo": geo's hand-off (aoi.json + fields.geojson, fields.pmtiles if present) before the pipeline."""
+
+    def setUp(self):
+        super().setUp()
+        self.geo = self.tmp / "geo-run"
+        self.geo.mkdir()
+        for name in ("aoi.json", "fields.geojson"):
+            shutil.copyfile(self.run_dir / name, self.geo / name)
+
+    def validate_geo(self, stage="geo"):
+        rep = validate.Report("test")
+        validate.validate_run(self.geo, SCHEMAS, rep, stage)
+        return rep
+
+    def test_aoi_and_fields_alone_pass(self):
+        rep = self.validate_geo()
+        self.assertEqual(rep.errors, [])
+        self.assertEqual(rep.facts["stage"], "geo")
+        self.assertEqual(rep.facts["fields"], 300)
+        self.assertFalse(rep.facts["pmtiles"])
+
+    def test_other_stages_are_unchanged(self):
+        self.assertFails(self.validate_geo("auto"), "passes.json: required at stage 'pipeline' but missing")
+
+    def test_pmtiles_magic_bytes(self):
+        (self.geo / "fields.pmtiles").write_bytes(b"PMTiles\x03" + bytes(119))
+        rep = self.validate_geo()
+        self.assertEqual(rep.errors, [])
+        self.assertTrue(rep.facts["pmtiles"])
+        (self.geo / "fields.pmtiles").write_bytes(b"SQLite format 3\x00")
+        self.assertFails(self.validate_geo(), "fields.pmtiles: not a PMTiles v3 archive")
+
+    def test_missing_fields(self):
+        (self.geo / "fields.geojson").unlink()
+        self.assertFails(self.validate_geo(), "fields.geojson: required at stage 'geo' but missing")
+
+    def test_fields_rules_still_apply(self):
+        def move(doc):
+            doc["features"][0]["properties"]["lon"] += 0.01
+            doc["features"][1]["properties"]["district"] = "Ferozepur"
+        self.edit_json("fields.geojson", move, root=self.geo)
+        self.assertFails(self.validate_geo(), "label point (lon, lat) is not inside the polygon",
+                         "district 'Ferozepur' != tile district")
+
+    def test_schema_still_applies(self):
+        self.edit_json("fields.geojson", lambda d: d["features"][0]["properties"].update(area_ha=0.3), root=self.geo)
+        self.assertFails(self.validate_geo(), "fields.geojson: features/0/properties/area_ha")
+
+    def test_aoi_rules_still_apply(self):
+        self.edit_json("aoi.json", lambda d: d["gaps"][0].update(start="2026-07-28T00:00:00Z"), root=self.geo)
+        self.assertFails(self.validate_geo(), "gaps must include the permanent NISAR gap")
+
+    def test_only_geo_files_are_checked(self):
+        (self.geo / "passes.json").write_text("{not json", encoding="utf-8")
+        self.assertEqual(self.validate_geo().errors, [])
+
+    def test_unexpected_files_are_still_rejected(self):
+        (self.geo / "fields.grid.geojson").write_text("{}", encoding="utf-8")
+        self.assertFails(self.validate_geo(), "fields.grid.geojson: unexpected file in run directory")
+
+    def test_command_line(self):
+        self.assertEqual(validate.main([str(self.geo), "--stage", "geo", "--quiet"]), 0)
+
+
 class CommandLine(unittest.TestCase):
     def test_exit_codes(self):
         self.assertEqual(validate.main([str(FIXTURES), "--quiet"]), 0)
