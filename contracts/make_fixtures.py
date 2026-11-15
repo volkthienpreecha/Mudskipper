@@ -90,10 +90,12 @@ PARAM_SOURCES = {
         "url": "https://arxiv.org/abs/2507.08605", "status": "cited",
         "note": "Punjab AWD fields are irrigated 'typically every 4-10 days'."},
     "drained_fraction_of_cycle": {
-        "citation": "PAU Package of Practices Kharif 2026 (irrigate two days after ponded water has infiltrated)",
-        "url": "https://pau.edu/content/ccil/pf/pp_kharif.pdf", "status": "needs_citation",
-        "note": "No source states this fraction directly. PAU's rule implies about 2 dry days per 4-10 day cycle (0.2-0.5); "
-                "the spec value 0.3-0.5 needs a source or a change before a real run."},
+        "citation": "IRRI Rice Knowledge Bank, AWD fact sheet; ARCC Agricultural Reviews R-2043 (AWD review)",
+        "url": "http://www.knowledgebank.irri.org/training/fact-sheets/water-management/saving-water-alternate-wetting-drying-awd",
+        "status": "derived",
+        "note": ("No source states the fraction directly. IRRI: non-flooded days per AWD cycle range from 1 to more than 10; a r"
+                 "eview reports the best schedule as about 3 days of drainage after ponded water disappears (https://arccjournals.com/jour"
+                 "nal/agricultural-reviews/R-2043). With cycle_days 4-10, about 2-3 dry days gives 0.3-0.5 (capped at 0.5, since PAU keeps fields ponded more often than dry). Reviewed by Ishaan (SPEC A4).")},
     "cf_single_drain_prob": {
         "citation": "India Third Biennial Update Report (MoEFCC 2021), via CEEW 'What reduces emissions in sustainable rice "
                     "cultivation', Table 1",
