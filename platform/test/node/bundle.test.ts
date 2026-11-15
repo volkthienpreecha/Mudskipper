@@ -6,6 +6,10 @@ import { afterAll, describe, expect, it } from "vitest";
 import { buildBundle } from "../../scripts/build-bundle.ts";
 import { FIXTURE_RUN, REPO_ROOT, listFiles } from "../../scripts/lib/run.ts";
 import { createSchemaAjv, validatorFor } from "../../scripts/lib/schemas.ts";
+import { rank, readAuditBody, validateAuditRequest } from "@mudskipper/core";
+import type { FieldFeature } from "../../src/contracts.ts";
+import { decodeRankInput } from "../../src/repo/rank-input.ts";
+import { fieldsPage } from "../../src/shapes.ts";
 
 const API = join(REPO_ROOT, "contracts", "fixtures", "api");
 const dirs: string[] = [];
@@ -30,8 +34,49 @@ describe("build-bundle on the fixture run", () => {
     },
   );
 
-  it("fields rows equal the fixture's GET /api/fields page", () => {
-    expect(read(join(run, "api", "fields.json"))["rows"]).toStrictEqual(read(join(API, "fields.json"))["fields"]);
+  it("the unfiltered page 1 is the fixture's GET /api/fields response, byte for byte what the API sends", () => {
+    const text = readFileSync(join(run, "api", "pages", "_", "_", "1.json"), "utf8");
+    expect(JSON.parse(text)).toStrictEqual(read(join(API, "fields.json")));
+    expect(text).toBe(JSON.stringify(JSON.parse(text))); // pre-serialized: streamed as is
+  });
+
+  it("writes every page of every non-empty filter, each equal to the in-memory fieldsPage", () => {
+    const rows = result.docs.fieldRows;
+    const tiles = [null, "fazilka", "muktsar"];
+    const verdicts = [null, "consistent", "inconsistent", "not_enough_evidence"];
+    let files = 0;
+    for (const tile of tiles) {
+      for (const verdict of verdicts) {
+        const want = fieldsPage("fixture", true, rows, { tile, verdict, page: 1 });
+        const key = `${tile ?? "_"}/${verdict ?? "_"}`;
+        expect(result.manifest.pages?.[key] ?? 0, key).toBe(want["total"]);
+        if (want["total"] === 0) continue;
+        expect(read(join(run, "api", "pages", tile ?? "_", verdict ?? "_", "1.json")), key).toStrictEqual(want);
+        files++;
+      }
+    }
+    expect(readdirSync(join(run, "api", "pages"), { recursive: true }).filter((f) => String(f).endsWith(".json"))).toHaveLength(files);
+  });
+
+  it("rank.bin decodes to an index that ranks exactly like core on fields.geojson", async () => {
+    const bin = readFileSync(join(run, "api", "rank.bin"));
+    const inputs = decodeRankInput(bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength), "fixture");
+    const fc = read(join(FIXTURE_RUN, "fields.geojson")) as { features: FieldFeature[] };
+    const sums = new Map(result.run.summaries!.map((s) => [s.field_id, s] as const));
+    expect(inputs.index.size).toBe(300);
+    expect(inputs.summaries.size).toBe(300);
+    for (const f of fc.features) {
+      expect(inputs.index.byId(f.properties.field_id)!.geometry).toStrictEqual(f.geometry);
+      const s = inputs.summaries.get(f.properties.field_id)!;
+      const want = sums.get(f.properties.field_id)!;
+      expect(s).toStrictEqual({ awd: { verdict: want.awd.verdict, clear_looks: want.awd.clear_looks, drained_hits: want.awd.drained_hits }, dsr: { signal: want.dsr.signal } });
+    }
+    const body = readFileSync(join(API, "audit.request.json"));
+    const { request, inputHash } = await readAuditBody(new Uint8Array(body));
+    const req = validateAuditRequest(request);
+    const viaBin = await rank(req, inputHash, inputs.index, inputs.summaries, "fixture", "2026-11-14T00:00:00Z", true);
+    expect(viaBin).toStrictEqual(read(join(API, "audit.response.json")));
+    expect(() => decodeRankInput(bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength), "r01")).toThrow(/run fixture/);
   });
 
   it("the hero field shard equals the fixture field card", () => {

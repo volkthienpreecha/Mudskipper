@@ -8,17 +8,8 @@
  */
 import type { AuditRequest, AuditResponse, DsrSignal, RankedPick, Verdict } from "./contracts.gen.ts";
 import { looksText } from "./format.ts";
-import {
-  bboxMayContain,
-  bboxOf,
-  checkRings,
-  contains,
-  GeometryError,
-  representativePoint,
-  type AreaGeometryInput,
-  type BBox,
-  type GeometryInput,
-} from "./geometry.ts";
+import { fieldIndex, isFieldIndex, type FieldIndex } from "./field-index.ts";
+import { checkRings, GeometryError, representativePoint, type AreaGeometryInput, type GeometryInput } from "./geometry.ts";
 import { mulberry32 } from "./prng.ts";
 import { sha256Hex } from "./sha.ts";
 import { getSummary, type SummaryLookup } from "./story.ts";
@@ -151,7 +142,8 @@ export async function readAuditBody(body: string | Uint8Array<ArrayBuffer>): Pro
   if (bytes.byteLength > MAX_BODY_BYTES) throw new RankError("too_large", `request body is larger than ${MAX_BODY_BYTES} bytes`);
   let request: unknown;
   try {
-    request = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    // ignoreBOM: a leading U+FEFF stays in the text, so JSON.parse rejects it like Python's json.loads (C0: no BOM).
+    request = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes));
   } catch {
     throw new RankError("invalid_json", "request body is not valid UTF-8 JSON");
   }
@@ -194,7 +186,10 @@ function checkPolygonCoords(c: unknown, where: string): void {
 export function validateAuditRequest(value: unknown): AuditRequest {
   if (!isObject(value)) throw new RankError("invalid_request", "request body must be a JSON object");
   for (const key of Object.keys(value)) {
-    if (key !== "claims" && key !== "budget" && key !== "seed") throw new RankError("invalid_request", `unknown member ${key}`);
+    // A fixed message: member names come from the upload, and errors never quote the uploaded body.
+    if (key !== "claims" && key !== "budget" && key !== "seed") {
+      throw new RankError("invalid_request", "request has an unknown top-level member (allowed: claims, budget, seed)");
+    }
   }
   const { claims, budget, seed } = value;
   if (!(Number.isInteger(budget) && (budget as number) >= 1 && (budget as number) <= MAX_BUDGET)) {
@@ -262,13 +257,14 @@ export function seedFor(request: Pick<RankRequest, "seed">, inputHash: string): 
 
 /**
  * B6 ranking. `request` is the parsed body (already schema-checked by the API), `inputHash` the sha256 hex of
- * its exact bytes, `fields` the run's features, `summaries` field_id → summary line. Async only because
- * `audit_id` needs SHA-256. Throws `RankError` for requests the contract rejects.
+ * its exact bytes, `fields` the run's features (or a `fieldIndex` of them, built once and reused), `summaries`
+ * field_id → summary line. Async only because `audit_id` needs SHA-256. Throws `RankError` for requests the
+ * contract rejects.
  */
 export async function rank(
   request: AuditRequest | RankRequest,
   inputHash: string,
-  fields: ReadonlyArray<RankField>,
+  fields: ReadonlyArray<RankField> | FieldIndex<RankField>,
   summaries: SummaryLookup<RankSummary>,
   runId: string,
   createdAt: string,
@@ -288,18 +284,20 @@ export async function rank(
   if (!/^[0-9a-f]{64}$/.test(inputHash)) throw new RangeError("inputHash must be a lowercase sha256 hex digest");
   const seed = seedFor(req, inputHash);
 
-  // Claim ids, then geometry checks (all claims), then duplicates: the reference's order of errors.
+  // Claim ids, then geometry checks (all claims), then duplicates: the reference's order of errors. Like
+  // rules.rank, the first loop also computes every claim's point, so a degenerate ring is invalid_geometry
+  // even when a field_id hint would have matched, and wins over a duplicate_claim_id earlier in the upload.
   const ids: string[] = [];
+  const points: Array<[number, number]> = [];
   claims.forEach((claim, i) => {
     const cid = claim.properties.claim_id;
     ids.push(cid === undefined || cid === null ? `#${i + 1}` : cid);
-    if (claim.geometry.type !== "Point") {
-      try {
-        checkRings(claim.geometry);
-      } catch (err) {
-        if (err instanceof GeometryError) throw new RankError("invalid_geometry", `claim ${ids[ids.length - 1]}: ${err.message}`);
-        throw err;
-      }
+    try {
+      if (claim.geometry.type !== "Point") checkRings(claim.geometry);
+      points.push(representativePoint(claim.geometry));
+    } catch (err) {
+      if (err instanceof GeometryError) throw new RankError("invalid_geometry", `claim ${ids[ids.length - 1]}: ${err.message}`);
+      throw err;
     }
   });
   const seen = new Map<string, number>();
@@ -307,10 +305,13 @@ export async function rank(
   const dup = ids.find((id) => seen.get(id)! > 1);
   if (dup !== undefined) throw new RankError("duplicate_claim_id", `claim_id '${dup}' appears more than once`);
 
-  const byId = new Map<string, RankField>();
-  for (const f of fields) byId.set(f.properties.field_id, f);
-  const ordered = [...fields].sort((a, b) => byCodeUnits(a.properties.field_id, b.properties.field_id));
-  let boxes: BBox[] | null = null; // computed on first geometry match; the prefilter never changes results
+  // Matching goes through a spatial index (exactly the contract's scan, see field-index.ts). Callers that rank
+  // often (the Worker) pass one built once per run; for a plain list it is built on the first point lookup.
+  let index: FieldIndex<RankField> | null = isFieldIndex(fields) ? fields : null;
+  const byId = index ? null : new Map<string, RankField>();
+  if (byId) for (const f of fields as ReadonlyArray<RankField>) byId.set(f.properties.field_id, f);
+  const hinted = (id: string) => (index ? index.byId(id) : byId!.get(id));
+  const locate = (px: number, py: number) => (index ??= fieldIndex(fields as ReadonlyArray<RankField>)).locate(px, py);
 
   const candidates = new Map<string, Candidate>();
   const order: string[] = [];
@@ -320,20 +321,8 @@ export async function rank(
     const claimId = ids[i]!;
     const props = claim.properties;
     const claimed = PRACTICES.filter((c) => props.claimed.includes(c));
-    let field = props.field_id ? byId.get(props.field_id) : undefined;
-    if (field === undefined) {
-      let pt: [number, number];
-      try {
-        pt = representativePoint(claim.geometry);
-      } catch (err) {
-        if (err instanceof GeometryError) throw new RankError("invalid_geometry", `claim ${claimId}: ${err.message}`);
-        throw err;
-      }
-      const [px, py] = pt;
-      boxes ??= ordered.map((f) => bboxOf(f.geometry));
-      const at = ordered.findIndex((f, k) => bboxMayContain(boxes![k]!, px, py) && contains(f.geometry, px, py));
-      field = at < 0 ? undefined : ordered[at];
-    }
+    let field = props.field_id ? hinted(props.field_id) : undefined;
+    if (field === undefined) field = locate(points[i]![0], points[i]![1]);
     if (field === undefined) {
       unmatched += 1;
       const key = "~" + claimId;

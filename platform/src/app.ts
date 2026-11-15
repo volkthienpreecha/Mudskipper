@@ -7,15 +7,20 @@
  * checked against contracts/fixtures/api in the tests.
  */
 import { Hono, type Context } from "hono";
-import { DOC_NAMES, AUDIT_ID, TILE_ID, VERDICTS, type DocName, type Live } from "./contracts.ts";
+import { MAX_BODY_BYTES, MAX_CLAIMS, parseFieldsQuery, QueryError } from "@mudskipper/core";
+import { PAGE_SIZE } from "./limits.ts";
+import { DOC_NAMES, AUDIT_ID, type DocName, type Live } from "./contracts.ts";
 import type { AppEnv } from "./env.ts";
 import { auditId, defaultSeed } from "./crypto.ts";
 import { ApiError, badRequest, errorBody, notFound } from "./http/errors.ts";
 import { CACHE, applySecurityHeaders, etagMatches } from "./http/headers.ts";
 import { parseAuditBody, readBodyCapped, toApiError } from "./audit/validate.ts";
 import { RankError, defaultRank, type RankFn } from "./audit/rank.ts";
+import { defaultRateLimiter, defaultStoreBudget, type RateLimiter, type StoreBudget } from "./audit/guard.ts";
+import type { KvAuditStore } from "./audit/store.ts";
 import { selectBackend, type Backend } from "./backend.ts";
-import { fieldsPage, header } from "./shapes.ts";
+import type { Body } from "./repo/types.ts";
+import { header, type FieldQuery } from "./shapes.ts";
 import { serveTile } from "./tiles.ts";
 
 export interface AppOptions {
@@ -23,6 +28,10 @@ export interface AppOptions {
   rank?: RankFn;
   /** Clock, for tests. */
   now?: () => Date;
+  /** POST /api/audit rate limit per client IP (default: 20 at once, then one every 3 s, per isolate). */
+  limiter?: RateLimiter;
+  /** Daily stored-audit budget shared through KV (default: 800 a day). */
+  budget?: StoreBudget;
 }
 
 /** Routes and their methods, for /api, 405 answers and the placeholder page. */
@@ -44,6 +53,16 @@ export const ROUTES: { path: string; methods: string[]; description: string }[] 
 
 const DOC_ROUTES: Record<string, DocName> = Object.fromEntries(DOC_NAMES.map((n) => [`/api/${n}`, n]));
 
+const ROUTE_PATTERNS = [
+  { re: /^\/api\/?$/, methods: ["GET"] },
+  ...ROUTES.map((r) => ({ re: new RegExp("^" + r.path.replace(/:id/g, "[^/]+").replace("/*", "/.+") + "$"), methods: r.methods })),
+];
+
+/** The methods a known route answers, or null for a path no route serves. */
+function allowedMethods(path: string): string[] | null {
+  return ROUTE_PATTERNS.find((r) => r.re.test(path))?.methods ?? null;
+}
+
 function isoSeconds(d: Date): string {
   return d.toISOString().slice(0, 19) + "Z";
 }
@@ -57,35 +76,39 @@ function errorResponse(e: ApiError): Response {
   return json(errorBody(e.code, e.message), e.status, CACHE.none, e.headers);
 }
 
-/** Live-scoped GET: ETag from the run's content version, 304 on a match. */
-async function liveJson(c: Context<AppEnv>, backend: Backend, live: Live, body: unknown): Promise<Response> {
+/**
+ * Live-scoped GET: ETag from the run's content version, 304 on a match. The body is the exact response text
+ * from the repository (a stream for the static bundle), sent without parsing it.
+ */
+async function liveJson(c: Context<AppEnv>, backend: Backend, live: Live, body: Body): Promise<Response> {
   const version = await backend.repo.version(live);
   const etag = `W/"${live.run_id}-${version.slice(0, 16)}"`;
   if (etagMatches(c.req.header("if-none-match") ?? null, etag)) {
+    if (typeof body !== "string") await body.cancel();
     return new Response(null, { status: 304, headers: { etag, "cache-control": CACHE.live } });
   }
-  return json(body, 200, CACHE.live, { etag });
+  return new Response(body, {
+    status: 200,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": CACHE.live, etag },
+  });
 }
 
-function parseFieldQuery(url: URL): { tile: string | null; verdict: string | null; page: number } {
-  const param = (k: string) => {
-    const v = url.searchParams.get(k);
-    return v === null || v === "" ? null : v;
-  };
-  const tile = param("tile");
-  const verdict = param("verdict");
-  const pageRaw = param("page");
-  if (tile !== null && !TILE_ID.test(tile)) throw badRequest(`tile must match ${TILE_ID.source}.`);
-  if (verdict !== null && !(VERDICTS as readonly string[]).includes(verdict)) {
-    throw badRequest(`verdict must be one of ${VERDICTS.join(", ")}.`);
+/** GET /api/fields query, with the checks the fixtures client shares (core/src/query.ts). */
+function parseFieldQuery(url: URL): FieldQuery {
+  const p = url.searchParams;
+  try {
+    return parseFieldsQuery({ tile: p.get("tile"), verdict: p.get("verdict"), page: p.get("page") });
+  } catch (e) {
+    if (e instanceof QueryError) throw badRequest(e.message);
+    throw e;
   }
-  if (pageRaw !== null && !/^[1-9][0-9]{0,6}$/.test(pageRaw)) throw badRequest("page must be a positive integer.");
-  return { tile, verdict, page: pageRaw === null ? 1 : Number(pageRaw) };
 }
 
 export function createApp(options: AppOptions = {}): Hono<AppEnv> {
   const rank = options.rank ?? defaultRank;
   const now = options.now ?? (() => new Date());
+  const limiter = options.limiter ?? defaultRateLimiter();
+  const budget = options.budget ?? defaultStoreBudget();
   const app = new Hono<AppEnv>();
   const backendOf = (c: Context<AppEnv>) => selectBackend(c.env, new URL(c.req.url).origin);
 
@@ -95,35 +118,45 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     applySecurityHeaders(c.res.headers);
   });
 
-  // CORS preflight for POST /api/audit from other origins (the app in local dev).
-  app.options("*", () =>
-    new Response(null, {
+  // CORS preflight for POST /api/audit from other origins (the app in local dev). Only known routes answer;
+  // anything else is the same JSON 404 a GET gets.
+  app.options("*", (c) => {
+    const methods = allowedMethods(new URL(c.req.url).pathname);
+    if (!methods) throw notFound(`No route ${new URL(c.req.url).pathname}. See /api for the list.`);
+    return new Response(null, {
       status: 204,
       headers: {
-        "access-control-allow-methods": "GET, HEAD, POST, OPTIONS",
-        "access-control-allow-headers": "content-type, if-none-match, range",
+        "access-control-allow-methods": [...methods, ...(methods.includes("GET") ? ["HEAD"] : []), "OPTIONS"].join(", "),
+        "access-control-allow-headers": "content-type, if-none-match, if-match, range",
         "access-control-max-age": "86400",
       },
-    }),
-  );
+    });
+  });
 
-  const index = () =>
-    json(
+  // The index carries the C0 header like every other response, and this deployment's audit limits.
+  const index = async (c: Context<AppEnv>) => {
+    const live = await backendOf(c).repo.live();
+    return json(
       {
-        v: 1,
+        ...header(live.run_id, live.fixture),
         name: "Mudskipper API",
         description: "NISAR radar evidence of rice-field drainage, field by field. NASA Space Apps 2026.",
         contract: "https://github.com/volkthienpreecha/Mudskipper/blob/main/contracts/CONTRACTS.md#b6-http-api",
+        limits: { audit_max_claims: MAX_CLAIMS, audit_max_body_bytes: MAX_BODY_BYTES, fields_page_size: PAGE_SIZE },
         endpoints: ROUTES,
       },
       200,
-      "public, max-age=300",
+      CACHE.live,
     );
+  };
   app.get("/api", index);
   app.get("/api/", index);
 
+  // ok only when the live run's data is actually there: version() reads its manifest (503 no_live_run if not).
   app.get("/api/health", async (c) => {
-    const live = await backendOf(c).repo.live();
+    const backend = backendOf(c);
+    const live = await backend.repo.live();
+    await backend.repo.version(live);
     return json({ ...header(live.run_id, live.fixture), ok: true, time: isoSeconds(now()) }, 200, CACHE.none);
   });
 
@@ -141,8 +174,7 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     const backend = backendOf(c);
     const q = parseFieldQuery(new URL(c.req.url));
     const live = await backend.repo.live();
-    const rows = await backend.repo.fieldRows(live);
-    return liveJson(c, backend, live, fieldsPage(live.run_id, live.fixture, rows, q));
+    return liveJson(c, backend, live, await backend.repo.fieldsPage(live, q));
   });
 
   app.get("/api/fields/:id", async (c) => {
@@ -159,20 +191,30 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     if (!backend.audits) {
       throw new ApiError(503, "storage_unavailable", "Audit storage is not configured on this deployment.");
     }
+    const audits = backend.audits;
+    const client = c.req.header("cf-connecting-ip") ?? "unknown";
+    const turn = limiter.take(client, now().getTime());
+    if (!turn.ok) {
+      await c.req.raw.body?.cancel();
+      throw new ApiError(429, "rate_limited", `Too many audits from this address; retry in ${turn.retryAfter} s.`, {
+        "retry-after": String(turn.retryAfter),
+      });
+    }
     const bytes = await readBodyCapped(c.req.raw);
     const { request, inputHash } = await parseAuditBody(bytes);
     const live = await backend.repo.live();
+    const version = await backend.repo.version(live);
     const seed = request.seed ?? defaultSeed(inputHash);
     const id = await auditId(live.run_id, inputHash, request.budget, seed);
     const location = { location: `/api/audit/${id}` };
 
-    const existing = await backend.audits.get(id);
+    const existing = await audits.get(id, version);
     if (existing) return json(existing, 200, CACHE.none, location);
 
     const inputs = await backend.repo.rankInputs(live);
     let result;
     try {
-      result = await rank(request, inputHash, inputs.fields, inputs.summaries, live.run_id, isoSeconds(now()), live.fixture);
+      result = await rank(request, inputHash, inputs.index, inputs.summaries, live.run_id, isoSeconds(now()), live.fixture);
     } catch (e) {
       if (e instanceof RankError) throw toApiError(e);
       throw e;
@@ -181,8 +223,20 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
       // core and the platform disagree on CONTRACTS.md B6 step 8; store under core's id and say so in the logs.
       console.error(`audit_id mismatch: platform ${id}, ranking ${result.audit_id}`);
     }
-    const stored = await backend.audits.put(result);
-    return json(stored, 201, CACHE.none, { location: `/api/audit/${stored.audit_id}` });
+    // KV allows 1,000 writes a day: over the shared daily budget, or if KV refuses the write, rank without
+    // storing (200, x-audit-stored: false, no Location) instead of failing the request (src/audit/guard.ts).
+    const kv = audits.kind === "kv" ? (audits as KvAuditStore).kv : null;
+    const unstored = () => json(result, 200, CACHE.none, { "x-audit-stored": "false" });
+    if (kv && !(await budget.allows(kv, now().getTime()).catch(() => true))) return unstored();
+    let stored;
+    try {
+      stored = await audits.put(result, version);
+    } catch (e) {
+      console.error(`audit store failed (${audits.kind}): ${(e as Error).message}`);
+      return unstored();
+    }
+    if (kv) await budget.stored(kv, now().getTime()).catch((e: Error) => console.error(`audit budget counter: ${e.message}`));
+    return json(stored, 201, CACHE.none, { location: `/api/audit/${stored.audit_id}`, "x-audit-stored": "true" });
   });
 
   app.get("/api/audit/:id", async (c) => {
@@ -190,23 +244,18 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     if (!AUDIT_ID.test(id)) throw badRequest(`audit id must match ${AUDIT_ID.source}.`);
     const backend = backendOf(c);
     if (!backend.audits) throw new ApiError(503, "storage_unavailable", "Audit storage is not configured on this deployment.");
-    const stored = await backend.audits.get(id);
+    const live = await backend.repo.live();
+    const stored = await backend.audits.get(id, await backend.repo.version(live));
     if (!stored) throw notFound(`No audit with id ${id}.`);
-    return json(stored, 200, CACHE.immutable);
+    // A real run's audit never changes (content-addressed, K-308); the fixture run is regenerated in place.
+    return json(stored, 200, live.fixture ? CACHE.live : CACHE.immutable);
   });
 
   app.get("/tiles/*", async (c) => serveTile(c.req.raw, c.env, backendOf(c).tiles));
 
   // Known paths with the wrong method: 405 with Allow. Everything else under /api or /tiles: 404.
-  const allowed = (path: string): string[] | null => {
-    for (const r of ROUTES) {
-      const re = new RegExp("^" + r.path.replace(/:id/g, "[^/]+").replace("/*", "/.+") + "$");
-      if (re.test(path)) return r.methods;
-    }
-    return null;
-  };
   app.all("*", (c) => {
-    const methods = allowed(new URL(c.req.url).pathname);
+    const methods = allowedMethods(new URL(c.req.url).pathname);
     if (methods && !methods.includes(c.req.method)) {
       const allow = methods.includes("GET") ? [...methods, "HEAD", "OPTIONS"] : [...methods, "OPTIONS"];
       throw new ApiError(405, "method_not_allowed", `${c.req.method} is not allowed here; use ${methods.join(" or ")}.`, {

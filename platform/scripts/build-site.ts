@@ -14,6 +14,7 @@
  *   node scripts/build-site.ts --run ../artifacts/r01 [--updated-at now] [--out DIR] [--placeholder]
  */
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -27,10 +28,30 @@ import { PRODUCTION_URL } from "./lib/wrangler.ts";
 export const DEFAULT_OUT = join(PLATFORM_ROOT, ".site");
 const PLACEHOLDER = join(PLATFORM_ROOT, "placeholder");
 const APP_DIST = join(REPO_ROOT, "app", "dist");
-/** SPEC Lane Volk app routes, for the sitemap when the app is deployed. */
-const APP_ROUTES = ["/", "/map", "/lab", "/scarecrow", "/evidence", "/methods", "/judges"];
+/** The app's routes (app/src/main.ts navigation), for the sitemap when the app is deployed. */
+const APP_ROUTES = ["/", "/lab", "/scarecrow", "/evidence", "/methods"];
+/**
+ * CSP for Volk's app (app/dist): its own scripts and its MapLibre worker, styles that MapLibre sets inline,
+ * the Esri World Imagery basemap tiles, overlay PNGs and data from this API (same origin, or the production
+ * origin the app falls back to). Strict hash pinning stays for the placeholder page only.
+ */
+export const APP_CSP = [
+  "default-src 'none'",
+  "script-src 'self'",
+  "worker-src 'self' blob:",
+  "child-src blob:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://server.arcgisonline.com https://mudskipper-nisar.pages.dev https://*.mudskipper-nisar.pages.dev",
+  "font-src 'self'",
+  "connect-src 'self' https://mudskipper-nisar.pages.dev https://*.mudskipper-nisar.pages.dev https://server.arcgisonline.com",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
 /** Pages limits (Free plan): 20,000 files per deployment, 25 MiB per file. */
-const MAX_FILES = 20_000;
+export const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 export interface SiteOptions {
@@ -41,6 +62,11 @@ export interface SiteOptions {
   /** Build the placeholder even if app/dist exists. */
   placeholder?: boolean;
   siteUrl?: string;
+  /**
+   * Build the app first (`npm run build -w @mudskipper/app`, so app/dist is always fresh) against this API
+   * origin (VITE_API_BASE_URL; the app is same-origin with the API, so this is the deployment's own URL).
+   */
+  appApiBase?: string;
 }
 
 export interface SiteResult {
@@ -50,6 +76,13 @@ export interface SiteResult {
   files: number;
   routes: unknown;
 }
+
+/** Evidence chips (SPEC evidence rule, T12), styled by placeholder/style.css. */
+export const TAG = {
+  OBSERVED: '<span class="chip chip-observed" title="Radar measurement">OBSERVED</span>',
+  INFERRED: '<span class="chip chip-inferred" title="Our model\'s reading">INFERRED</span>',
+  ASSUMED: '<span class="chip chip-assumed" title="A cited parameter or our own setting">ASSUMED</span>',
+} as const;
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const cspHash = (s: string) => `'sha256-${createHash("sha256").update(s, "utf8").digest("base64")}'`;
@@ -110,9 +143,11 @@ export function seasonStrip(b: BundleResult, maxRows = 60): { svg: string; capti
     `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="strip-title">` +
     `<title id="strip-title">State of ${rows.length} fields on each of ${states.pass_ids.length} NISAR passes, ${esc(season.start)} to ${esc(season.end)}</title>` +
     `${parts.join("")}</svg>`;
+  // Every number carries its evidence tag (T12, contracts/evidence_tags.json): field counts INFERRED (mapped
+  // fields), pass counts OBSERVED, season dates ASSUMED (aoi.json configuration).
   const caption =
-    `Rows: the first ${rows.length} fields of the ${esc(story.hero_tile)} tile by id. Columns: the ${states.pass_ids.length} used passes, ` +
-    `placed by date across the season (${esc(season.start)} to ${esc(season.end)}).` + (b.run.fixture ? " SAMPLE DATA." : "");
+    `Rows: the first ${rows.length} fields ${TAG.INFERRED} of the ${esc(story.hero_tile)} tile by id. Columns: the ${states.pass_ids.length} used passes ${TAG.OBSERVED}, ` +
+    `placed by date across the season (${esc(season.start)} to ${esc(season.end)} ${TAG.ASSUMED}).` + (b.run.fixture ? " SAMPLE DATA." : "");
   return { svg, caption };
 }
 
@@ -167,6 +202,9 @@ function placeholderHtml(b: BundleResult, siteUrl: string): { html: string; csp:
     PASSES: String(story.counts["passes"]),
     FIELDS: String(story.counts["fields"]),
     TILES: String(meta.tiles.length),
+    TAG_OBSERVED: TAG.OBSERVED,
+    TAG_INFERRED: TAG.INFERRED,
+    TAG_ASSUMED: TAG.ASSUMED,
     STRIP_SVG: strip.svg,
     STRIP_CAPTION: strip.caption,
     ENDPOINTS: endpoints,
@@ -202,9 +240,13 @@ function headersFile(b: BundleResult, csp: string | null): string {
     "  Referrer-Policy: strict-origin-when-cross-origin",
     "  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()",
     "  Cross-Origin-Opener-Policy: same-origin",
-    ...(csp ? [`  Content-Security-Policy: ${csp}`, "  X-Frame-Options: DENY"] : []),
+    `  Content-Security-Policy: ${csp ?? APP_CSP}`,
+    "  X-Frame-Options: DENY",
     "",
     "/fonts/*",
+    "  Cache-Control: public, max-age=31536000, immutable",
+    "",
+    "/assets/*",
     "  Cache-Control: public, max-age=31536000, immutable",
     "",
     "/og.png",
@@ -221,7 +263,56 @@ function headersFile(b: BundleResult, csp: string | null): string {
   return lines.join("\n");
 }
 
-function countFiles(dir: string): { files: number; largest: [string, number] } {
+/** Link-preview, canonical and icon tags for a built page whose head lacks them (only the missing ones). */
+export function withLinkPreview(html: string, siteUrl: string): string {
+  const tags = [
+    ['rel="canonical"', `<link rel="canonical" href="${siteUrl}/">`],
+    ['rel="apple-touch-icon"', '<link rel="apple-touch-icon" href="/apple-touch-icon.png">'],
+    ['property="og:type"', '<meta property="og:type" content="website">'],
+    ['property="og:site_name"', '<meta property="og:site_name" content="Mudskipper">'],
+    ['property="og:title"', '<meta property="og:title" content="Mudskipper: proof, not paperwork">'],
+    ['property="og:description"', `<meta property="og:description" content="Was this rice field really drained? NASA-ISRO NISAR radar, field by field, for Punjab's 2026 rice season.">`],
+    ['property="og:url"', `<meta property="og:url" content="${siteUrl}/">`],
+    ['property="og:image"', `<meta property="og:image" content="${siteUrl}/og.png">`],
+    ['property="og:image:width"', '<meta property="og:image:width" content="1200">'],
+    ['property="og:image:height"', '<meta property="og:image:height" content="630">'],
+    ['property="og:image:alt"', '<meta property="og:image:alt" content="Mudskipper: Was this rice field really drained? The wordmark beside a decorative pattern of water and mud squares (an illustration, not data).">'],
+    ['name="twitter:card"', '<meta name="twitter:card" content="summary_large_image">'],
+    ['name="twitter:image"', `<meta name="twitter:image" content="${siteUrl}/og.png">`],
+  ].filter(([probe]) => !html.includes(probe!));
+  if (!tags.length) return html;
+  if (!html.includes("</head>")) throw new Error("app/dist/index.html has no </head>");
+  return html.replace("</head>", tags.map(([, t]) => `    ${t}\n`).join("") + "  </head>");
+}
+
+/**
+ * Put app/dist into the site directory `out` (replacing an earlier copy of the app, never touching /data):
+ * the app's files, plus the link-preview and canonical tags its head lacks and the share image, so a shared
+ * link shows a card (app/ sources are Volk's and untouched). publish.ts calls it again after rebuilding the
+ * app for the production origin, so production gets exactly the page assembly the preview was smoked with.
+ */
+export function installApp(out: string, siteUrl: string): void {
+  if (existsSync(join(APP_DIST, "data"))) throw new Error("app/dist contains /data, which is reserved for the API bundle");
+  if (existsSync(join(APP_DIST, "404.html"))) console.warn("warning: app/dist has a top-level 404.html, which turns off Pages' SPA fallback");
+  rmSync(join(out, "assets"), { recursive: true, force: true });
+  cpSync(APP_DIST, out, { recursive: true });
+  const indexPath = join(out, "index.html");
+  writeFileSync(indexPath, withLinkPreview(readFileSync(indexPath, "utf8"), siteUrl));
+  for (const f of ["og.png", "favicon-48.png", "apple-touch-icon.png"]) if (!existsSync(join(out, f))) cpSync(join(PLACEHOLDER, f), join(out, f));
+}
+
+/** `npm run build -w @mudskipper/app` with the API origin baked in (never edits app/ sources). */
+export function buildApp(apiBase: string): void {
+  const res = spawnSync("npm", ["run", "build", "-w", "@mudskipper/app"], {
+    cwd: REPO_ROOT,
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf8",
+    env: { ...process.env, VITE_API_BASE_URL: apiBase.replace(/\/$/, "") },
+  });
+  if (res.status !== 0) throw new Error(`app build failed (exit ${res.status}):\n${res.stdout}\n${res.stderr}`);
+}
+
+export function countFiles(dir: string): { files: number; largest: [string, number] } {
   let files = 0;
   let largest: [string, number] = ["", 0];
   const walk = (d: string) => {
@@ -245,14 +336,9 @@ export function buildSite(opts: SiteOptions): SiteResult {
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
 
+  if (!opts.placeholder && opts.appApiBase && existsSync(join(REPO_ROOT, "app", "package.json"))) buildApp(opts.appApiBase);
   const useApp = !opts.placeholder && existsSync(join(APP_DIST, "index.html"));
-  if (useApp) {
-    cpSync(APP_DIST, out, { recursive: true });
-    if (existsSync(join(out, "data"))) throw new Error("app/dist contains /data, which is reserved for the API bundle");
-    if (existsSync(join(out, "404.html"))) {
-      console.warn("warning: app/dist has a top-level 404.html, which turns off Pages' SPA fallback");
-    }
-  }
+  if (useApp) installApp(out, siteUrl);
 
   const bundle = buildBundle(opts.runDir, {
     out: join(out, "data"),
@@ -302,11 +388,16 @@ function main() {
       out: { type: "string" },
       "updated-at": { type: "string" },
       placeholder: { type: "boolean", default: false },
+      "app-base": { type: "string", default: PRODUCTION_URL },
+      "no-app-build": { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
   });
   if (values.help || (!values.fixtures && !values.run)) {
-    console.log("usage: node scripts/build-site.ts (--fixtures | --run DIR) [--out DIR] [--updated-at ISO|now] [--placeholder]");
+    console.log(
+      "usage: node scripts/build-site.ts (--fixtures | --run DIR) [--out DIR] [--updated-at ISO|now] [--placeholder]\n" +
+        "       [--app-base URL (API origin baked into the app; default production)] [--no-app-build]",
+    );
     process.exit(values.help ? 0 : 2);
   }
   const updatedAt = values["updated-at"] === "now" ? new Date().toISOString().slice(0, 19) + "Z" : values["updated-at"];
@@ -314,6 +405,7 @@ function main() {
     runDir: values.fixtures ? FIXTURE_RUN : resolve(values.run!),
     fixtures: values.fixtures,
     placeholder: values.placeholder,
+    ...(values["no-app-build"] ? {} : { appApiBase: values["app-base"] }),
     ...(values.out ? { out: values.out } : {}),
     ...(updatedAt ? { updatedAt } : {}),
   });

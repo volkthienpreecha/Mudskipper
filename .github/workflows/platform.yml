@@ -1,8 +1,8 @@
 name: platform
 
 # The Cloudflare platform: typecheck, tests (workerd + Node + `wrangler pages dev`), the fixture site build,
-# and, on main, a production deploy of the fixture site to https://mudskipper-nisar.pages.dev followed by the
-# smoke test. The deploy runs only when the repo has CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets,
+# and, on main, `publish.ts --fixtures`: the app + fixture site deployed to the staging preview and smoke-tested, then
+# to production (https://mudskipper-nisar.pages.dev) and smoke-tested again. It runs only with the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets,
 # and never replaces a real run that `make publish RUN_ID=…` put live (it checks live.json first).
 
 on:
@@ -65,10 +65,15 @@ jobs:
       - name: Check what production serves
         id: live
         if: steps.secrets.outputs.ok == 'true'
+        # Fails closed (review item 7): an unreachable site or a body that is not live.json JSON stops the job
+        # instead of being read as "no real run" and deployed over.
         run: |
-          live=$(curl -fsS https://mudskipper-nisar.pages.dev/data/live.json || echo '{}')
-          echo "production live.json: $live"
-          if echo "$live" | grep -q '"fixture": *false'; then
+          set -euo pipefail
+          code=$(curl -sS -o live.json -w '%{http_code}' https://mudskipper-nisar.pages.dev/data/live.json)
+          echo "production live.json: HTTP $code $(head -c 300 live.json)"
+          if [ "$code" != "200" ]; then echo "::error::cannot read production live.json (HTTP $code)"; exit 1; fi
+          fixture=$(jq -er '.fixture | if type == "boolean" then tostring else error("fixture is not a boolean") end' live.json)
+          if [ "$fixture" = "false" ]; then
             echo "deploy=false" >> "$GITHUB_OUTPUT"
             echo "::notice title=Deploy skipped::Production serves a real run; CI deploys only the fixture site. Publish real runs with make publish RUN_ID=…"
           else
@@ -83,21 +88,11 @@ jobs:
           cache: npm
       - run: npm ci
         if: steps.live.outputs.deploy == 'true'
-      - name: Build the fixture site
+      - name: Publish the fixture run (preview, smoke, then production, smoke)
         if: steps.live.outputs.deploy == 'true'
-        run: npm run build:site -w platform -- --fixtures
-      - name: Deploy to Cloudflare Pages (production branch main)
-        if: steps.live.outputs.deploy == 'true'
-        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: platform
-          wranglerVersion: "4.162.0"
-          packageManager: npm
-          command: pages deploy .site --project-name mudskipper-nisar --branch main --commit-hash ${{ github.sha }} --commit-dirty=true
-      - name: Smoke test production
-        if: steps.live.outputs.deploy == 'true'
-        run: |
-          for i in 1 2 3; do npm run smoke -w platform -- --expect-run fixture && exit 0; sleep 10; done
-          exit 1
+        # scripts/publish.ts builds the app and the site, deploys the staging preview and smoke-tests it, and only
+        # then deploys production and smoke-tests that (review item 3): production never serves an unsmoked site.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run publish -w platform -- --fixtures

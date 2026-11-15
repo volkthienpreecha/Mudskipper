@@ -12,6 +12,7 @@ bit); every function is pure and deterministic.
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, Sequence
 
@@ -134,11 +135,29 @@ def confidence_from(p_flooded: float | None) -> float | None:
 
 
 # ----------------------------------------------------------------------------------------------- simulation
+_SIM_MEMO: dict = {}
+
+
 def simulate(looks: Sequence[tuple[str, str]], params: dict, n_sim: int, seed: int, scenario: str,
              window: tuple[str, str] | None = None) -> list[int]:
-    """CONTRACTS.md B3.6a. looks = [(datetime, stage)] sorted ascending. Returns counts, len(looks)+1."""
+    """CONTRACTS.md B3.6a. looks = [(datetime, stage)] sorted ascending. Returns counts, len(looks)+1.
+
+    Memoised on every input (the result is a pure function of them): fields with the same clear looks and
+    window share a seed by construction (B3.6a "Seeds"), so a 4,600-field run has a few hundred distinct
+    simulations, not 9,200. Keeps `validate.py --recompute` on a real-scale run at seconds, not minutes.
+    """
     if scenario not in ("awd", "cf"):
         raise ValueError(scenario)
+    memo_key = (tuple((dt, st) for dt, st in looks), json.dumps(params, sort_keys=True), n_sim, seed, scenario,
+                None if window is None else tuple(window))
+    hit = _SIM_MEMO.get(memo_key)
+    if hit is None:
+        hit = _SIM_MEMO[memo_key] = _simulate(looks, params, n_sim, seed, scenario, window)
+    return list(hit)
+
+
+def _simulate(looks: Sequence[tuple[str, str]], params: dict, n_sim: int, seed: int, scenario: str,
+              window: tuple[str, str] | None) -> list[int]:
     rng = Mulberry32(seed)
     xs = [days(dt) for dt, _ in looks]
     accs = [params["per_pass_accuracy"][stage] for _, stage in looks]

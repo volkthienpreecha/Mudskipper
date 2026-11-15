@@ -435,7 +435,9 @@ match any field, so the unmatched path is visible.
 ### live.json (R2 root)
 
 `{"v":1,"run_id":"r01","fixture":false,"updated_at":"…"}`. It names the run the Worker serves. Publish flips
-it last, after R2 and D1 hold the whole run.
+it last, after R2 and D1 hold the whole run. (v1 clarification, DECISIONS.md K-317: every Pages deployment
+ships its own `/data/live.json`, and that copy is what the deployment serves on both backends; R2 `live.json`
+and D1 `meta.live` are mirrors written after the production smoke test.)
 
 ---
 

@@ -36,5 +36,8 @@ platform/.site/
 # Platform caches (OG render fonts, local D1/KV state)
 platform/.cache/
 
+# Rehearsal runs (platform/scripts/rehearsal/make_rehearsal.py): SAMPLE data at real scale, rebuilt on demand
+platform/.rehearsal/
+
 # Claude Code agent worktrees
 .claude/

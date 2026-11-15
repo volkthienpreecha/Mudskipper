@@ -12,8 +12,10 @@ export type ErrorCode =
   | "not_found"
   | "method_not_allowed"
   | "range_not_satisfiable"
+  | "precondition_failed"
   | "no_live_run"
   | "storage_unavailable"
+  | "rate_limited"
   | "internal";
 
 export class ApiError extends Error {

@@ -233,3 +233,28 @@ export function fieldsPage(runId: string, fixture: boolean, rows: FieldRow[], q:
     next_page: start + PAGE_SIZE < matching.length ? q.page + 1 : null,
   } as Doc;
 }
+
+/** A page past the last one (or of a filter nothing matches): what `fieldsPage` returns there, from the total alone. */
+export function emptyFieldsPage(runId: string, fixture: boolean, total: number, q: FieldQuery): Doc {
+  // `total` overwrites the key in place, so the key order (schema order) is unchanged.
+  return { ...fieldsPage(runId, fixture, [], q), total } as Doc;
+}
+
+const VERDICT_FILTERS = ["consistent", "inconsistent", "not_enough_evidence"] as const;
+
+/** Every non-empty /api/fields filter and all of its pages, for the static bundle (null = no filter). */
+export function allFieldPages(runId: string, fixture: boolean, rows: FieldRow[]): { tile: string | null; verdict: string | null; total: number; pages: Doc[] }[] {
+  const tiles = [...new Set(rows.map((r) => r.tile))].sort(cmp);
+  const out: { tile: string | null; verdict: string | null; total: number; pages: Doc[] }[] = [];
+  for (const tile of [null, ...tiles]) {
+    for (const verdict of [null, ...VERDICT_FILTERS]) {
+      const first = fieldsPage(runId, fixture, rows, { tile, verdict, page: 1 });
+      const total = first["total"] as number;
+      if (total === 0) continue;
+      const pages = [first];
+      for (let page = 2; (page - 1) * PAGE_SIZE < total; page++) pages.push(fieldsPage(runId, fixture, rows, { tile, verdict, page }));
+      out.push({ tile, verdict, total, pages });
+    }
+  }
+  return out;
+}

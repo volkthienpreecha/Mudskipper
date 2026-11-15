@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Build the static API bundle for one published run (DECISIONS.md K-003): every API response exactly as the
- * API serves it, plus the run's raw files for /tiles, under <out>/ (layout: src/bundle-layout.ts).
+ * API serves it (every run document, every GET /api/fields page of every filter, every field card), the
+ * binary ranking input, and the run's raw files for /tiles, under <out>/ (layout: src/bundle-layout.ts).
  *
  *   node scripts/build-bundle.ts --fixtures                       # contracts/fixtures/run → .site/data
  *   node scripts/build-bundle.ts --run ../artifacts/r01 [--out DIR] [--updated-at 2026-11-15T08:00:00Z] [--no-live]
@@ -21,14 +22,16 @@ import {
   contentTypeOf,
   docPath,
   fieldPath,
-  fieldRowsPath,
   isTileFile,
   manifestPath,
-  summariesPath,
+  pageKey,
+  pagePath,
+  rankInputPath,
   tilePath,
 } from "../src/bundle-layout.ts";
+import { encodeRankInput } from "../src/repo/rank-input.ts";
 import type { BundleManifest, TileFile } from "../src/repo/types.ts";
-import { buildApiDocs, fieldsPage, type ApiDocs, type RunData } from "../src/shapes.ts";
+import { allFieldPages, buildApiDocs, type ApiDocs, type RunData } from "../src/shapes.ts";
 import { FIXTURE_LIVE, FIXTURE_RUN, PLATFORM_ROOT, missingPublished, readRun } from "./lib/run.ts";
 import { createSchemaAjv, validatorFor } from "./lib/schemas.ts";
 
@@ -84,7 +87,10 @@ export function buildBundle(runDir: string, opts: BundleOptions): BundleResult {
     for (const e of validatorFor(ajv, schema)(doc)) problems.push(`${what}: ${e}`);
   };
   for (const name of DOC_NAMES) if (docs[name]) check(`/api/${name}`, SCHEMA_OF[name], docs[name]);
-  check("/api/fields", "api/fields_page.schema.json", fieldsPage(run.run_id, run.fixture, docs.fieldRows, { tile: null, verdict: null, page: 1 }));
+  const filters = allFieldPages(run.run_id, run.fixture, docs.fieldRows);
+  for (const f of filters) {
+    f.pages.forEach((p, i) => check(`/api/fields?tile=${f.tile ?? ""}&verdict=${f.verdict ?? ""}&page=${i + 1}`, "api/fields_page.schema.json", p));
+  }
   for (const [id, d] of docs.details) check(`/api/fields/${id}`, "api/field_detail.schema.json", d);
   if (problems.length) throw new Error(`bundle for ${run.run_id} has invalid responses:\n  ${problems.slice(0, 20).join("\n  ")}`);
 
@@ -118,9 +124,15 @@ export function buildBundle(runDir: string, opts: BundleOptions): BundleResult {
       present.push(name);
     }
   }
-  putJson(fieldRowsPath(run.run_id), { v: 1, run_id: run.run_id, fixture: run.fixture, rows: docs.fieldRows });
+  const pages: Record<string, number> = {};
+  for (const f of filters) {
+    pages[pageKey(f.tile, f.verdict)] = f.total;
+    f.pages.forEach((p, i) => putJson(pagePath(run.run_id, f.tile, f.verdict, i + 1), p));
+  }
   for (const [id, d] of docs.details) putJson(fieldPath(run.run_id, id), d);
-  putJson(summariesPath(run.run_id), run.summaries ?? []);
+  const rankBin = Buffer.from(encodeRankInput(run.run_id, run.fields.features, run.summaries ?? []));
+  const rankRel = put(rankInputPath(run.run_id), rankBin);
+  hashes.push(`${rankRel}\u0000${sha256(rankBin)}`);
 
   const files: Record<string, TileFile> = {};
   for (const f of run.files.filter(isTileFile)) {
@@ -142,6 +154,7 @@ export function buildBundle(runDir: string, opts: BundleOptions): BundleResult {
     bundle_hash: sha256(hashes.sort().join("\n")),
     docs: present,
     fields: docs.details.size,
+    pages,
     files,
   };
   put(manifestPath(run.run_id), JSON.stringify(manifest));
