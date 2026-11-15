@@ -4,6 +4,7 @@
     python3 contracts/validate.py                    # contracts/fixtures + every artifacts/<run_id>/
     python3 contracts/validate.py artifacts/r01      # one run directory
     python3 contracts/validate.py --recompute ...    # also rerun the simulation and compare core's numbers exactly
+    python3 contracts/validate.py artifacts/r01 --stage geo   # geo's hand-off only: aoi.json + fields (+ pmtiles)
 
 A target is either a run directory (it has aoi.json) or a fixtures root (it has run/ and api/). Checks:
 JSON Schema for every file and every JSONL line, then the cross-file rules: ids and run_id agree, one CRID per
@@ -37,6 +38,7 @@ except ImportError:  # pragma: no cover - exercised by people without the venv
 SCHEMA_DIR = HERE / "schemas"
 SCHEMA_BASE = "https://mudskipper.invalid/schemas/v1/"
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+PMTILES_MAGIC = b"PMTiles\x03"
 NISAR_GAP = ("2026-07-27T22:03:25Z", "2026-08-10T00:55:27Z")
 MAX_ERRORS_PER_FILE = 25
 
@@ -56,6 +58,7 @@ RUN_FILES = {  # name -> (schema, kind)
     "overlays/index.json": ("overlays_index", "json"),
 }
 REQUIRED = {
+    "geo": ["aoi.json", "fields.geojson"],  # geo's hand-off before the pipeline runs (CONTRACTS.md B3, "geo" stage)
     "pipeline": ["aoi.json", "fields.geojson", "passes.json", "observations.jsonl", "provenance.json",
                  "overlays/index.json"],
     "published": ["aoi.json", "fields.geojson", "passes.json", "observations.jsonl", "provenance.json",
@@ -190,6 +193,8 @@ def _validate_run(run: pathlib.Path, schemas: Schemas, rep: Report, stage: str, 
         path = run / name
         if not path.exists():
             continue
+        if stage == "geo" and name not in REQUIRED["geo"]:
+            continue
         if kind == "json":
             doc = load_json(path, rep, name)
             if doc is not None:
@@ -220,38 +225,15 @@ def _validate_run(run: pathlib.Path, schemas: Schemas, rep: Report, stage: str, 
     fields_doc = data.get("fields.geojson")
     passes_doc = data.get("passes.json")
     obs_rows = data.get("observations.jsonl") or []
+    if stage == "geo":
+        _validate_geo(run, aoi, fields_doc, data, rep)
+        return
     if not (aoi and fields_doc and passes_doc):
         return
 
-    # 2. headers: run_id and fixture flag agree everywhere
-    run_ids, fixture_flags = set(), set()
-    for name, doc in data.items():
-        if doc is None:
-            continue
-        items = [r for _, r in doc] if isinstance(doc, list) else [doc]
-        for item in items:
-            if isinstance(item, dict):
-                run_ids.add(item.get("run_id"))
-                fixture_flags.add(bool(item.get("fixture", False)))
-    run_ids.discard(None)
-    rep.check(len(run_ids) == 1, "run", f"run_id differs between files: {sorted(run_ids)}")
-    is_fixture = fixture_flags == {True}
-    rep.check(len(fixture_flags) == 1, "run", "some files are marked fixture and some are not")
-    rep.facts["run_id"] = next(iter(run_ids)) if run_ids else None
-    rep.facts["fixture"] = is_fixture
-
-    # 3. aoi
-    tiles = {t["id"]: t for t in aoi["tiles"]}
-    rep.check(len(tiles) == len(aoi["tiles"]), "aoi.json", "duplicate tile id")
-    for t in aoi["tiles"]:
-        b = t["bbox"]
-        rep.check(b[0] < b[2] and b[1] < b[3], "aoi.json", f"tile {t['id']}: bbox min must be below max")
+    is_fixture = check_headers(data, rep)
+    tiles, gaps = check_aoi(aoi, rep)
     season, st = aoi["season"], aoi["stages"]
-    rep.check(rules.parse_ms(season["start"]) < rules.parse_ms(st["mid_start"]) < rules.parse_ms(st["late_start"])
-              < rules.parse_ms(season["end"]), "aoi.json", "need season.start < mid_start < late_start < season.end")
-    rep.check(any((g["start"], g["end"]) == NISAR_GAP for g in aoi["gaps"]), "aoi.json",
-              f"gaps must include the permanent NISAR gap {NISAR_GAP[0]}..{NISAR_GAP[1]}")
-    gaps = aoi["gaps"]
 
     # 4. passes
     passes = passes_doc["passes"]
@@ -286,23 +268,7 @@ def _validate_run(run: pathlib.Path, schemas: Schemas, rep: Report, stage: str, 
     # 5. fields
     features = fields_doc["features"]
     props = [f["properties"] for f in features]
-    field_by_id = {p["field_id"]: f for p, f in zip(props, features)}
-    rep.check(len(field_by_id) == len(features), "fields.geojson", "duplicate field_id")
-    for f in features:
-        p = f["properties"]
-        where = f"fields.geojson:{p['field_id']}"
-        tile = tiles.get(p["tile"])
-        if not rep.check(tile is not None, where, f"unknown tile {p['tile']}"):
-            continue
-        rep.check(p["field_id"].startswith(p["tile"] + "-"), where, "field_id must start with its tile id")
-        rep.check(p["district"] == tile["district"], where, f"district {p['district']!r} != tile district {tile['district']!r}")
-        b = tile["bbox"]
-        rep.check(b[0] <= p["lon"] <= b[2] and b[1] <= p["lat"] <= b[3], where, "label point outside its tile bbox")
-        rep.check(rules.contains(f["geometry"], p["lon"], p["lat"]), where, "label point (lon, lat) is not inside the polygon")
-        for poly in rules._rings_of(f["geometry"]):
-            for ring in poly:
-                rep.check(ring[0] == ring[-1], where, "polygon ring is not closed")
-    rep.facts["fields"] = len(features)
+    field_by_id = check_fields(features, tiles, rep)
 
     # 6. observations
     seen, obs_by_field = set(), {}
@@ -439,6 +405,83 @@ def _validate_run(run: pathlib.Path, schemas: Schemas, rep: Report, stage: str, 
     claims = data.get("claims.sample.geojson")
     if claims:
         check_claims(claims, field_by_id, is_fixture, rep)
+
+
+def check_headers(data: dict, rep: Report) -> bool:
+    """2. headers: run_id and fixture flag agree everywhere. Returns whether the run is a fixture."""
+    run_ids, fixture_flags = set(), set()
+    for name, doc in data.items():
+        if doc is None:
+            continue
+        items = [r for _, r in doc] if isinstance(doc, list) else [doc]
+        for item in items:
+            if isinstance(item, dict):
+                run_ids.add(item.get("run_id"))
+                fixture_flags.add(bool(item.get("fixture", False)))
+    run_ids.discard(None)
+    rep.check(len(run_ids) == 1, "run", f"run_id differs between files: {sorted(run_ids)}")
+    is_fixture = fixture_flags == {True}
+    rep.check(len(fixture_flags) == 1, "run", "some files are marked fixture and some are not")
+    rep.facts["run_id"] = next(iter(run_ids)) if run_ids else None
+    rep.facts["fixture"] = is_fixture
+    return is_fixture
+
+
+def check_aoi(aoi: dict, rep: Report):
+    """3. aoi: tile ids, bboxes, season and stage order, the permanent NISAR gap. Returns (tiles by id, gaps)."""
+    tiles = {t["id"]: t for t in aoi["tiles"]}
+    rep.check(len(tiles) == len(aoi["tiles"]), "aoi.json", "duplicate tile id")
+    for t in aoi["tiles"]:
+        b = t["bbox"]
+        rep.check(b[0] < b[2] and b[1] < b[3], "aoi.json", f"tile {t['id']}: bbox min must be below max")
+    season, st = aoi["season"], aoi["stages"]
+    rep.check(rules.parse_ms(season["start"]) < rules.parse_ms(st["mid_start"]) < rules.parse_ms(st["late_start"])
+              < rules.parse_ms(season["end"]), "aoi.json", "need season.start < mid_start < late_start < season.end")
+    rep.check(any((g["start"], g["end"]) == NISAR_GAP for g in aoi["gaps"]), "aoi.json",
+              f"gaps must include the permanent NISAR gap {NISAR_GAP[0]}..{NISAR_GAP[1]}")
+    gaps = aoi["gaps"]
+    return tiles, gaps
+
+
+def check_fields(features: list, tiles: dict, rep: Report) -> dict:
+    """5. fields: unique ids, tile and district agree with aoi.json, label point inside, closed rings."""
+    props = [f["properties"] for f in features]
+    field_by_id = {p["field_id"]: f for p, f in zip(props, features)}
+    rep.check(len(field_by_id) == len(features), "fields.geojson", "duplicate field_id")
+    for f in features:
+        p = f["properties"]
+        where = f"fields.geojson:{p['field_id']}"
+        tile = tiles.get(p["tile"])
+        if not rep.check(tile is not None, where, f"unknown tile {p['tile']}"):
+            continue
+        rep.check(p["field_id"].startswith(p["tile"] + "-"), where, "field_id must start with its tile id")
+        rep.check(p["district"] == tile["district"], where, f"district {p['district']!r} != tile district {tile['district']!r}")
+        b = tile["bbox"]
+        rep.check(b[0] <= p["lon"] <= b[2] and b[1] <= p["lat"] <= b[3], where, "label point outside its tile bbox")
+        rep.check(rules.contains(f["geometry"], p["lon"], p["lat"]), where, "label point (lon, lat) is not inside the polygon")
+        for poly in rules._rings_of(f["geometry"]):
+            for ring in poly:
+                rep.check(ring[0] == ring[-1], where, "polygon ring is not closed")
+    rep.facts["fields"] = len(features)
+    return field_by_id
+
+
+def _validate_geo(run: pathlib.Path, aoi, fields_doc, data: dict, rep: Report):
+    """Stage "geo": geo's hand-off (aoi.json + fields.geojson, plus fields.pmtiles if present), before any
+    pipeline file exists. Runs the same aoi and fields checks as the other stages and nothing else."""
+    pm = run / "fields.pmtiles"
+    if pm.exists():
+        try:
+            with pm.open("rb") as f:
+                rep.check(f.read(8) == PMTILES_MAGIC, "fields.pmtiles", "not a PMTiles v3 archive (bad magic bytes)")
+        except OSError as exc:
+            rep.error("fields.pmtiles", f"cannot read: {exc}")
+    rep.facts["pmtiles"] = pm.exists()
+    if not (aoi and fields_doc):
+        return
+    check_headers(data, rep)
+    tiles, _ = check_aoi(aoi, rep)
+    check_fields(fields_doc["features"], tiles, rep)
 
 
 def check_granule(p, is_fixture, rep, where):
@@ -722,7 +765,8 @@ def discover(paths: list[str]) -> list[pathlib.Path]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Validate Mudskipper fixtures and run artifacts (T1).")
     ap.add_argument("paths", nargs="*", help="run directories or a fixtures root (default: fixtures + artifacts/*)")
-    ap.add_argument("--stage", choices=["auto", "pipeline", "published"], default="auto")
+    ap.add_argument("--stage", choices=["auto", "geo", "pipeline", "published"], default="auto",
+                    help="auto: published if field_summary.jsonl exists, else pipeline; geo: aoi.json + fields only")
     ap.add_argument("--recompute", action="store_true", help="rerun the reference simulation and compare exactly")
     ap.add_argument("--quiet", action="store_true", help="print only problems and the final line")
     args = ap.parse_args(argv)

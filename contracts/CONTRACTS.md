@@ -95,7 +95,9 @@ artifacts/<run_id>/   gitignored: one run's files, published to R2/D1
 
 "Stage" is how far a run has got. A **pipeline** run has Ishaan's and geo's files. A **published** run also
 has core's outputs. The validator picks the stage automatically (published if `field_summary.jsonl` exists)
-or takes `--stage`.
+or takes `--stage`. A third stage, **geo** (v1 addition, only by `--stage geo`), checks geo's hand-off before
+any pipeline file exists: `aoi.json` and `fields.geojson` with the same rules as the other stages, plus the
+PMTiles magic bytes of `fields.pmtiles` when it is present.
 
 ### B3.1 `aoi.json`
 
