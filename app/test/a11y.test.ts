@@ -94,6 +94,10 @@ describe('axe-core, WCAG 2.2 A and AA', { timeout: 30 * 60_000 }, () => {
   test('home page at 1440 × 900, every section', async () => {
     const page = await open();
     await expectNoViolations(page, 'home');
+    // Landmark changes must not restyle content as the fixed top bar: one bar, one row tall.
+    const bars = await page.evaluate(() => [...document.querySelectorAll('body *')].filter((element) => !element.closest('[aria-hidden="true"]') && getComputedStyle(element).position === 'fixed' && element.getBoundingClientRect().top === 0 && element.getBoundingClientRect().height > 0).map((element) => element.getBoundingClientRect().height));
+    assert.equal(bars.length, 1, 'exactly one fixed bar at the top of the page');
+    assert.ok(bars[0] < 100, `the top bar is ${bars[0]} px tall`);
     await page.context().close();
   });
 
