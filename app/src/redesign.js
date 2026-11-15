@@ -369,7 +369,7 @@ function drawBase() {
     [ix, iy] = P(78.5, 22.5);
   // Imagery, outlines and labels are background for the interactive markers and fields, so they are
   // hidden from assistive technology; the markers and fields carry their own names.
-  svg.innerHTML = `<defs><pattern id="hatch" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect fill="#2a3238"/><line x1="0" y1="0" x2="0" stroke="#8A8F98"/></pattern></defs><g id="gI" aria-hidden="true">${images}</g><g id="gC" aria-hidden="true">${ctry}<text class="clabel" x="${ix}" y="${iy}" font-size="900">India</text><text class="clabel" x="${lx}" y="${ly}" font-size="700">Pakistan</text></g><g id="gM">${markers}</g><g id="gR" aria-hidden="true"></g><g id="gF"></g>`;
+  svg.innerHTML = `<defs><pattern id="hatch" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect fill="#edf1f8"/><line x1="0" y1="0" x2="0" stroke="#65738a"/></pattern></defs><g id="gI" aria-hidden="true">${images}</g><g id="gC" aria-hidden="true">${ctry}<text class="clabel" x="${ix}" y="${iy}" font-size="900">India</text><text class="clabel" x="${lx}" y="${ly}" font-size="700">Pakistan</text></g><g id="gM">${markers}</g><g id="gR" aria-hidden="true"></g><g id="gF"></g>`;
   svg.querySelectorAll(".mk").forEach((g) => {
     const go = async (fromKeyboard) => {
       cancelTour();
@@ -858,7 +858,7 @@ async function renderCard(i, withLoad = true) {
   const hhText = f.hh
     .map((value, j) => `${fmt(DATA.passes[j])} ${value == null ? "unavailable" : value.toFixed(1) + " dB"}`)
     .join("; ");
-  card.innerHTML = `<h3 class="fc-id">${esc(f.id)}</h3><div class="fc-meta">${esc(NICE[tile])} · ${Number(f.ha).toFixed(2)} ha${f.rice === null ? "" : ` · ${Math.round(f.rice * 100)}% rice cover`}</div><div class="fc-verdict">${v}<small>${why}</small></div><div class="chips" role="group" aria-label="Radar state on each pass. Choose a pass to show it on the map.">${[...f.s].map((c, j) => `<button type="button" class="chip${j === pass ? " now" : ""}" data-field-pass="${j}" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}" aria-label="${fmt(DATA.passes[j])}, ${stateLabel(c)}"${j === pass ? ' aria-current="true"' : ""}><span class="${c === "-" ? "n" : c}">${stateGlyph(c)}</span><em>${fmt(DATA.passes[j]).replace(" ", "<br>")}</em></button>`).join("")}</div><div class="spark"><small><span>HH backscatter</span><span>${vals.length ? lo.toFixed(1) + " to " + hi.toFixed(1) + " dB" : "Unavailable"}</span></small><svg viewBox="-4 -4 308 62" preserveAspectRatio="none" role="img" aria-label="HH backscatter by acquisition: ${esc(hhText)}"><path d="${path}" fill="none" stroke="#EAE6DA" stroke-width="1.5"/>${pts.map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#EAE6DA"/>`).join("")}</svg></div><div class="fc-foot"><div><b>${stateLabel(f.s[pass])}</b>${fmt(DATA.passes[pass])}</div><div><b>${conf == null ? "Unavailable" : conf.toFixed(2)}</b>classifier confidence</div></div>${detailMarkup(details.get(f.id))}`;
+  card.innerHTML = `<h3 class="fc-id">${esc(f.id)}</h3><div class="fc-meta">${esc(NICE[tile])} · ${Number(f.ha).toFixed(2)} ha${f.rice === null ? "" : ` · ${Math.round(f.rice * 100)}% rice cover`}</div><div class="fc-verdict">${v}<small>${why}</small></div><div class="chips" role="group" aria-label="Radar state on each pass. Choose a pass to show it on the map.">${[...f.s].map((c, j) => `<button type="button" class="chip${j === pass ? " now" : ""}" data-field-pass="${j}" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}" aria-label="${fmt(DATA.passes[j])}, ${stateLabel(c)}"${j === pass ? ' aria-current="true"' : ""}><span class="${c === "-" ? "n" : c}">${stateGlyph(c)}</span><em>${fmt(DATA.passes[j]).replace(" ", "<br>")}</em></button>`).join("")}</div><div class="spark"><small><span>HH backscatter</span><span>${vals.length ? lo.toFixed(1) + " to " + hi.toFixed(1) + " dB" : "Unavailable"}</span></small><svg viewBox="-4 -4 308 62" preserveAspectRatio="none" role="img" aria-label="HH backscatter by acquisition: ${esc(hhText)}"><path d="${path}" fill="none" stroke="#101d42" stroke-width="1.5"/>${pts.map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#101d42"/>`).join("")}</svg></div><div class="fc-foot"><div><b>${stateLabel(f.s[pass])}</b>${fmt(DATA.passes[pass])}</div><div><b>${conf == null ? "Unavailable" : conf.toFixed(2)}</b>classifier confidence</div></div>${detailMarkup(details.get(f.id))}`;
   if (wasOpen && card.querySelector(".model-details"))
     card.querySelector(".model-details").open = true;
   card.querySelectorAll("[data-field-pass]").forEach(
@@ -1055,20 +1055,20 @@ function seasonChart() {
   const F = (j) => share[j].f,
     FD = (j) => share[j].f + share[j].d;
   svgS.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svgS.innerHTML = `<defs><pattern id="gapHatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="rgba(234,230,218,.02)"/><line x1="0" y1="0" x2="0" y2="8" stroke="rgba(234,230,218,.12)" stroke-width="2"/></pattern>
-      <pattern id="uHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#26353b"/><line x1="0" y1="0" x2="0" y2="6" stroke="#7d888e" stroke-width="2"/></pattern></defs>
+  svgS.innerHTML = `<defs><pattern id="gapHatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="rgba(16,29,66,.02)"/><line x1="0" y1="0" x2="0" y2="8" stroke="rgba(16,29,66,.12)" stroke-width="2"/></pattern>
+      <pattern id="uHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#edf1f8"/><line x1="0" y1="0" x2="0" y2="6" stroke="#7d888e" stroke-width="2"/></pattern></defs>
     ${[0, 0.25, 0.5, 0.75, 1].map((v) => `<line class="grid" x1="${L}" x2="${W - 8}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v * 100}%</text>`).join("")}
     <path class="area" d="${area(() => 0, F)}" fill="var(--water)" fill-opacity=".85"/>
     <path class="area" d="${area(F, FD)}" fill="var(--mud)" fill-opacity=".85"/>
     <path class="area" d="${area(
       (j) => share[j].f + share[j].d + share[j].u,
       () => 1,
-    )}" fill="#182326"/>
+    )}" fill="#fcfdff"/>
     <path class="area" d="${area(FD, (j) => share[j].f + share[j].d + share[j].u)}" fill="url(#uHatch)"/>
     <path class="edge" d="M${days.map((d, j) => `${x(d)},${y(F(j))}`).join("L")}"/>
     <path class="edge" d="M${days.map((d, j) => `${x(d)},${y(FD(j))}`).join("L")}"/>
     ${gaps.map(({ g0, g1 }) => `<rect class="band" x="${x(g0)}" y="0" width="${x(g1) - x(g0)}" height="${H - B}"/><rect class="gap-label-bg" x="${(x(g0) + x(g1)) / 2 - 36}" y="2" width="72" height="20" rx="4"/><text class="ax gap-label" x="${(x(g0) + x(g1)) / 2}" y="16" text-anchor="middle">No data</text>`).join("")}
-    ${days.map((d, j) => `<circle cx="${x(d)}" cy="${y(F(j))}" r="2.5" fill="#0E1A1F" stroke="var(--water)"/><text class="ax" x="${x(d)}" y="${H - 8}" text-anchor="middle">${fmt(DATA.passes[j])}</text>`).join("")}
+    ${days.map((d, j) => `<circle cx="${x(d)}" cy="${y(F(j))}" r="2.5" fill="#fcfdff" stroke="var(--water)"/><text class="ax" x="${x(d)}" y="${H - 8}" text-anchor="middle">${fmt(DATA.passes[j])}</text>`).join("")}
     <line class="cursor" id="sCur" y1="0" y2="${H - B}"/>`;
   const cur = $("sCur"),
     plot = $("seasonPlot"),
@@ -1184,7 +1184,7 @@ function heroMap(f, t) {
       Math.max(...xs) - Math.min(...xs),
       (Math.max(...ys) - Math.min(...ys)) * 2.6,
     ) * 2.4;
-  const col = { f: "#3FD0C9", d: "#E2725B", u: "#9aa3a8", "-": "#9aa3a8" }[
+  const col = { f: "#635bff", d: "#cf4628", u: "#9aa3a8", "-": "#9aa3a8" }[
     f.s[f.s.length - 1]
   ];
   m.setAttribute("preserveAspectRatio", "xMidYMid slice");
@@ -1192,7 +1192,7 @@ function heroMap(f, t) {
     [dc, dd] = P(district.b[2], district.b[1]);
   m.innerHTML = `<image href="${esc(district.src)}" x="${da}" y="${db}" width="${dc - da}" height="${dd - db}" preserveAspectRatio="none"/><image href="${esc(sat.src)}" x="${a}" y="${b}" width="${c - a}" height="${d - b}" preserveAspectRatio="none"/>
     <path class="hf" d="M${pts.map((p) => p.map((v) => v.toFixed(2)).join(",")).join("L")}Z" fill="${col}" fill-opacity=".38" stroke="${col}" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
-    <path class="hf-ring" d="M${pts.map((p) => p.map((v) => v.toFixed(2)).join(",")).join("L")}Z" fill="none" stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke" stroke-dasharray="4 4"/>`;
+    <path class="hf-ring" d="M${pts.map((p) => p.map((v) => v.toFixed(2)).join(",")).join("L")}Z" fill="none" stroke="#fcfdff" stroke-width="1" vector-effect="non-scaling-stroke" stroke-dasharray="4 4"/>`;
   const id = ++heroAnim,
     t0 = performance.now(),
     w0 = span * 7,

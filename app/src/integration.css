@@ -122,7 +122,7 @@
 }
 .radar-switch.on {
   color: var(--water);
-  background: #173b3a;
+  background: #edf1f8;
 }
 .radar-switch:disabled {
   opacity: 0.4;
@@ -147,7 +147,7 @@
   bottom: 40px;
   z-index: 4;
   padding: 4px;
-  background: #112026;
+  background: #fcfdff;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
@@ -398,7 +398,7 @@ summary:focus-visible {
   background: repeating-linear-gradient(
     45deg,
     #aa776244 0 2px,
-    #223037aa 2px 5px
+    #edf1f8aa 2px 5px
   );
   pointer-events: none;
   border-radius: 2px;
@@ -442,7 +442,7 @@ summary:focus-visible {
     border: 1px solid var(--line);
     border-radius: 12px;
     gap: 0;
-    box-shadow: 0 12px 30px #060d1280;
+    box-shadow: 0 12px 30px #fcfdff80;
   }
   nav.menu-open > ul > li {
     display: block !important;

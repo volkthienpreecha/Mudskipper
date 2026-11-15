@@ -12,19 +12,19 @@ import './astryx-controls.css';
 const theme = defineTheme({
   name: 'mudskipper',
   tokens: {
-    '--color-accent': '#3fd0c9',
-    '--color-accent-muted': '#3fd0c926',
-    '--color-on-accent': '#0e1a1f',
-    '--color-neutral': '#253b42',
-    '--color-background-body': '#0e1a1f',
-    '--color-background-surface': '#15272e',
-    '--color-background-muted': '#101e24',
-    '--color-text-primary': '#eae6da',
-    '--color-text-secondary': '#bdc9c3',
-    '--color-text-accent': '#3fd0c9',
-    '--color-icon-accent': '#3fd0c9',
-    '--color-overlay-hover': '#eae6da14',
-    '--color-overlay-pressed': '#eae6da26',
+    '--color-accent': '#5145d7',
+    '--color-accent-muted': '#5145d726',
+    '--color-on-accent': '#fcfdff',
+    '--color-neutral': '#edf1f8',
+    '--color-background-body': '#fcfdff',
+    '--color-background-surface': '#edf1f8',
+    '--color-background-muted': '#fcfdff',
+    '--color-text-primary': '#101d42',
+    '--color-text-secondary': '#435570',
+    '--color-text-accent': '#5145d7',
+    '--color-icon-accent': '#5145d7',
+    '--color-overlay-hover': '#101d4214',
+    '--color-overlay-pressed': '#101d4226',
     '--font-family-body': '-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif',
     '--font-family-heading': '-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif',
     '--font-family-code': '-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif',
@@ -38,7 +38,7 @@ function island(host: HTMLElement, className: string) {
   let destroyed = false;
   return {
     render(content: ReactNode) {
-      if (!destroyed) flushSync(() => root.render(h(Theme, { theme, mode: 'dark', children: content })));
+      if (!destroyed) flushSync(() => root.render(h(Theme, { theme, mode: 'light', children: content })));
     },
     destroy() {
       if (destroyed) return;
@@ -94,8 +94,8 @@ export function mountAstryxTabs(host: HTMLElement, initial: AstryxTabsOptions) {
     size: 'lg',
     layout: 'fill',
     overflow: 'visible',
-    children: options.items.map((item) => h(Tab, {
-      key: item.value, value: item.value, label: item.label,
+    children: options.items.map((item, index) => h(Tab, {
+      key: item.value, value: item.value, label: `${String(index + 1).padStart(2, "0")}  ${item.label}`,
       id: item.id, panelId: item.panelId ?? options.panelId,
     })),
   }));
