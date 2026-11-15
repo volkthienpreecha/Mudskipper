@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Smoke-test a deployment end to end: every API endpoint (schema-validated), the fixture flag (T8), a tile
- * Range request (206), conditional GET (304), the audit endpoint, the SPA fallback, the placeholder assets
+ * Range request (206), conditional GET (304), the audit endpoint, Markdown negotiation and real 404s, every page,
+ * OpenAPI and llms.txt, the placeholder assets
  * and the security headers. Prints one line per check with its timing; exits 1 if any check fails.
  *
  *   node scripts/smoke.ts                                   # https://mudskipper-nisar.pages.dev
@@ -230,12 +231,46 @@ export async function smoke(opts: SmokeOptions): Promise<{ ok: boolean; checks: 
     return "200 text/html, og:image ok";
   });
 
-  await check("GET /map (SPA fallback)", async () => {
-    const res = await get("/map");
+  await check("GET / Accept: text/markdown (Markdown negotiation, Vary)", async () => {
+    const res = await get("/", { headers: { accept: "text/markdown" } });
     assert(res.status === 200, `HTTP ${res.status}`);
-    assert((res.headers.get("content-type") ?? "").includes("text/html"), "not HTML");
-    await res.text();
-    return "200 index.html";
+    assert((res.headers.get("content-type") ?? "").startsWith("text/markdown"), `content-type ${res.headers.get("content-type")}`);
+    assert(/\baccept\b/i.test(res.headers.get("vary") ?? ""), "no Vary: Accept");
+    const md = await res.text();
+    assert(md.startsWith("# "), "not Markdown");
+    return `200 text/markdown, ${md.length} chars`;
+  });
+
+  await check("GET an unknown path (real 404, HTML and Markdown)", async () => {
+    const html = await get("/this-page-does-not-exist");
+    assert(html.status === 404, `HTML: HTTP ${html.status}`);
+    await html.text();
+    const md = await get("/this-page-does-not-exist", { headers: { accept: "text/markdown" } });
+    assert(md.status === 404, `Markdown: HTTP ${md.status}`);
+    assert((md.headers.get("content-type") ?? "").startsWith("text/markdown"), `content-type ${md.headers.get("content-type")}`);
+    await md.text();
+    return "404 text/html, 404 text/markdown";
+  });
+
+  await check("GET every page in site.json (200 HTML)", async () => {
+    const site = (await (await get("/site.json")).json()) as { markdown: string[]; app_prefixes: string[] };
+    for (const p of site.markdown) {
+      const r = await get(p);
+      assert(r.status === 200 && (r.headers.get("content-type") ?? "").includes("text/html"), `${p} → ${r.status}`);
+      await r.text();
+    }
+    return `${site.markdown.length} pages`;
+  });
+
+  await check("GET /openapi.json, /llms.txt, /.well-known/api-catalog", async () => {
+    const spec = (await (await get("/openapi.json")).json()) as { openapi?: string };
+    assert(spec.openapi === "3.1.0", `openapi ${spec.openapi}`);
+    for (const p of ["/llms.txt", "/.well-known/api-catalog", "/openapi.yaml"]) {
+      const r = await get(p);
+      assert(r.status === 200, `${p} → ${r.status}`);
+      await r.text();
+    }
+    return "OpenAPI 3.1, llms.txt, api-catalog";
   });
 
   await check("GET /robots.txt and /sitemap.xml", async () => {

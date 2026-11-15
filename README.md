@@ -38,7 +38,10 @@ source.
 
 **Live:** [mudskipper-nisar.pages.dev](https://mudskipper-nisar.pages.dev) ·
 API: [`/api`](https://mudskipper-nisar.pages.dev/api) · [`/api/story`](https://mudskipper-nisar.pages.dev/api/story) ·
-[`/api/states`](https://mudskipper-nisar.pages.dev/api/states) · [`/api/detectability`](https://mudskipper-nisar.pages.dev/api/detectability)
+[`/api/states`](https://mudskipper-nisar.pages.dev/api/states) · [`/api/detectability`](https://mudskipper-nisar.pages.dev/api/detectability) ·
+Docs: [developer guide](https://mudskipper-nisar.pages.dev/developers) · [OpenAPI 3.1](https://mudskipper-nisar.pages.dev/openapi.json) ·
+[`llms.txt`](https://mudskipper-nisar.pages.dev/llms.txt) · [About](https://mudskipper-nisar.pages.dev/about) ·
+[Privacy](https://mudskipper-nisar.pages.dev/privacy). Every page also answers `Accept: text/markdown`.
 
 > **Status:** the contract, core rules, field geometry and the Cloudflare API are live. The site currently serves
 > the **SAMPLE** fixture run (every response says `"fixture": true`) behind a placeholder page; the real NISAR run
