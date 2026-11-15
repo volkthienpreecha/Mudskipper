@@ -42,7 +42,7 @@ def main():
             ch = sum(a != b for a, b in zip(s, s[1:]))
             flips += ch > (len(s) - 1) / 2
         octs = [r for r in fr if r["pass_id"] >= "p20261001"]
-        if octs and not any("not_rice_like" in r["flags"] for r in fr):
+        if octs and not any(f in ("not_rice_like", "not_rice_2024") for r in fr for f in r["flags"]):
             nrice += 1
             stuck += all(r["inferred"]["state"] == "flooded" for r in octs)
     fr_pct = round(100 * flips / max(nf, 1), 1); st_pct = round(100 * stuck / max(nrice, 1), 1)

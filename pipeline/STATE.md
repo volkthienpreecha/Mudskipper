@@ -185,3 +185,11 @@ fazilka Jul 2 10% wet. Held-out tests (never trained on the test district/date):
 - opera_check.py (DSWx-S1) -> artifacts/r01/opera_pairs.json; export_contract.py now writes checks.json (B3.8) and a fixed created_at.
 - r01v1 re-exported; validator 0 errors. drained_fraction_of_cycle: derived 0.3–0.5, paste-ready row in TEAM-NOTE.
 - Karthik has NOT started geo/ (only README). Our segments ship as fields (source "grid") until FTW fields exist.
+
+## Rice mask + reliability (2026-11-14, latest)
+- ricemask.py: per-field rice share from the 2024 North India 30 m paddy map (Zenodo 21349862, range reads only)
+  -> artifacts/<run>/rice_prior.jsonl. classify.py: fields < 0.5 rice get `not_rice_2024`, are not labelled and not fit.
+  Rice fields only: uncertain 16.1%, Jul 14 kappa Fazilka 0.38 / Muktsar 0.49, transfer 80/88%, Bathinda pooled 0.52.
+- reliability.py: agreement with optical rises with confidence (73 -> 85 -> 90%); Muktsar top band kappa 0.69.
+- Rejected: May S1 baseline (s1_fields_may_rejected.jsonl kept), HMM smoothing. No pre-season track 84 NISAR passes exist.
+- Fixed: export_contract area/crop_frac off-by-one; provenance lists every pass (main's stricter T3). Validator 0 errors.

@@ -92,6 +92,9 @@ class RejectsBrokenRuns(Base):
         self.assertFails(self.validate_root(), "non-finite number NaN")
 
     def test_t3_real_run_cannot_use_sample_granules(self):
+        # every parameter is cited now; mark one uncited to prove the real-run rule still fires
+        self.edit_json("detectability.json",
+                       lambda d: d["param_sources"]["drained_fraction_of_cycle"].update(status="needs_citation"))
         for path in self.run_dir.rglob("*"):
             if path.suffix in (".json", ".geojson") and path.is_file():
                 self.edit_json(path.relative_to(self.run_dir).as_posix(), lambda d: d.pop("fixture", None))
@@ -228,8 +231,10 @@ class GeoStage(Base):
         self.assertEqual(rep.facts["fields"], 300)
         self.assertFalse(rep.facts["pmtiles"])
 
-    def test_other_stages_are_unchanged(self):
-        self.assertFails(self.validate_geo("auto"), "passes.json: required at stage 'pipeline' but missing")
+    def test_auto_picks_geo_and_explicit_stages_still_require_pipeline_files(self):
+        rep = self.validate_geo("auto")
+        self.assertEqual((rep.facts["stage"], rep.errors), ("geo", []))
+        self.assertFails(self.validate_geo("pipeline"), "passes.json: required at stage 'pipeline' but missing")
 
     def test_pmtiles_magic_bytes(self):
         (self.geo / "fields.pmtiles").write_bytes(b"PMTiles\x03" + bytes(119))
@@ -269,6 +274,25 @@ class GeoStage(Base):
 
     def test_command_line(self):
         self.assertEqual(validate.main([str(self.geo), "--stage", "geo", "--quiet"]), 0)
+
+
+class AutoStage(Base):
+    def test_geo_only_run_is_validated_as_geo(self):
+        geo = self.tmp / "geo-only"
+        geo.mkdir()
+        for name in ("aoi.json", "fields.geojson"):
+            shutil.copy(self.run_dir / name, geo / name)
+        rep = validate.Report("test")
+        validate.validate_run(geo, SCHEMAS, rep)
+        self.assertEqual(rep.facts["stage"], "geo")
+        self.assertEqual(rep.errors, [])
+
+
+class EcmaPatterns(unittest.TestCase):
+    def test_trailing_newline_does_not_match_anchored_pattern(self):
+        errors = SCHEMAS.errors("live", {"v": 1, "run_id": "r01\n", "fixture": False})
+        self.assertTrue(any("run_id" in e for e in errors), errors)
+        self.assertEqual(SCHEMAS.errors("live", {"v": 1, "run_id": "r01", "fixture": False}), [])
 
 
 class CommandLine(unittest.TestCase):

@@ -80,11 +80,24 @@ def load():
     return [r for r in rows if r["pass_id"] in dates], dates
 
 
+RICE_MIN = 0.5  # B3.3: rice_mask_frac >= 0.5
+
+
+def rice_prior():
+    """field_id -> 2024 rice fraction from ricemask.py (published 30 m rice map); {} if not run."""
+    p = os.path.join(ART, "rice_prior.jsonl")
+    return {json.loads(l)["field_id"]: json.loads(l)["rice_frac_2024"] for l in open(p)} if os.path.exists(p) else {}
+
+
 def featurize(rows, dates):
     """Adds flags/_x to rows; returns {(regime, track): [rows with features]}."""
+    rp = rice_prior()
     for r in rows:
         r["flags"] = ["provisional_segment_fields"]
         r["_ok"] = r["n_px"] >= MIN_PX and all(r["observed"][f] is not None for f in RAW)
+        if rp and rp.get(r["field_id"], 0) < RICE_MIN:
+            r["flags"].append("not_rice_2024")  # outside the rice mask: not labelled, not used to fit
+            r["_ok"] = False
         r["_reg"] = "canopy" if dates[r["pass_id"]] >= CANOPY_FROM else "open"
         r["inferred"] = {"state": "uncertain", "p_flooded": None, "confidence": 0.0, "method": "hhhv_v1"}
         if not r["_ok"]:

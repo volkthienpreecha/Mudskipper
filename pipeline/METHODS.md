@@ -10,7 +10,9 @@ Run r01: Fazilka + Sri Muktsar Sahib, NISAR track 084, 9 passes from Jul 2 to Oc
 - NISAR L2 GCOV, CRID P05023, dual-pol HH/HV at 10 m (ASF / Earthdata). Quad-pol track 135 is used only as a check.
 - Sentinel-1 RTC VV/VH (Microsoft Planetary Computer): second radar for July only.
 - Sentinel-2 L2A (Element84): **validation only, never used to train or tune.**
-- ESA WorldCover 2021 cropland mask. Fields are provisional Felzenszwalb segments (0.5–100 ha) until geo/ fields.geojson lands.
+- ESA WorldCover 2021 cropland mask, plus a **rice mask**: the published 30 m paddy map for North India 2024
+  (Zenodo doi:10.5281/zenodo.21349862, CC-BY-4.0, Rice-Sentinel algorithm, reported accuracy 84�88%). Only fields with
+  at least 50% rice pixels are labelled (B3.3 `rice_mask_frac >= 0.5`). This removes cotton, mostly in Fazilka. Fields are provisional Felzenszwalb segments (0.5–100 ha) until geo/ fields.geojson lands.
 
 ## How a label is made
 1. Each field's pixels are averaged in linear power, then converted to dB.

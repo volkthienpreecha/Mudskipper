@@ -27,6 +27,7 @@ import type {
   Health,
   Meta,
   ObservationLine,
+  OverlaysIndex,
   Pass,
   Passes,
   Provenance,
@@ -59,6 +60,7 @@ export const FIXTURE_FILES = [
   "run/observations.jsonl",
   "run/field_summary.jsonl",
   "run/claims.sample.geojson",
+  "run/overlays/index.json",
 ] as const;
 export type FixtureName = (typeof FIXTURE_FILES)[number];
 
@@ -108,6 +110,8 @@ export interface MudskipperClient {
   getClaimsSample(): Promise<Claims>;
   /** The run's field polygons (`meta.assets.fields_geojson`). */
   getFieldsGeoJson(): Promise<FieldCollection>;
+  /** Georeferenced imagery for published pass/tile pairs, or null when the run has no index. */
+  getOverlaysIndex(): Promise<OverlaysIndex | null>;
 }
 
 /** A failed API call. `status` is the HTTP status (0 when the request never got a response). */
@@ -208,6 +212,14 @@ function apiClient(options: {
     getAudit: (id) => get(`/api/audit/${encodeURIComponent(id)}`),
     getClaimsSample: () => asset("claims_sample"),
     getFieldsGeoJson: () => asset("fields_geojson"),
+    getOverlaysIndex: async () => {
+      meta ??= get<Meta>("/api/meta").catch((err: unknown) => {
+        meta = null;
+        throw err;
+      });
+      const url = (await meta).assets.overlays_index;
+      return url === null ? null : get<OverlaysIndex>(url);
+    },
   };
 }
 
@@ -403,5 +415,6 @@ function fixturesClient(load: FixtureLoader): MudskipperClient {
     getAudit,
     getClaimsSample: () => copy("run/claims.sample.geojson"),
     getFieldsGeoJson: () => copy("run/fields.geojson"),
+    getOverlaysIndex: () => copy("run/overlays/index.json"),
   };
 }

@@ -36,8 +36,14 @@ measures how much a 12-day revisit can and cannot verify, and ranks fields for i
 screen says whether it was **OBSERVED** by the radar, **INFERRED** by our model, or **ASSUMED** from a cited
 source.
 
-> **Status: foundation (`v0-foundation`).** The contract, fixtures and validator are in. Everything you can
-> run today is **SAMPLE** data. Real NISAR results land on the deployed site as each lane finishes.
+**Live:** [mudskipper-nisar.pages.dev](https://mudskipper-nisar.pages.dev) ·
+API: [`/api`](https://mudskipper-nisar.pages.dev/api) · [`/api/story`](https://mudskipper-nisar.pages.dev/api/story) ·
+[`/api/states`](https://mudskipper-nisar.pages.dev/api/states) · [`/api/detectability`](https://mudskipper-nisar.pages.dev/api/detectability)
+
+> **Status:** the contract, core rules, field geometry and the Cloudflare API are live. The site currently serves
+> the **SAMPLE** fixture run (every response says `"fixture": true`) behind a placeholder page; the real NISAR run
+> replaces it when the radar pipeline's files are published, and the full app replaces the placeholder when it
+> lands.
 
 ## How it works
 
@@ -99,6 +105,22 @@ make help             # everything else
 `contracts/fixtures/` holds a complete sample run: 2 tiles, 300 fields, 12 passes (none in the NISAR data
 gap), all three verdicts, overlays, histograms, 60 synthetic claims, and one response per API endpoint. Every
 file says `"fixture": true`, and every granule id starts with `SAMPLE_`.
+
+## Moving run data between teammates
+
+Run folders (`artifacts/<run_id>/`) never go into git. Share and fetch them as GitHub Release assets, with a
+SHA-256 manifest checked on the way in (macOS, Linux or Windows; needs Python and the GitHub CLI):
+
+```sh
+python platform/scripts/run_transfer.py share r01v1        # pipeline: upload artifacts/r01v1
+python platform/scripts/run_transfer.py fetch r01v1        # platform: download it, verified
+python platform/scripts/run_transfer.py fetch geo-pipeline-tiles --dir artifacts/r01   # geo's fields for the pipeline's tiles
+python platform/scripts/run_transfer.py list
+make publish RUN_ID=r01v1                                  # compute, validate, deploy (platform/README.md)
+```
+
+Shared now: `geo-r01` (geo's recommended rice-dense tiles, 4,599 FTW fields) and `geo-pipeline-tiles` (FTW
+fields for the pipeline's current tiles, 2,329 fields). See DECISIONS.md K-113, K-114.
 
 ## For judges
 

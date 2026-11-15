@@ -38,3 +38,6 @@ platform/.cache/
 
 # Rehearsal runs (platform/scripts/rehearsal/make_rehearsal.py): SAMPLE data at real scale, rebuilt on demand
 platform/.rehearsal/
+
+# Claude Code agent worktrees
+.claude/
