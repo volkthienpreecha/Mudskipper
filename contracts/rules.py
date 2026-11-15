@@ -381,13 +381,17 @@ def story(aoi: dict, fields: Sequence[dict], summaries: dict, used_passes: int, 
 
 
 # ----------------------------------------------------------------------------------------------- geometry (ranking)
+class GeometryError(ValueError):
+    """Claim geometry the ranking cannot use (open ring, too few vertices, no interior, unsupported type)."""
+
+
 def _rings_of(geometry: dict) -> list[list[list]]:
     """Polygons as lists of rings."""
     if geometry["type"] == "Polygon":
         return [geometry["coordinates"]]
     if geometry["type"] == "MultiPolygon":
         return list(geometry["coordinates"])
-    raise ValueError(geometry["type"])
+    raise GeometryError(f"unsupported geometry type {geometry['type']!r}")
 
 
 def planar_area(ring: Sequence[Sequence[float]]) -> float:
@@ -398,12 +402,11 @@ def planar_area(ring: Sequence[Sequence[float]]) -> float:
     return abs(s) / 2
 
 
-class GeometryError(ValueError):
-    """Claim geometry the ranking cannot use (open ring, too few vertices, unsupported type)."""
-
-
 def check_rings(geometry: dict) -> None:
-    for poly in _rings_of(geometry):
+    polys = _rings_of(geometry)
+    if not polys or any(not poly for poly in polys):
+        raise GeometryError("polygon has no rings")
+    for poly in polys:
         for ring in poly:
             if len(ring) < 4 or ring[0][0] != ring[-1][0] or ring[0][1] != ring[-1][1]:
                 raise GeometryError("polygon rings must be closed and have at least 4 positions")
@@ -445,6 +448,8 @@ def representative_point(geometry: dict) -> tuple[float, float]:
             xs.append((xj - xi) * (cy - yi) / (yj - yi) + xi)
         j = i
     xs.sort()
+    if len(xs) < 2:
+        raise GeometryError("polygon has no interior (degenerate ring)")
     return (xs[0] + xs[1]) / 2, cy
 
 
@@ -518,6 +523,7 @@ def rank(body: bytes, fields: Sequence[dict], summaries: dict, run_id: str, crea
         if claim["geometry"]["type"] != "Point":
             try:
                 check_rings(claim["geometry"])
+                representative_point(claim["geometry"])
             except GeometryError as exc:
                 raise RankError("invalid_geometry", f"claim {ids[-1]}: {exc}") from None
     if len(set(ids)) != len(ids):

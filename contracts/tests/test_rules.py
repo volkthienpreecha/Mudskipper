@@ -399,6 +399,15 @@ class RankTests(unittest.TestCase):
             self.rank(_body([], 5, seed=1, extra=bad))
         self.assertEqual(ctx.exception.code, "invalid_geometry")
 
+    def test_degenerate_claims_are_invalid_geometry(self):
+        flat = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [2, 0], [0, 0]]]}
+        line = {"type": "LineString", "coordinates": [[0, 0], [1, 1]]}
+        for geom in (flat, line):
+            bad = [{"type": "Feature", "geometry": geom, "properties": {"claimed": ["awd"], "synthetic": True}}]
+            with self.assertRaises(rules.RankError) as ctx:
+                self.rank(_body([], 5, seed=1, extra=bad))
+            self.assertEqual(ctx.exception.code, "invalid_geometry")
+
     def test_seed_zero_is_a_seed(self):
         body = _body(self.fields, 10, seed=0)
         self.assertEqual(self.rank(body)["seed"], 0)
