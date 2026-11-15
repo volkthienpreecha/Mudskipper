@@ -143,3 +143,26 @@ def test_provenance_lists_sentinel1_when_fused():
     prov = json.load(open(os.path.join(ART, "provenance.json")))
     if fused:
         assert prov["ancillary"]["sentinel1_rtc"]["scenes"]
+
+
+# ---------- export: field attributes come from the right segment (label N -> array slot N-1)
+@need_art
+def test_export_field_area_matches_segment():
+    exp = os.path.join(ROOT, "artifacts", "r01v1", "fields.geojson")
+    if not os.path.exists(exp):
+        pytest.skip("no contract export")
+    feats = json.load(open(exp))["features"]
+    segs = {}
+    for f in feats[::97]:
+        p = f["properties"]; t = p["tile"]; i = int(p["field_id"].split("-")[1])
+        if t not in segs:
+            segs[t] = np.load(os.path.join(ROOT, "data", f"segments_{t}.npz"))
+        assert abs(p["area_ha"] - max(round(float(segs[t]["area_ha"][i - 1]), 3), 0.5)) < 1e-3, p["field_id"]
+
+
+@need_art
+def test_rice_mask_respected_in_export():
+    exp = os.path.join(ROOT, "artifacts", "r01v1", "fields.geojson")
+    if not os.path.exists(exp):
+        pytest.skip("no contract export")
+    assert all(f["properties"]["rice_mask_frac"] >= 0.5 for f in json.load(open(exp))["features"])

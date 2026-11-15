@@ -12,7 +12,7 @@ import glob, json, os, collections, datetime as dt
 import numpy as np
 from sklearn.metrics import roc_auc_score
 from freeman_durden import freeman_durden
-from zonal import field_id
+from zonal import REF_PASS, field_id
 
 RUN = os.environ.get("RUN_ID", "r01")
 ART = os.path.join("artifacts", RUN)
@@ -32,7 +32,7 @@ def main():
         near = min(dh, key=lambda k: abs(dt.date.fromisoformat(dh[k]) - date))
         d = np.load(path)
         seg = np.load(f"data/segments_{tile}.npz")
-        ref = np.load(sorted(glob.glob(f"data/p2026*_{tile}.npz"))[0])
+        ref = np.load(f"data/{REF_PASS}_{tile}.npz")  # the grid the segments were built on (not "first file")
         res = 10 * int(seg["ml"])
         col = np.floor((d["x"] - (ref["x"][0] - 5)) / res).astype(int)
         row = np.floor(((ref["y"][0] + 5) - d["y"]) / res).astype(int)
