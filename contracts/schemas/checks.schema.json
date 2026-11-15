@@ -134,7 +134,8 @@
               "date",
               "tile",
               "ours_flooded_frac",
-              "opera_water_frac"
+              "opera_water_frac",
+              "opera_date"
             ],
             "additionalProperties": false
           }

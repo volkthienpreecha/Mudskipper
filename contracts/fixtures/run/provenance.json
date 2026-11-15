@@ -16,6 +16,11 @@
       "subset_sha256": "ec811ed2170aa6a3d16b05c12018efcfdbf4165023c4f2240fb0e0fa0b851afa"
     },
     {
+      "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_025_084_A_017_4005_DHDH_A_20260714T002129_20260714T002204_P05023_N_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": null
+    },
+    {
       "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_025_135_D_073_4005_DHDH_A_20260717T134734_20260717T134809_P05023_N_F_J_001",
       "crid": "P05023",
       "subset_sha256": "7eb731c087ea8d3ff621b978d137173403d15aaafbd86e21df445de8d538b558"
@@ -39,6 +44,11 @@
       "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_030_135_D_073_2005_QPDH_A_20260915T134734_20260915T134809_P05023_N_F_J_001",
       "crid": "P05023",
       "subset_sha256": "1e1b49aa9cb14a11d1b3be647793a771a921f9db083339ba127381f91d64c105"
+    },
+    {
+      "granule_id": "SAMPLE_NISAR_L2_UR_GCOV_030_135_D_073_2005_QPDH_A_20260915T134734_20260915T134809_P05023_F_F_J_001",
+      "crid": "P05023",
+      "subset_sha256": null
     },
     {
       "granule_id": "SAMPLE_NISAR_L2_PR_GCOV_031_135_D_073_2005_QPDH_A_20260927T134734_20260927T134809_P05023_N_F_J_001",
@@ -79,7 +89,7 @@
     },
     {
       "path": "field_summary.jsonl",
-      "sha256": "4c06680b459095ec7e4d49956d206bb60350cdb7b5067bcd7e9b757fce0a29f0"
+      "sha256": "c1a84f79831a7f2f84fb4f3f53c4aa0722a26f08b14677159af09ee56b84dceb"
     },
     {
       "path": "fields.geojson",

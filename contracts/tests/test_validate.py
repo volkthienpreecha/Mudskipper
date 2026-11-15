@@ -78,7 +78,18 @@ class RejectsBrokenRuns(Base):
 
     def test_t3_missing_granule_in_provenance(self):
         self.edit_json("provenance.json", lambda d: d["granules"].pop(0))
-        self.assertFails(self.validate_root(), "T3: used pass 20260623-T135D has no granule entry")
+        self.assertFails(self.validate_root(), "T3: pass 20260623-T135D has no granule entry")
+
+    def test_t3_excluded_passes_also_need_granules(self):
+        self.edit_json("provenance.json", lambda d: d.__setitem__("granules", [g for g in d["granules"] if g["subset_sha256"]]))
+        self.assertFails(self.validate_root(), "T3: pass 20260714-T084A has no granule entry")
+
+    def test_nan_is_rejected(self):
+        path = self.run_dir / "observations.jsonl"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        lines[0] = lines[0].replace('"p_flooded":', '"p_flooded":NaN,"x":', 1)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        self.assertFails(self.validate_root(), "non-finite number NaN")
 
     def test_t3_real_run_cannot_use_sample_granules(self):
         for path in self.run_dir.rglob("*"):
