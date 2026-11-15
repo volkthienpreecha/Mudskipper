@@ -35,3 +35,6 @@ platform/.site/
 
 # Platform caches (OG render fonts, local D1/KV state)
 platform/.cache/
+
+# Claude Code agent worktrees
+.claude/

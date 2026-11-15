@@ -101,7 +101,7 @@ class Report:
 
 # ------------------------------------------------------------------------------------------------ schemas
 def _ecma_anchors(node):
-    """JSON Schema patterns are ECMA-262, where `$` matches only at the end of input. Python's `$` also matches
+    r"""JSON Schema patterns are ECMA-262, where `$` matches only at the end of input. Python's `$` also matches
     before a trailing newline, so `"abc\n"` would pass `^[a-z]+$`. Rewrite a final unescaped `$` to `\Z`."""
     if isinstance(node, dict):
         out = {}
@@ -194,7 +194,12 @@ def validate_run(run: pathlib.Path, schemas: Schemas, rep: Report, stage: str = 
 
 def _validate_run(run: pathlib.Path, schemas: Schemas, rep: Report, stage: str, recompute: bool):
     if stage == "auto":
-        stage = "published" if (run / "field_summary.jsonl").exists() else "pipeline"
+        if (run / "field_summary.jsonl").exists():
+            stage = "published"
+        elif (run / "passes.json").exists() or (run / "observations.jsonl").exists():
+            stage = "pipeline"
+        else:
+            stage = "geo"  # only geo's hand-off so far (aoi.json + fields.geojson)
     rep.facts["stage"] = stage
     for name in REQUIRED[stage]:
         rep.check((run / name).exists(), name, f"required at stage '{stage}' but missing")

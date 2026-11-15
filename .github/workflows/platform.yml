@@ -34,6 +34,8 @@ jobs:
         run: npm run typecheck -w platform
       - name: Test (workerd routes on both backends, loader, bundle, site under wrangler pages dev)
         run: npm run test -w platform
+      - name: Test run_transfer.py (share/fetch through a fake GitHub CLI)
+        run: python3 -m unittest discover -s platform/test/python
       - name: Build the fixture site
         run: npm run build:site -w platform -- --fixtures
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
