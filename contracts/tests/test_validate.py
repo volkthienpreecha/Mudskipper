@@ -302,5 +302,78 @@ class CommandLine(unittest.TestCase):
             self.assertEqual(validate.main([tmp]), 2)
 
 
+class InlinedSchemas(unittest.TestCase):
+    """The reference-free copies (K-356) accept exactly what the original schemas accept."""
+
+    MUTATIONS = (None, "x", "", -1, 0, 0.5, 1e9, True, [], {}, "2026-13-40", "fazilka-1")
+
+    def instances(self):
+        for name, (schema, kind) in validate.RUN_FILES.items():
+            path = FIXTURES / "run" / name
+            if not path.exists():
+                continue
+            text = path.read_text(encoding="utf-8")
+            if kind == "jsonl":
+                for line in text.splitlines()[:40]:
+                    yield schema, json.loads(line)
+            else:
+                yield schema, json.loads(text)
+        api = {"meta": "api/meta", "story": "api/story", "passes": "api/passes", "states": "api/states",
+               "checks": "api/checks", "detectability": "api/detectability", "provenance": "api/provenance",
+               "fields": "api/fields_page", "field.fazilka-00114": "api/field_detail", "health": "api/health",
+               "audit.request": "api/audit_request", "audit.response": "api/audit_response",
+               "error.not_found": "api/error"}
+        for stem, schema in api.items():
+            yield schema, json.loads((FIXTURES / "api" / f"{stem}.json").read_text(encoding="utf-8"))
+        yield "live", json.loads((FIXTURES / "live.json").read_text(encoding="utf-8"))
+
+    @staticmethod
+    def paths(node, prefix=()):
+        yield prefix
+        if isinstance(node, dict):
+            for k, v in node.items():
+                yield from InlinedSchemas.paths(v, prefix + (k,))
+        elif isinstance(node, list):
+            for i, v in enumerate(node[:3]):
+                yield from InlinedSchemas.paths(v, prefix + (i,))
+
+    def test_every_schema_is_inlined(self):
+        self.assertEqual(sorted(SCHEMAS._fast), sorted(SCHEMAS._validators))
+
+    def test_same_verdict_on_fixtures_and_mutations(self):
+        import copy
+        import random
+        rng = random.Random(7)
+        checked = invalid = 0
+        for schema, doc in self.instances():
+            slow, fast = SCHEMAS._validators[schema], SCHEMAS._fast[schema]
+            self.assertTrue(slow.is_valid(doc), schema)
+            self.assertTrue(fast.is_valid(doc), schema)
+            paths = [p for p in self.paths(doc) if p]
+            for path in rng.sample(paths, min(len(paths), 12)):
+                for value in rng.sample(self.MUTATIONS, 2) + ["<delete>", "<extra>"]:
+                    bad = copy.deepcopy(doc)
+                    parent = bad
+                    for k in path[:-1]:
+                        parent = parent[k]
+                    if value == "<delete>":
+                        if isinstance(parent, dict):
+                            del parent[path[-1]]
+                        else:
+                            parent.pop(path[-1])
+                    elif value == "<extra>":
+                        if not isinstance(parent, dict):
+                            continue
+                        parent["zz_extra"] = 1
+                    else:
+                        parent[path[-1]] = value
+                    want = slow.is_valid(bad)
+                    self.assertEqual(fast.is_valid(bad), want, f"{schema} {path} -> {value!r}")
+                    checked += 1
+                    invalid += not want
+        self.assertGreater(checked, 1500)
+        self.assertGreater(invalid, 700)
+
+
 if __name__ == "__main__":
     unittest.main()

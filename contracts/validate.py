@@ -23,6 +23,7 @@ import json
 import pathlib
 import sys
 from dataclasses import dataclass, field
+from urllib.parse import urljoin
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -115,18 +116,61 @@ def _ecma_anchors(node):
     return node
 
 
+class _RefCycle(Exception):
+    pass
+
+
+# Keywords whose values are data, not subschemas: never rewritten.
+_DATA_KEYWORDS = ("const", "enum", "default", "examples")
+
+
+def _inline_refs(node, base: str, docs: dict, stack: tuple = ()):
+    """A copy of `node` with every `$ref` replaced by its target, resolved against `base`, so jsonschema does not
+    look a reference up (urljoin + registry) for every instance it checks: on a 5,000-field run that lookup was
+    most of validate.py's time (DECISIONS.md K-356). A `$ref` with sibling keywords becomes `allOf: [target]`
+    next to them, which is how draft 2020-12 applies it. Raises _RefCycle for a recursive schema."""
+    if isinstance(node, list):
+        return [_inline_refs(v, base, docs, stack) for v in node]
+    if not isinstance(node, dict):
+        return node
+    out = {k: (v if k in _DATA_KEYWORDS else _inline_refs(v, base, docs, stack)) for k, v in node.items() if k != "$ref"}
+    ref = node.get("$ref")
+    if not isinstance(ref, str):
+        return out
+    url = urljoin(base, ref)
+    if url in stack:
+        raise _RefCycle(url)
+    doc_url, _, fragment = url.partition("#")
+    target = docs[doc_url]
+    for part in (p for p in fragment.split("/") if p):
+        target = target[part.replace("~1", "/").replace("~0", "~")]
+    inlined = _inline_refs(target, doc_url, docs, stack + (url,))
+    return {"allOf": [inlined], **out} if out else inlined
+
+
 class Schemas:
     def __init__(self):
         docs = [_ecma_anchors(json.loads(p.read_text(encoding="utf-8")))
                 for p in sorted(SCHEMA_DIR.rglob("*.schema.json"))]
         registry = Registry().with_resources([(d["$id"], Resource.from_contents(d)) for d in docs])
+        by_id = {d["$id"]: d for d in docs}
         self._validators = {}
+        self._fast = {}
         for d in docs:
             name = d["$id"][len(SCHEMA_BASE):-len(".schema.json")]
             Draft202012Validator.check_schema(d)
             self._validators[name] = Draft202012Validator(d, registry=registry)
+            try:
+                self._fast[name] = Draft202012Validator(_inline_refs(d, d["$id"], by_id))
+            except _RefCycle:
+                pass
 
     def errors(self, name: str, instance) -> list[str]:
+        """Schema errors as `path: message`. A valid instance is answered by the reference-free copy of the
+        schema; only an invalid one goes through the original schema, so messages are unchanged."""
+        fast = self._fast.get(name)
+        if fast is not None and fast.is_valid(instance):
+            return []
         out = []
         for e in sorted(self._validators[name].iter_errors(instance), key=lambda e: list(e.absolute_path)):
             path = "/".join(str(p) for p in e.absolute_path) or "(root)"
