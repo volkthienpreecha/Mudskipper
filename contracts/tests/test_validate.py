@@ -92,6 +92,9 @@ class RejectsBrokenRuns(Base):
         self.assertFails(self.validate_root(), "non-finite number NaN")
 
     def test_t3_real_run_cannot_use_sample_granules(self):
+        # every parameter is cited now; mark one uncited to prove the real-run rule still fires
+        self.edit_json("detectability.json",
+                       lambda d: d["param_sources"]["drained_fraction_of_cycle"].update(status="needs_citation"))
         for path in self.run_dir.rglob("*"):
             if path.suffix in (".json", ".geojson") and path.is_file():
                 self.edit_json(path.relative_to(self.run_dir).as_posix(), lambda d: d.pop("fixture", None))
@@ -228,8 +231,10 @@ class GeoStage(Base):
         self.assertEqual(rep.facts["fields"], 300)
         self.assertFalse(rep.facts["pmtiles"])
 
-    def test_other_stages_are_unchanged(self):
-        self.assertFails(self.validate_geo("auto"), "passes.json: required at stage 'pipeline' but missing")
+    def test_auto_picks_geo_and_explicit_stages_still_require_pipeline_files(self):
+        rep = self.validate_geo("auto")
+        self.assertEqual((rep.facts["stage"], rep.errors), ("geo", []))
+        self.assertFails(self.validate_geo("pipeline"), "passes.json: required at stage 'pipeline' but missing")
 
     def test_pmtiles_magic_bytes(self):
         (self.geo / "fields.pmtiles").write_bytes(b"PMTiles\x03" + bytes(119))
