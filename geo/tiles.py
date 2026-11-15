@@ -218,7 +218,7 @@ def choose(ddir: pathlib.Path) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--data-dir", help="cache for downloads (default $MUDSKIPPER_DATA_DIR or <repo>/data)")
-    ap.add_argument("--out", default=str(c.GEO_DIR / "tiles.json"))
+    ap.add_argument("--out", default=str(c.GEO_DIR / "tiles.rice-dense.json"))  # official tiles: tiles.json (K-117)
     args = ap.parse_args(argv)
     doc = choose(c.data_dir(args.data_dir))
     c.write_text(pathlib.Path(args.out), c.dump(doc))

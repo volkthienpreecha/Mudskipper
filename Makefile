@@ -79,7 +79,7 @@ geo-ftw-setup: ## geo: also install ftw-tools 2.0.0b5 (torch; only for FTW_METHO
 geo-test: ## geo: offline unit tests (synthetic rasters and polygons)
 	cd geo && $(UV) run --frozen pytest
 
-tiles: ## geo: re-choose the two study tiles -> geo/tiles.json (network: ASF, Zenodo, geoBoundaries)
+tiles: ## geo: search the rice-dense alternative tiles -> geo/tiles.rice-dense.json (official: geo/tiles.json, K-117)
 	$(GEO_RUN) tiles.py $(GEO_DATA)
 
 grid: ## geo: aoi.json + labeled 1 ha grid fields (H+0:45 hand-off) into RUN_DIR

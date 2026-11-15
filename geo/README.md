@@ -68,6 +68,8 @@ scripts also read `$MUDSKIPPER_DATA_DIR` and `$MUDSKIPPER_RUN_DIR`). Downloads a
 
 ## The real run (r01)
 
+> **Official tiles changed (DECISIONS K-117):** r01 now uses the radar pipeline's tiles (`geo/tiles.json`); the table below describes the rice-dense alternative kept in `geo/tiles.rice-dense.json` and release `geo-rice-dense`. On the official tiles: rice share 0.247 / 0.304 (GlobalRice20), 0.511 / 0.602 (Zhao); 2,329 FTW fields kept.
+
 | | Fazilka | Sri Muktsar Sahib |
 |---|---|---|
 | UTM origin (EPSG:32643) | 432500, 3389500 | 445500, 3345500 |
