@@ -1,0 +1,9 @@
+# Offline pipeline/geo integration tests; no Earthdata or remote scene clients.
+affine==3.0.1
+numpy==2.5.4
+shapely==2.2.0
+rasterio==1.5.2
+pyproj==3.8.0
+scikit-learn==1.9.1
+matplotlib==3.11.2
+pytest==9.2.0

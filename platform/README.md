@@ -123,6 +123,12 @@ a second load of the same run writes 0 rows. Measured locally on the fixture run
 
 All are plain `node` (Node 24 runs the TypeScript directly) and print `--help`.
 
+CLI entry points handle Windows paths and spaces. On Windows, use `npm.cmd` and
+`npx.cmd` from PowerShell. The publish script invokes the geo district writer with
+`uv` and prepares the validator's `.venv` directly, so it does not require GNU Make;
+Python, uv and Node 24 must be on PATH. Its validator uses `.venv/Scripts/python.exe`
+on Windows and `.venv/bin/python` on POSIX.
+
 | Command | What it does |
 |---|---|
 | `make publish FIXTURES=1` / `make publish RUN_ID=r01` | `scripts/publish.ts`: preflight → compute-run + district table → `validate.py --recompute` → republish guard → app + bundle + site → (D1 load, R2 upload) → deploy the `staging` preview → smoke it → app for the production origin, carry the previous run's tiles → deploy production → smoke it → mirror live (K-318). `--branch NAME` publishes a preview only. `ARGS=--dry-run` prints the preflight and the plan. |

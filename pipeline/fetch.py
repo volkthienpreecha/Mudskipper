@@ -10,6 +10,7 @@ Usage: python pipeline/fetch.py [--only p20260620] [--force]
 import argparse, hashlib, json, os, time
 import numpy as np, h5py, earthaccess
 from pyproj import Transformer
+from field_units import cache_matches
 
 RUN = os.environ.get("RUN_ID", "r01")
 ART = os.path.join("artifacts", RUN)
@@ -50,7 +51,7 @@ def sha256(path):
 def fetch_pass(fs, p, tiles, force, prefix=""):
     out = {}
     pending = {t: b for t, b in tiles.items()
-               if force or not os.path.exists(os.path.join(DATA, f"{prefix}{p['pass_id']}_{t}.npz"))}
+               if force or not cache_matches(os.path.join(DATA, f"{prefix}{p['pass_id']}_{t}.npz"), b, p["granule_id"])}
     if not pending:
         return {t: "cached" for t in tiles}
     with h5py.File(fs.open(p["url"], block_size=4 << 20), "r") as f:

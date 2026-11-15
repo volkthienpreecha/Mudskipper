@@ -1,0 +1,270 @@
+/* Four composed demonstrations, kept within the original photographic page. */
+.ms-demo { margin-top: clamp(2.5rem, 5vw, 4.5rem); }
+.ms-demo :is(button, select, input) { font: inherit; }
+.ms-demo button { cursor: pointer; }
+.ms-demo :is(button, a, select, input, [tabindex]):focus-visible { outline: 2px solid var(--water); outline-offset: 4px; }
+.ms-field[role="button"]:focus-visible { outline: none; stroke: var(--ink); stroke-width: 3px; stroke-dasharray: 5 3; vector-effect: non-scaling-stroke; }
+.ms-demo button:disabled { opacity: .55; cursor: not-allowed; }
+.ms-demo svg { display: block; }
+.ms-demo h3 { font: 600 clamp(1.25rem, 2.2vw, 1.75rem)/1.2 var(--sans); letter-spacing: -.025em; }
+.ms-demo p { max-width: 65ch; }
+.ms-micro { font-size: .8125rem; color: var(--dim); }
+.ms-fine, .ms-source-caption { font-size: .8125rem; line-height: 1.6; color: var(--dim); }
+.ms-source-caption { display: block; }
+.ms-demo .ms-state-f { --state-color: var(--water); }
+.ms-demo .ms-state-d { --state-color: var(--mud); }
+.ms-demo .ms-state-u, .ms-demo .ms-state-- { --state-color: var(--haze); }
+.ms-inline-state { display: inline-flex; align-items: center; gap: .5rem; color: var(--state-color); font-size: .8125rem; }
+.ms-inline-state i, .ms-state-dot { display: inline-block; flex: none; width: .5rem; height: .5rem; border-radius: 50%; background: var(--state-color); }
+.ms-text-action { display: inline-flex; align-items: center; gap: .75rem; background: transparent; border: 0; padding: .75rem 0; min-height: 44px; color: var(--ink); font-size: .9375rem; font-weight: 500; text-decoration: none; }
+.ms-text-action svg, .ms-next svg, .ms-run-request svg, .ms-api-analysis svg { width: 1.125rem; height: 1.125rem; transition: transform .25s var(--ease); }
+.ms-text-action:hover svg, .ms-next:hover svg, .ms-run-request:hover svg, .ms-api-analysis:hover svg { transform: translateX(4px); }
+
+/* A claim becomes an observed sequence: the beam is the connecting tissue. */
+.ms-evidence-flow { display: grid; grid-template-columns: minmax(0, .95fr) minmax(120px, .7fr) minmax(0, 1.2fr); align-items: center; padding: clamp(1.25rem, 3vw, 2.5rem); background: #101f25; border: 1px solid var(--line); border-radius: 1rem; overflow: hidden; }
+.ms-flow-source { position: relative; min-width: 0; }
+.ms-flow-source > p { font-size: clamp(1.5rem, 2.5vw, 2rem); line-height: 1.25; letter-spacing: -.035em; margin-top: 1rem; }
+.ms-flow-source em { font-style: normal; color: var(--water); }
+.ms-flow-field { margin: 1.75rem -.5rem .5rem; height: 9rem; overflow: hidden; }
+.ms-flow-field .ms-field-map { height: 100%; width: 100%; }
+.ms-flow-field .ms-field { fill-opacity: .18; stroke-width: 1.5; }
+.ms-flow-field .ms-field.is-selected { fill-opacity: .6; }
+.ms-flow-field svg text, .ms-flow-field svg > path:not(.ms-field) { display: none; }
+.ms-flow-bridge { position: relative; align-self: stretch; min-height: 17rem; margin-inline: -1.2rem; }
+.ms-flow-bridge > svg { position: absolute; inset: 15% 0; width: 100%; height: 70%; overflow: visible; }
+.ms-beam-track { stroke: var(--line); fill: none; stroke-width: 1.5; }
+.ms-beam-motion { stroke: var(--water); fill: none; stroke-width: 2; stroke-dasharray: 40 700; animation: ms-beam 5s linear infinite; }
+.ms-beam-alt { stroke: var(--mud); animation-delay: -2.8s; stroke-dasharray: 26 700; }
+@keyframes ms-beam { to { stroke-dashoffset: -740; } }
+.ms-radar-node { position: absolute; left: 40%; top: 24%; transform: translate(-50%, -50%); width: 5rem; display: grid; place-items: center; gap: .4rem; background: #101f25; color: var(--ink); }
+.ms-radar-node svg { width: 3.6rem; height: 3.6rem; }
+.ms-radar-node span { white-space: nowrap; font-size: .75rem; color: var(--dim); }
+.ms-bridge-note { position: absolute; left: 42%; bottom: 2.3rem; font-size: .75rem; line-height: 1.5; color: var(--dim); }
+.ms-flow-result { align-self: center; padding-left: clamp(.5rem, 2vw, 1.5rem); min-width: 0; }
+.ms-result-state { display: flex; align-items: center; gap: .85rem; margin-top: 1rem; color: var(--state-color); }
+.ms-result-state strong { font-size: clamp(1.75rem, 3.3vw, 2.75rem); font-weight: 500; line-height: 1.2; letter-spacing: -.045em; }
+.ms-result-state .ms-state-dot { width: .7rem; height: .7rem; box-shadow: 0 0 0 5px color-mix(in srgb, var(--state-color) 10%, transparent); }
+.ms-result-date { margin-top: .65rem; color: var(--dim); font-size: .875rem; font-variant-numeric: tabular-nums; }
+.ms-pass-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: .25rem; margin-block: 1.7rem 1.3rem; padding-top: .35rem; }
+.ms-pass { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; min-width: 0; min-height: 66px; border: 0; background: transparent; color: var(--dim); padding: .25rem .12rem; font-size: .6875rem !important; border-radius: .25rem; font-variant-numeric: tabular-nums; }
+.ms-pass span:last-child { white-space: nowrap; }
+.ms-pass-mark { display: block; width: 100%; height: 1.9rem; border-radius: .25rem; background: var(--state-color); opacity: .45; transition: opacity .25s, transform .25s var(--ease); }
+.ms-state-u .ms-pass-mark { background: repeating-linear-gradient(135deg, var(--haze) 0 2px, #233139 2px 5px); }
+.ms-state-- .ms-pass-mark { background: transparent; border: 1px dashed var(--haze); }
+.ms-pass.is-current .ms-pass-mark { opacity: 1; transform: translateY(-4px); }
+.ms-pass.is-current { color: var(--ink); }
+.ms-pass:hover .ms-pass-mark { opacity: .9; }
+.ms-story-notes { list-style: none; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: clamp(1.5rem, 4vw, 4rem); padding: 2.5rem 0 0; }
+.ms-story-notes li { display: flex; gap: 1rem; }
+.ms-story-notes li > span { color: var(--water); font-size: .75rem; padding-top: .25rem; }
+.ms-story-notes h3 { font-size: 1rem; margin-bottom: .6rem; letter-spacing: -.01em; }
+.ms-story-notes p { color: var(--dim); font-size: .9375rem; line-height: 1.65; }
+
+/* One product window, three genuinely different actions. */
+.ms-walkthrough { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.5fr); gap: clamp(2rem, 6vw, 5rem); align-items: start; }
+#ms-walk-tabs { margin-bottom: 2rem; max-width: 46rem; }
+#ms-walk-tabs .astryx-tab-strip { flex-wrap: nowrap; }
+#ms-walk-tabs .astryx-tab { min-width: 0; flex: 1 1 0; }
+.ms-walk-copy { padding-top: 1.5rem; }
+.ms-tabs { display: flex; gap: .25rem; padding: .25rem; background: #15272d; border: 1px solid var(--line); border-radius: .6rem; width: fit-content; max-width: 100%; }
+.ms-tabs button { position: relative; color: var(--dim); background: transparent; border: 0; border-radius: .4rem; padding: .7rem 1rem; min-height: 44px; font-size: .875rem !important; font-weight: 500 !important; transition: background .3s var(--ease), color .3s; white-space: nowrap; }
+.ms-tabs button[aria-selected="true"] { color: var(--bg); background: var(--ink); }
+.ms-walk-copy .ms-tabs { flex-direction: column; width: 100%; background: transparent; border: 0; gap: .25rem; padding: 0; }
+.ms-walk-copy .ms-tabs button { text-align: left; padding: 1rem 1.25rem; border-radius: .5rem; background: #101f25; color: var(--dim); }
+.ms-walk-copy .ms-tabs button[aria-selected="true"] { background: #203c40; color: var(--ink); }
+.ms-walk-copy .ms-tabs button::before { content: ''; display: inline-block; width: .4rem; height: .4rem; margin-right: .9rem; background: var(--line); border-radius: 50%; transition: background .25s; }
+.ms-walk-copy .ms-tabs button[aria-selected="true"]::before { background: var(--water); box-shadow: 0 0 0 4px #3fd0c914; }
+.ms-walk-description { position: relative; padding: 2.3rem 0 1.5rem; }
+.ms-stage-number { display: block; color: var(--water); font-size: .8125rem; margin-bottom: .75rem; }
+.ms-walk-description h3 { margin-bottom: 1rem; }
+.ms-walk-description p { color: var(--dim); font-size: 1rem; max-width: 30ch; }
+.ms-next { display: inline-flex; gap: 1.2rem; align-items: center; background: transparent; border: 0; color: var(--ink); min-height: 44px; font-size: .9375rem !important; padding: .75rem 0; }
+.ms-product-window { background: #0f2026; border: 1px solid #395057; border-radius: .85rem; overflow: hidden; box-shadow: 0 32px 64px -44px #041013; min-width: 0; }
+.ms-window-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 1.5rem; border-bottom: 1px solid var(--line); font-size: .75rem; color: var(--dim); }
+.ms-window-brand { font-weight: 600; color: var(--ink); font-size: .875rem; }
+.ms-window-brand::before { content: ''; display: inline-block; width: .45rem; height: .45rem; border-radius: 1px; background: var(--water); margin-right: .7rem; box-shadow: 4px 0 0 var(--mud); }
+.ms-walk-panel { min-height: 28rem; animation: ms-panel-in .45s var(--ease) both; }
+@keyframes ms-panel-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ms-window-footer { display: flex; align-items: center; justify-content: space-between; gap: .8rem; padding: .9rem 1.5rem; border-top: 1px solid var(--line); color: var(--dim); font-size: .75rem; }
+.ms-guide-map-heading { display: flex; justify-content: space-between; gap: 1rem; padding: 1.2rem 1.5rem 0; font-size: .8125rem; color: var(--dim); }
+.ms-field-map { width: 100%; height: auto; color: var(--dim); }
+.ms-field { fill: var(--state-color); fill-opacity: .25; stroke: var(--state-color); stroke-width: .75; transition: fill-opacity .3s, stroke-width .3s, opacity .3s; }
+.ms-map-guide .ms-field.ms-state-u { fill: url(#ms-guide-uncertain); }
+.ms-map-flow .ms-field.ms-state-u { fill: url(#ms-flow-uncertain); }
+.ms-field.ms-state-- { fill: #20323a; stroke-dasharray: 3 2; }
+.ms-field[role="button"] { cursor: pointer; }
+.ms-field:hover { fill-opacity: .6; }
+.ms-field.is-selected { stroke: var(--ink); fill-opacity: .85; stroke-width: 2; }
+.ms-map-instruction { margin: -.4rem 1.5rem 1rem; font-size: .75rem; color: var(--dim); }
+.ms-field-select { display: flex; align-items: center; gap: 1rem; border-top: 1px solid var(--line); padding: 1rem 1.5rem; font-size: .8125rem; color: var(--dim); }
+.ms-field-select select { min-height: 44px; flex: 1; min-width: 0; padding: .5rem 1rem; background: #152a31; border: 1px solid #3c545b; color: var(--ink); border-radius: .4rem; }
+.ms-guide-series { padding: 1.5rem 1.5rem .5rem; }
+.ms-large-reading { position: relative; }
+.ms-large-reading > p { font-size: clamp(2.5rem, 5vw, 4rem); line-height: 1.25; font-weight: 400; font-variant-numeric: tabular-nums; letter-spacing: -.045em; margin-top: .5rem; }
+.ms-large-reading > p span { font-size: 1.125rem; color: var(--dim); margin-left: .5rem; letter-spacing: normal; }
+.ms-large-reading > p .ms-reading-unavailable { margin-left: 0; font-size: 1.5rem; }
+.ms-large-reading > .ms-inline-state { position: absolute; right: 0; bottom: .55rem; }
+.ms-hh-chart { width: 100%; height: auto; font-variant-numeric: tabular-nums; margin-top: .9rem; overflow: visible; }
+.ms-chart-point { fill: var(--state-color); stroke: #0f2026; stroke-width: 2; transition: r .25s; }
+.ms-signal-trace { stroke-dasharray: 1; stroke-dashoffset: 0; animation: ms-trace 1s var(--ease) both; }
+@keyframes ms-trace { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.ms-guide-series .ms-pass-strip { margin-block: .5rem 0; }
+.ms-measurement-empty { display: flex; align-items: center; min-height: 12rem; color: var(--dim); font-size: .9375rem; }
+.ms-guide-report { padding: 1.75rem 2rem; }
+.ms-report-heading { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.6rem; }
+.ms-report-heading svg { width: 2rem; color: var(--water); }
+.ms-report-heading h3 { font-size: 1.3rem; margin-top: .35rem; overflow-wrap: anywhere; }
+.ms-report-facts { display: grid; gap: .75rem; font-size: .875rem; }
+.ms-report-facts > div { display: flex; justify-content: space-between; gap: 1rem; }
+.ms-report-facts dt { color: var(--dim); }
+.ms-report-facts dd { text-align: right; overflow-wrap: anywhere; }
+.ms-report-pass { margin-block: 1.7rem 1rem; padding-block: 1.25rem; border-block: 1px solid var(--line); }
+.ms-report-pass > div { display: flex; justify-content: space-between; font-size: .875rem; margin-bottom: .9rem; }
+.ms-report-pass strong { color: var(--state-color); font-weight: 500; }
+.ms-report-pass p { display: flex; justify-content: space-between; color: var(--dim); font-size: .8125rem; margin-top: .5rem; }
+.ms-report-pass b { color: var(--ink); font-weight: 400; }
+.ms-action-status { min-height: 1.5rem; font-size: .8125rem; color: var(--dim); }
+
+/* Scientific explanation beside real measurements. The illustration is a ray path. */
+.ms-method-lab { background: #101f25; border-block: 1px solid var(--line); }
+.ms-method-header { padding: 1.5rem clamp(1.25rem, 3vw, 2.5rem) 0; }
+.ms-method-panel { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: clamp(1.5rem, 5vw, 4rem); padding: .5rem clamp(1.25rem, 3vw, 2.5rem) 2.5rem; }
+.ms-scene-side { min-width: 0; }
+.ms-science-scene { width: 100%; height: auto; margin: .25rem 0 1rem; overflow: visible; animation: ms-panel-in .5s var(--ease) both; }
+.ms-scene-mobile-note { display: none; }
+.ms-scene-caption h3 { font-size: 1.375rem; margin-bottom: .75rem; }
+.ms-scene-caption p { font-size: .9375rem; color: var(--dim); max-width: 48ch; }
+.ms-radar-ray { animation: ms-ray 1.5s linear infinite; }
+.ms-ray-out { animation-delay: -.8s; }
+@keyframes ms-ray { to { stroke-dashoffset: -30; } }
+.ms-bounce-ring { transform-box: fill-box; transform-origin: center; animation: ms-bounce-ring 3s ease-out infinite; }
+.ms-bounce-second { animation-delay: .4s; }
+@keyframes ms-bounce-ring { 0% { transform: scale(.4); opacity: 0; } 25% { opacity: .7; } 80%, 100% { transform: scale(1.7); opacity: 0; } }
+.ms-rice-stalk { transform-box: fill-box; transform-origin: bottom center; animation: ms-grow .7s var(--ease) both; animation-delay: calc(var(--stalk-order) * 25ms); }
+@keyframes ms-grow { from { opacity: 0; transform: scaleY(.2); } to { opacity: 1; transform: scaleY(1); } }
+.ms-cross-patch { animation: ms-cross-scan 4s ease-in-out infinite; }
+@keyframes ms-cross-scan { 0%, 100% { fill-opacity: .2; } 50% { fill-opacity: .6; } }
+.ms-comparison-connect { animation: ms-ray 2s linear infinite; }
+.ms-method-reading { padding-top: 3rem; min-width: 0; }
+.ms-measure-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-top: .75rem; }
+.ms-measure-head strong { font-size: clamp(2rem, 4vw, 3.25rem); font-weight: 400; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.ms-measure-head strong small { font-size: 1rem; color: var(--dim); letter-spacing: normal; }
+.ms-measure-head > span { font-size: .75rem; color: var(--dim); text-align: right; overflow-wrap: anywhere; }
+.ms-signal-control { display: grid; gap: .6rem; font-size: .8125rem; color: var(--dim); margin: .7rem 0 1.2rem; }
+.ms-signal-control input { width: 100%; min-height: 44px; accent-color: var(--water); cursor: ew-resize; }
+.ms-method-comparison { align-self: center; padding: 2rem 0; }
+.ms-method-comparison h4 { font-size: 1.25rem; font-weight: 500; margin-bottom: 1.5rem; }
+.ms-method-comparison > p { display: flex; flex-direction: column; gap: .4rem; font-size: .875rem; color: var(--dim); margin-block: 1rem; }
+.ms-method-comparison b { color: var(--ink); font-weight: 500; font-size: 1rem; }
+.ms-method-comparison .ms-fine { display: block; font-size: .8125rem; }
+
+/* Real request/response interaction, with a bounded preview of the full payload. */
+.ms-api-workspace { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.5fr); gap: clamp(1.5rem, 5vw, 4rem); align-items: start; }
+.ms-api-sidebar { min-width: 0; }
+.ms-api-sidebar h3 { font-size: 1.5rem; }
+.ms-api-sidebar > p { color: var(--dim); font-size: .9375rem; margin-top: .75rem; }
+.ms-endpoints { display: flex; flex-direction: column; margin-top: 2rem; }
+.ms-endpoints button { display: flex; text-align: left; align-items: center; gap: 1rem; background: #101f25; color: var(--dim); border: 0; border-top: 1px solid var(--line); min-height: 5rem; padding: 1.1rem 1rem; transition: background .25s; }
+.ms-endpoints button:last-child { border-bottom: 1px solid var(--line); }
+.ms-endpoints button[aria-selected="true"] { background: #1d373c; color: var(--ink); }
+.ms-endpoints button:hover { background: #193038; }
+.ms-endpoints button > span:nth-child(2) { flex: 1; min-width: 0; }
+.ms-endpoints strong { display: block; font-size: .9375rem; font-weight: 500; }
+.ms-endpoints small { display: block; font-size: .75rem; color: var(--dim); margin-top: .35rem; line-height: 1.4; }
+.ms-endpoints button > svg { width: 1rem; height: 1rem; flex: none; opacity: 0; transform: translateX(-5px); transition: opacity .25s, transform .25s; }
+.ms-endpoints button[aria-selected="true"] > svg { opacity: 1; transform: none; }
+.ms-get { color: var(--water); font-size: .75rem; font-weight: 500; flex: none; }
+.ms-api-analysis { display: inline-flex; align-items: center; gap: .75rem; margin-top: 1.25rem; min-height: 44px; color: var(--dim); text-decoration: none; font-size: .8125rem; }
+.ms-api-analysis:hover { color: var(--ink); }
+.ms-console { min-width: 0; border: 1px solid #395057; border-radius: .75rem; background: #0b1a20; overflow: hidden; }
+.ms-console-request { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; background: #172d33; border-bottom: 1px solid var(--line); }
+.ms-console-request code { font: .875rem/1.4 var(--sans); flex: 1; overflow-wrap: anywhere; min-width: 0; }
+.ms-run-request { display: inline-flex; gap: .6rem; align-items: center; border: 0; background: var(--ink); color: var(--bg); border-radius: .4rem; min-height: 44px; padding: .65rem .9rem; font-size: .8125rem !important; font-weight: 500 !important; flex: none; }
+.ms-console-context { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 1.25rem; font-size: .75rem; color: var(--dim); border-bottom: 1px solid var(--line); }
+.ms-console-context a { white-space: nowrap; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.ms-console-context a:hover { color: var(--ink); }
+.ms-response-toolbar { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .6rem 1.25rem; min-height: 3.4rem; font-size: .75rem; color: var(--dim); }
+.ms-response-toolbar button, .ms-response-footer button { color: var(--ink); border: 0; background: transparent; min-height: 44px; font-size: .75rem !important; white-space: nowrap; text-decoration: underline; text-underline-offset: 4px; }
+.ms-response { height: 22rem; max-height: 55vh; overflow: auto; padding: .5rem 1.25rem 1.5rem; color: #b3d6cf; font: .8125rem/1.7 var(--sans); scrollbar-color: #3c585c #0b1a20; tab-size: 2; }
+.ms-response code { font: inherit; white-space: pre; }
+.ms-response-footer { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: .6rem 1.25rem; border-top: 1px solid var(--line); font-size: .75rem; color: var(--dim); min-height: 3rem; }
+
+@media (min-width: 1500px) { .ms-flow-bridge { min-height: 19rem; } }
+@media (max-width: 1050px) {
+  .ms-evidence-flow { grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1.3fr); }
+  .ms-walkthrough { grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr); gap: 2rem; }
+  .ms-story-notes { grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+  .ms-method-panel { gap: 1.5rem; }
+  .ms-api-workspace { gap: 2rem; }
+  .ms-endpoints small { display: none; }
+  .ms-console-request { flex-wrap: wrap; }
+}
+@media (max-width: 760px) {
+  .ms-evidence-flow { grid-template-columns: 1fr 1.25fr; gap: 1rem; padding: 1.5rem; }
+  .ms-flow-bridge { display: none; }
+  .ms-flow-field { height: 6.5rem; }
+  .ms-flow-source > p { font-size: 1.5rem; }
+  .ms-flow-result { padding-left: 0; }
+  .ms-result-state strong { font-size: 1.75rem; }
+  .ms-pass-strip, .ms-flow-result .ms-pass-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 1rem; }
+  .ms-flow-result .ms-pass { min-height: 52px; gap: .3rem; }
+  .ms-flow-result .ms-pass-mark { height: 1.25rem; }
+  .ms-flow-result .ms-source-caption { font-size: .6875rem; }
+  .ms-story-notes { grid-template-columns: 1fr; gap: 1.75rem; padding-top: 2rem; }
+  .ms-story-notes li { gap: 1rem; }
+  .ms-walkthrough { grid-template-columns: 1fr; gap: 1.5rem; }
+  .ms-walk-copy { padding-top: 0; }
+  #ms-walk-tabs .astryx-tab { padding-inline: .65rem; font-size: .8125rem; min-height: 60px; }
+  #ms-walk-tabs .astryx-tab span { white-space: normal; }
+  .ms-walk-copy .ms-tabs { flex-direction: row; width: 100%; }
+  .ms-walk-copy .ms-tabs button { flex: 1; padding: .8rem .75rem; text-align: center; white-space: normal; font-size: .8125rem !important; }
+  .ms-walk-copy .ms-tabs button::before { display: none; }
+  .ms-walk-description { padding: 1.5rem 0 0; }
+  .ms-walk-description p { max-width: 50ch; font-size: .9375rem; }
+  .ms-stage-number { display: none; }
+  .ms-walk-description h3 { margin-bottom: .6rem; font-size: 1.5rem; }
+  .ms-next { margin-top: .5rem; }
+  .ms-walk-panel { min-height: 0; }
+  .ms-method-panel { grid-template-columns: 1fr; gap: .5rem; padding-bottom: 2rem; }
+  .ms-method-reading { padding-top: 1.5rem; }
+  .ms-method-reading .ms-hh-chart { max-height: 210px; }
+  .ms-method-header { padding-bottom: .5rem; }
+  .ms-method-header .ms-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .ms-method-header .ms-tabs button { min-width: 0; min-height: 52px; padding-inline: .35rem; white-space: normal; font-size: .8125rem !important; }
+  .ms-method-comparison { padding-block: 1.5rem 0; }
+  .ms-science-scene { max-height: 350px; }
+  .ms-science-scene text { display: none; }
+  .ms-scene-mobile-note { display: block; margin: -.75rem 0 1.5rem; }
+  .ms-api-workspace { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+  .ms-api-sidebar h3, .ms-api-sidebar > p, .ms-api-analysis { display: none; }
+  .ms-endpoints { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 100%; margin-top: 0; gap: .4rem; padding: .25rem; }
+  .ms-endpoints button, .ms-endpoints button:last-child { min-width: 0; border: 1px solid var(--line); min-height: 44px; padding: .8rem .9rem; border-radius: .4rem; gap: .5rem; }
+  .ms-endpoints button:last-child { grid-column: 1 / -1; }
+  .ms-endpoints strong { font-size: .8125rem; }
+  .ms-endpoints .ms-get, .ms-endpoints button > svg { display: none; }
+  .ms-response { height: 20rem; }
+}
+@media (max-width: 430px) {
+  .ms-evidence-flow { grid-template-columns: 1fr; }
+  .ms-flow-source { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem 1rem; }
+  .ms-flow-source > .ms-micro { grid-column: 1 / -1; }
+  .ms-flow-source > p { margin-top: .5rem; font-size: 1.375rem; }
+  .ms-flow-source .ms-flow-field { margin: 0; grid-row: 2; grid-column: 2; height: 5rem; }
+  .ms-flow-source .ms-source-caption { grid-column: 1 / -1; font-size: .75rem; }
+  .ms-flow-result { padding-top: 1.5rem; margin-top: .75rem; border-top: 1px solid var(--line); }
+  .ms-flow-result .ms-pass-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .ms-console-context { flex-wrap: wrap; gap: .25rem; }
+  .ms-console-context a { min-height: 36px; }
+  .ms-console-request { gap: .65rem; }
+  .ms-window-bar, .ms-window-footer { padding-inline: 1rem; }
+  .ms-guide-report { padding: 1.5rem 1.25rem; }
+  .ms-report-facts > div { gap: .75rem; }
+  .ms-guide-series { padding-inline: 1rem; }
+  #ms-walk-tabs .astryx-tab { font-size: .75rem; padding-inline: .45rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-demo *, .ms-demo *::before, .ms-demo *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .ms-beam-motion { stroke-dasharray: none; opacity: .4; }
+}
+.motion-paused .ms-demo *, .motion-paused .ms-demo *::before, .motion-paused .ms-demo *::after { animation: none !important; transition: none !important; }
+@media (prefers-contrast: more) { .ms-demo { --line: #587278; --dim: #c8d2ca; } .ms-pass-mark { opacity: .8; } }

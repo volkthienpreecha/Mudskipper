@@ -41,6 +41,15 @@ export interface Preflight {
   notes: string[];
 }
 
+/** Use the repository validator environment for this OS. */
+export function validatorPython(repoRoot: string, platform: NodeJS.Platform = process.platform): string {
+  const interpreter = platform === "win32"
+    ? join(repoRoot, ".venv", "Scripts", "python.exe")
+    : join(repoRoot, ".venv", "bin", "python");
+  if (!existsSync(interpreter)) throw new Error("Repository validator interpreter is missing; create .venv and install contracts/requirements.txt before publishing.");
+  return interpreter;
+}
+
 export function preflight(runDir: string, fixture: boolean): Preflight {
   const lines: string[] = [];
   const blocking: Requirement[] = [];

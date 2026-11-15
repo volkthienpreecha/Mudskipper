@@ -25,6 +25,7 @@ from sklearn.mixture import GaussianMixture
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from field_units import FieldUnits
 
 RUN = os.environ.get("RUN_ID", "r01")
 ART = os.path.join("artifacts", RUN)
@@ -50,8 +51,11 @@ def s1_probs(dates):
         return {}
     import datetime as dt
     orb = collections.defaultdict(lambda: collections.defaultdict(dict))
+    fields = FieldUnits(ART)
     for l in open(path):
         r = json.loads(l)
+        if fields.geo and r.get("field_geometry_sha256") != fields.fingerprints.get(r["field_id"], "missing"):
+            raise ValueError(f"Sentinel-1 field {r['field_id']} differs from geo handoff; rerun s1_fields.py")
         orb[r["orbit"]][r["date"]][r["field_id"]] = r["vv_db"]
     acc = collections.defaultdict(list)
     for pid, d in dates.items():
@@ -77,6 +81,11 @@ def load():
     dates = {p["pass_id"]: p["datetime"][:10]
              for p in json.load(open(os.path.join(ART, "passes.json")))["passes"] if p["used"]}
     rows = [json.loads(l) for l in open(os.path.join(ART, "zonal.jsonl"))]
+    fields = FieldUnits(ART)
+    if fields.geo:
+        for r in rows:
+            if r.get("field_geometry_sha256") != fields.fingerprints.get(r["field_id"], "missing"):
+                raise ValueError(f"zonal field {r['field_id']} does not match geo handoff; rerun zonal")
     return [r for r in rows if r["pass_id"] in dates], dates
 
 
@@ -93,9 +102,10 @@ def featurize(rows, dates):
     """Adds flags/_x to rows; returns {(regime, track): [rows with features]}."""
     rp = rice_prior()
     for r in rows:
-        r["flags"] = ["provisional_segment_fields"]
+        r["flags"] = ["provisional_segment_fields"] if r.get("field_source", "segments") == "segments" else []
         r["_ok"] = r["n_px"] >= MIN_PX and all(r["observed"][f] is not None for f in RAW)
-        if rp and rp.get(r["field_id"], 0) < RICE_MIN:
+        rice = r.get("rice_mask_frac", rp.get(r["field_id"], 0) if rp else None)
+        if rice is not None and rice < RICE_MIN:
             r["flags"].append("not_rice_2024")  # outside the rice mask: not labelled, not used to fit
             r["_ok"] = False
         r["_reg"] = "canopy" if dates[r["pass_id"]] >= CANOPY_FROM else "open"

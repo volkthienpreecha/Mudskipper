@@ -1,0 +1,25 @@
+/* Astryx owns its control internals. Isolate them from the imported page's global nav/button reset. */
+.astryx-island * { all: revert-layer; }
+.astryx-island { min-width: 0; color-scheme: dark; font-family: var(--sans); }
+.astryx-island [data-astryx-theme] { display: contents; }
+.astryx-island .astryx-button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 12px 18px;
+  font: 600 .9375rem/1.3 var(--sans);
+  border-radius: 10px;
+}
+.astryx-island .astryx-tab-list { position: static; display: block; padding: 0; margin: 0; background: none; border: 0; backdrop-filter: none; }
+.astryx-island .astryx-tab-strip { display: flex; flex-wrap: wrap; gap: 4px; }
+.astryx-island .astryx-tab {
+  min-height: 48px;
+  padding: 12px 18px;
+  font: 500 .9375rem/1.4 var(--sans);
+  border-radius: 10px;
+}
+.astryx-island .astryx-tab:focus-visible, .astryx-island .astryx-button:focus-visible { outline: 2px solid var(--water); outline-offset: 4px; }
+.astryx-island .astryx-tab[aria-selected="true"] { color: var(--water); background: #3fd0c914; }
+@media (max-width: 600px) {
+  .astryx-island .astryx-tab { padding-inline: 10px; }
+}
+.motion-paused .astryx-island *, .motion-paused .astryx-island *::before, .motion-paused .astryx-island *::after { animation: none !important; transition: none !important; }

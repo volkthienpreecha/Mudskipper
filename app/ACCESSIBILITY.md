@@ -1,6 +1,6 @@
 # Accessibility (WCAG 2.2 AA)
 
-Target: WCAG 2.2 level AA for the production app (`index.html`, `src/`, the legal pages) and the platform placeholder page. The imported design stays as it is: photography, dark ink palette, teal and coral states, section order and behaviour. The changes add what conformance needs. Decisions are logged as K-330 to K-339 in `DECISIONS.md`.
+Target: WCAG 2.2 level AA for the production app (`index.html`, `src/`, the legal pages) and the platform placeholder page. The page keeps its photography, dark ink palette, teal/coral states and map workflow. The component pass replaces explanatory sections and preserves the same keyboard, focus, contrast, reflow and motion checks. Decisions are logged as K-330 to K-339 in `DECISIONS.md`.
 
 ## How it is checked
 
@@ -54,3 +54,5 @@ npm run test:a11y -w @mudskipper/app   # A11Y_OFFLINE=1 skips the published-run 
 - **Third-party imagery** (Esri World Imagery in the published run) cannot be described field by field; it is background for the polygons and hidden from assistive technology.
 - **Input purpose (1.3.5)** does not apply: the app collects no personal data.
 - Screen reader behaviour was reasoned from the accessibility tree and checked through Playwright; it has not been tested with VoiceOver or NVDA by a person.
+
+The component pass also checks field selection focus through redraw, stale API response clearing, genuine Astryx tabs, wrapped acquisition controls and live-run analysis. Optional error checks use immediate locator counts; they do not wait three minutes for an absent error. The archive test starts with an explicit snapshot URL, while published-run cases select the owning API dataset.

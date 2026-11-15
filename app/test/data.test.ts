@@ -166,6 +166,27 @@ test('field detail guards requested field, identity, geometry and observation pa
   await assert.rejects(getApiFieldDetails(client, adaptSnapshot(await snapshot()), id), /snapshot|API/i);
 });
 
+test('field detail rejects incomplete observations, mismatched summaries and invalid model inputs', async () => {
+  const client = fixtures();
+  const data = await loadApiDataset(client);
+  const id = Object.values(data.tiles)[0].fields[0].id;
+  const detail = await client.getField(id);
+  const cases: [string, (value: typeof detail) => void, RegExp][] = [
+    ['missing observation', (value) => { value.observations.shift(); }, /missing observation/i],
+    ['invalid coverage', (value) => { value.observations[0].valid_frac = 1.1; }, /valid_frac/i],
+    ['wrong stage', (value) => { value.observations[0].stage = 'late'; }, /stage/i],
+    ['invalid pixel count', (value) => { value.observations[0].n_px = -1; }, /n_px/i],
+    ['nonfinite HV', (value) => { value.observations[0].observed.hv_db = NaN; }, /hv_db/i],
+    ['wrong method', (value) => { value.observations[0].inferred.method = 'other' as never; }, /method/i],
+    ['mismatched summary', (value) => { value.summary!.awd.drained_hits += 1; }, /summary/i],
+  ];
+  for (const [label, mutate, pattern] of cases) {
+    const invalid = structuredClone(detail);
+    mutate(invalid);
+    await assert.rejects(getApiFieldDetails({ ...client, getField: async () => invalid }, data, id), pattern, label);
+  }
+});
+
 test('overlays require the same run and published pass/tile, preserve absence and HTTP errors', async () => {
   const client = fixtures();
   const data = await loadApiDataset(client);

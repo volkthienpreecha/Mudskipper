@@ -1,5 +1,5 @@
 // Site assembly, then the real Pages runtime (`wrangler pages dev`) serving it, checked by the smoke script.
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -122,8 +122,8 @@ describe.skipIf(process.env["SKIP_PAGES_DEV"] === "1")("wrangler pages dev + smo
 
   beforeAll(async () => {
     proc = spawn(
-      join(REPO_ROOT, "node_modules", ".bin", "wrangler"),
-      ["pages", "dev", out, "--port", String(port), "--persist-to", persist, "--show-interactive-dev-session=false"],
+      process.execPath,
+      [join(REPO_ROOT, "node_modules", "wrangler", "bin", "wrangler.js"), "pages", "dev", out, "--port", String(port), "--persist-to", persist, "--show-interactive-dev-session=false"],
       { cwd: PLATFORM_ROOT, stdio: "ignore", env: { ...process.env, CI: "true" } },
     );
     for (let i = 0; i < 120; i++) {
@@ -138,10 +138,15 @@ describe.skipIf(process.env["SKIP_PAGES_DEV"] === "1")("wrangler pages dev + smo
     throw new Error("wrangler pages dev did not start");
   });
 
-  afterAll(() => {
-    proc?.kill();
-    rmSync(out, { recursive: true, force: true });
-    rmSync(persist, { recursive: true, force: true });
+  afterAll(async () => {
+    if (proc && proc.exitCode === null) {
+      const closed = new Promise<void>((resolve) => proc.once("exit", () => resolve()));
+      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(proc.pid), "/t", "/f"]);
+      else proc.kill();
+      await closed;
+    }
+    rmSync(out, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(persist, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it("passes every smoke check", async () => {
