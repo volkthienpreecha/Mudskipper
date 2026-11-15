@@ -61,6 +61,7 @@ export {
   type PolygonGeometry,
   type MultiPolygonGeometry,
 } from "./geometry.ts";
+export { fieldIndex, isFieldIndex, type FieldIndex, type FieldIndexOptions, type IndexedField } from "./field-index.ts";
 export { sha256Hex } from "./sha.ts";
 export {
   NOTICE,

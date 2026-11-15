@@ -152,6 +152,7 @@ the B3.9 list; `dumpJson`, `dumpJsonl` and `dumpStates` write deterministic, fin
 | `states.ts` | `states(fieldIds, passes, observations, runId, fixture?)` | B3.13 |
 | `story.ts` | `story(aoi, fieldProps, summaries, usedPasses, runId, fixture?)` | B3.11 |
 | `geometry.ts` | `planarArea`, `representativePoint`, `contains`, `inRing`, `checkRings`, `bboxOf`, `bboxMayContain` | B6 step 1 |
+| `field-index.ts` | `fieldIndex(fields, { boxes?, cellDeg? })`: a uniform grid whose `locate(x, y)` returns exactly the linear scan's field (smallest `field_id` containing the point); `rank` accepts it in place of the field list | B6 step 1 |
 | `rank.ts` | `rank`, `readAuditBody`, `validateAuditRequest`, `seedFor`, `RankError`, weights and limits | B6 |
 | `sha.ts` | `sha256Hex(data)` via WebCrypto | B6 step 8 |
 | `params.ts` | `DEFAULT_PARAMS`, `DEFAULT_PARAM_SOURCES`, `DEFAULT_SEED`, `DEFAULT_N_SIM` | B3.6 |
