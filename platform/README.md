@@ -54,7 +54,7 @@ deployment. Response shapes are pinned by [`contracts/schemas/api`](../contracts
 Errors are only `{"error":{"code","message"}}`: `invalid_json`, `invalid_request`, `too_large` (413, body > 5 MB,
 checked from `Content-Length` and while streaming), `too_many_claims` (> 5,000), `duplicate_claim_id`,
 `invalid_geometry`, `not_found`, `method_not_allowed` (405 + `Allow`), `range_not_satisfiable`, `no_live_run`
-(503), `storage_unavailable` (503), `not_implemented`, `internal` (500, never echoes input). Unknown `/api/*`
+(503), `storage_unavailable` (503), `internal` (500, never echoes input). Unknown `/api/*`
 paths are JSON 404s. Error messages never quote the uploaded body, and audits store only the ranking (no
 geometry), so nothing personal is kept.
 
@@ -91,13 +91,13 @@ All are plain `node` (Node 24 runs the TypeScript directly) and print `--help`.
 
 | Command | What it does |
 |---|---|
-| `make publish FIXTURES=1` / `make publish RUN_ID=r01` | `scripts/publish.ts`: core outputs → `validate.py --recompute` → republish guard → bundle + site → (D1 load, R2 upload) → `wrangler pages deploy … --branch main` → smoke → flip live. `ARGS=--dry-run` prints the plan. |
-| `make smoke` (`BASE=…`) | `scripts/smoke.ts`: every endpoint schema-validated, T8 fixture flag, Range 206/416/304, audit, SPA fallback, timings |
+| `make publish FIXTURES=1` / `make publish RUN_ID=r01` | `scripts/publish.ts`: preflight → compute-run + district table → `validate.py --recompute` → republish guard → bundle + site → (D1 load, R2 upload) → `wrangler pages deploy … --branch main` → smoke → flip live. `ARGS=--dry-run` prints the preflight and the plan. |
+| `make smoke` (`BASE=…`) | `scripts/smoke.ts`: every endpoint schema-validated, T8 fixture flag, Range 206/416/304, audit POST (golden ranking while the fixture run is live) + GET round trip, SPA fallback, timings |
 | `npm run build:site -w platform -- --fixtures` | `scripts/build-site.ts` → `platform/.site/` (app/dist or placeholder, `/data/` bundle, `_routes.json`, `_headers`, robots, sitemap) |
 | `npm run build:bundle -w platform -- --run DIR` | `scripts/build-bundle.ts`: every API response validated, then written; deterministic |
 | `npm run load-d1 -w platform -- --fixtures --local` | `scripts/load-d1.ts`: `--local`/`--remote`, `--dry-run`, `--budget 90000`, `--allow-over-budget`, `--live`, `--full` |
 | `npm run og -w platform` | `scripts/og.ts`: `og.png` (1200×630, headless Chrome + the self-hosted fonts) and the raster icons |
-| `npm run gen -w platform` | `scripts/gen-validators.ts`: Ajv standalone validators (workerd forbids `new Function`) |
+| `npm run gen -w platform` | `scripts/gen-validators.ts`: Ajv standalone response validators for the workerd tests (workerd forbids `new Function`) |
 | `npm run dev -w platform` | `wrangler pages dev` on `.site` (build it first) |
 | `npm run typecheck -w platform` / `npm test -w platform` | `wrangler types --check`, generated-code drift, tsc on runtime and scripts; Vitest (workerd + Node + a real `wrangler pages dev` smoke) |
 
@@ -130,7 +130,26 @@ All are plain `node` (Node 24 runs the TypeScript directly) and print `--help`.
 3. **Enable R2** (dashboard → R2 → enable; free tier), `npx wrangler r2 bucket create mudskipper-data`, uncomment
    `r2_buckets`, run `npm run types -w platform`, publish. `/tiles/*` and `live.json` then come from R2.
 
-## Phase 2 (core)
+## core inside the platform
 
-Points marked `TODO(core)` wire `@mudskipper/core` in: the ranking (`src/audit/rank.ts`), shared hashing
-(`src/crypto.ts`), generated contract types (`src/contracts.ts`) and computing core outputs in `publish.ts`.
+The rules exist once, in [`core/`](../core) (SPEC A4), and the platform only calls them:
+
+- `POST /api/audit`: core's `readAuditBody` (strict UTF-8 JSON + sha256 of the exact bytes),
+  `validateAuditRequest` (the request schema, no dependencies) and `rank`; a core `RankError` becomes the API
+  error with its own status and code. The platform adds the streaming 5 MiB cap and storage. POSTing the exact
+  bytes of `contracts/fixtures/api/audit.request.json` returns `audit.response.json` (created_at aside), in
+  workerd, under `wrangler pages dev` and on production (the smoke test checks it).
+- Types: `src/contracts.ts` re-exports the generated `@mudskipper/core/contracts`.
+- `publish --run <id>`: `node core/scripts/compute-run.ts`, then `make district`, then compute-run again to
+  re-list provenance, before validation.
+- Type checking: core is written against `lib: WebWorker` (DECISIONS.md K-202), which workerd's generated runtime
+  types reject in two places, so both tsconfig projects use the web-standard globals plus a structural binding
+  subset (`types/workers.d.ts`); `wrangler types --include-runtime=false` still generates `Env` and CI checks it.
+
+## Publishing the real run
+
+`make publish RUN_ID=r01 ARGS=--dry-run` prints a preflight of the run directory (present, missing with its
+owner, optional, made by publish) and the steps. Today `artifacts/r01` has only the geo files; it is waiting on
+the pipeline's `passes.json`, `observations.jsonl`, `provenance.json` and `overlays/index.json`, and
+`detectability.param_sources.drained_fraction_of_cycle` still needs a citation before `validate.py` accepts a
+real run.
