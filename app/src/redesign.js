@@ -334,7 +334,7 @@ function drawBase() {
   controls.innerHTML = Object.keys(DATA.tiles)
     .map(
       (t) =>
-        `<button class="segbtn" data-tile="${esc(t)}">${esc(NICE[t])}</button>`,
+        `<button class="segbtn" data-tile="${esc(t)}" aria-pressed="false">${esc(NICE[t])}</button>`,
     )
     .join("");
   controls.querySelectorAll("button").forEach(
@@ -371,7 +371,7 @@ async function activateDataset(dataset) {
   view = "country";
   for (const [t, area] of Object.entries(DATA.tiles)) NICE[t] = area.district;
   SAT = DATA.kind === "snapshot" ? snapshotSat : apiSat(DATA);
-  $("mapapp").classList.remove("infields");
+  setFieldsMode(false);
   $("datasetSelect").value = DATA.kind;
   $("activeRun").textContent =
     `Run ${DATA.run_id}${DATA.fixture ? " · Sample" : ""}`;
@@ -562,10 +562,14 @@ async function goTile(t, fromSelection = false) {
   selected = null;
   fieldVersion++;
   view = "fields";
-  $("mapapp").classList.add("infields");
+  setFieldsMode(true);
   document
     .querySelectorAll(".segbtn")
-    .forEach((b) => b.classList.toggle("on", b.dataset.tile === t));
+    .forEach((b) => {
+      const active = b.dataset.tile === t;
+      b.classList.toggle("on", active);
+      b.setAttribute("aria-pressed", String(active));
+    });
   card.innerHTML =
     '<p class="fc-empty">Select a field to inspect its observations</p>';
   $("gF").setAttribute("aria-hidden", "false");
@@ -586,6 +590,13 @@ async function goTile(t, fromSelection = false) {
   if (token !== navVersion) return;
   if (!fromSelection) syncURL(true);
 }
+function setFieldsMode(active) {
+  $("mapapp").classList.toggle("infields", active);
+  document.querySelector(".slider-row").inert = !active;
+  $("backBtn").disabled = !active;
+  document.querySelector(".map-date").setAttribute("aria-hidden", String(!active));
+}
+
 async function goCountry(push = true) {
   stopSeason();
   selectionVersion++;
@@ -593,8 +604,11 @@ async function goCountry(push = true) {
   fieldVersion++;
   view = "country";
   selected = null;
-  $("mapapp").classList.remove("infields");
-  document.querySelectorAll(".segbtn").forEach((b) => b.classList.remove("on"));
+  setFieldsMode(false);
+  document.querySelectorAll(".segbtn").forEach((b) => {
+    b.classList.remove("on");
+    b.setAttribute("aria-pressed", "false");
+  });
   $("gF").setAttribute("aria-hidden", "true");
   $("gF")
     .querySelectorAll("path")
@@ -1234,7 +1248,7 @@ function installControls() {
     updateRadar();
   };
   document
-    .querySelector(".map-wrap")
+    .querySelector(".map-bottom-bar")
     .insertAdjacentHTML(
       "beforeend",
       `<div class="map-controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button><button id="resetView" aria-label="Reset map">Reset</button></div>`,
