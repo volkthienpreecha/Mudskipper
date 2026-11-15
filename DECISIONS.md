@@ -116,3 +116,5 @@ Numbers below come from the real run in `artifacts/r01/` (`make tiles grid field
 | F-005 | Han et al. 2022 rice map (APRA500) is 500 m and covers 2000–2021 (CC-BY-4.0 on Zenodo); as a rice mask for 1–5 ha fields it is coarse. Note this in Methods if it is used. |
 | F-006 | FTW's default model `FTW_PRUE_EFNET_B5` has mixed weight licenses that include non-commercial data; the `*_CCBY` v3.1 variants are CC-BY-4.0. Prefer a CCBY variant (Lane Karthik step 3). |
 | F-007 | **Cloudflare free plan: D1 allows 100,000 rows written per day, and each index adds a write per row.** Loading ~55k rows naively can hit the cap; the publish script must use a guarded upsert (`ON CONFLICT … DO UPDATE … WHERE changed`) and few indexes (Lane Karthik plan). |
+
+- 2026-11-14 frontend integration: add typed core client getOverlaysIndex() for the existing meta.assets.overlays_index artifact, with optional absence and explicit API errors; no HTTP schemas or science rules changed. UI revision uses user-requested glass controls/red selection; sample/maturity/source metadata remains factual.

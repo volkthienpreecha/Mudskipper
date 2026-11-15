@@ -23,7 +23,7 @@ type Modules = Record<string, () => Promise<unknown>>;
 // Vite rewrites these calls at build time. Core's own type check runs without vite/client types, so
 // `import.meta.glob` is unknown there; the app's check (with vite/client) sees the real signature.
 // @ts-ignore -- import.meta.glob is provided by Vite
-const jsonModules: Modules = import.meta.glob(["../../contracts/fixtures/api/*.json", "../../contracts/fixtures/run/*.json"], {
+const jsonModules: Modules = import.meta.glob(["../../contracts/fixtures/api/*.json", "../../contracts/fixtures/run/*.json", "../../contracts/fixtures/run/overlays/index.json"], {
   import: "default",
 });
 // .geojson and .jsonl are not JSON modules for Vite: load them as text.
