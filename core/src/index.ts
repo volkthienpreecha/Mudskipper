@@ -83,4 +83,12 @@ export {
   type RankRequest,
 } from "./rank.ts";
 export { DEFAULT_PARAMS, DEFAULT_PARAM_SOURCES, DEFAULT_SEED, DEFAULT_N_SIM, type ParamKey } from "./params.ts";
+export {
+  computeRun,
+  provenanceArtifacts,
+  withArtifacts,
+  type ComputeRunInput,
+  type ComputeRunOutput,
+  type ArtifactFile,
+} from "./compute.ts";
 export { dumpJson, dumpJsonl, dumpStates, parseJsonl } from "./json.ts";
