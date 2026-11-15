@@ -1,0 +1,474 @@
+/* Integration controls use the imported redesign's existing surfaces and type. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+.dataset-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 12px var(--sans);
+  color: var(--dim);
+  white-space: nowrap;
+}
+.dataset-control select {
+  max-width: 200px;
+  padding: 8px 28px 8px 10px;
+  min-height: 36px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font: 13px var(--sans);
+}
+.dataset-control option {
+  background: var(--bg);
+  color: var(--ink);
+}
+.map-bar {
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+.map-status {
+  font-size: 12px;
+}
+#mapStatus {
+  margin-left: auto;
+}
+#activeRun {
+  color: var(--dim);
+}
+.field-search {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 220px;
+}
+.field-search input {
+  min-width: 0;
+  width: 150px;
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+  font: 13px var(--sans);
+  color: var(--ink);
+  outline: 0;
+}
+.field-search button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  color: var(--dim);
+  background: transparent;
+  cursor: pointer;
+}
+.field-search svg {
+  width: 16px;
+  height: 16px;
+}
+.field-search:focus-within {
+  outline: 2px solid var(--water);
+  outline-offset: 2px;
+}
+#dataStatus {
+  font: 12px/1.5 var(--sans);
+  color: var(--mud);
+  flex-basis: 100%;
+}
+#dataStatus:empty {
+  display: none;
+}
+.slider-box {
+  position: relative;
+  min-width: 0;
+}
+.ticks {
+  position: relative;
+  display: block !important;
+  height: 20px;
+  margin: 14px 10px 0 !important;
+}
+.ticks span {
+  position: absolute;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  font: 11px var(--sans);
+}
+.ticks span:first-child {
+  transform: none;
+}
+.ticks span:last-child {
+  transform: translateX(-100%);
+}
+.radar-switch {
+  flex: none;
+  background: transparent;
+  color: var(--dim);
+  font: 12px var(--sans);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.radar-switch.on {
+  color: var(--water);
+  background: #173b3a;
+}
+.radar-switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+#fieldMap {
+  touch-action: none;
+}
+#fieldMap [role="button"] {
+  cursor: pointer;
+}
+#fieldMap path:focus-visible {
+  stroke: var(--ink) !important;
+  stroke-width: 3px;
+  outline: 0;
+}
+.map-controls {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  right: 12px;
+  bottom: 40px;
+  z-index: 4;
+  padding: 4px;
+  background: #112026;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.map-controls button {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 8px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font: 13px var(--sans);
+}
+.map-controls button:hover {
+  background: var(--bg2);
+}
+.model-details {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font: 13px/1.6 var(--sans);
+}
+.model-details summary {
+  cursor: pointer;
+  color: var(--ink);
+}
+.model-details dl {
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 1fr);
+  gap: 10px 16px;
+  margin: 16px 0;
+}
+.model-details dt {
+  color: var(--dim);
+}
+.model-details dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.model-details p {
+  margin-top: 12px;
+  color: var(--dim);
+}
+.chips {
+  display: grid !important;
+  grid-template-columns: repeat(var(--pass-count, 9), minmax(0, 1fr));
+  gap: 6px !important;
+}
+.chip {
+  width: auto !important;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--dim);
+  cursor: pointer;
+  font: inherit;
+}
+.chip em {
+  font-size: 11px !important;
+  line-height: 1.4;
+  letter-spacing: 0 !important;
+}
+.pcol em {
+  font-size: 11px !important;
+  line-height: 1.4;
+  letter-spacing: 0 !important;
+}
+.passes {
+  grid-template-columns: repeat(
+    var(--pass-count, 9),
+    minmax(0, 1fr)
+  ) !important;
+}
+.pv-foot {
+  gap: 20px;
+}
+.pv-foot > div {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pv-foot b {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.fc-id {
+  overflow-wrap: anywhere;
+}
+.fc-meta {
+  line-height: 1.6;
+}
+.fc-foot {
+  gap: 16px;
+}
+.fc-foot > div {
+  min-width: 0;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--water);
+  outline-offset: 3px;
+}
+.map-legend span {
+  font-size: 13px;
+}
+.map-legend .ic {
+  flex: none;
+}
+.map-attr {
+  font-size: 11px;
+}
+@media (max-width: 900px) {
+  .map-bar {
+    justify-content: flex-start;
+  }
+  .map-status {
+    max-width: 100%;
+  }
+  #mapStatus {
+    margin-left: 0;
+  }
+  .field-search {
+    max-width: 240px;
+  }
+  .hero .preview {
+    max-width: 100%;
+  }
+  .radar-switch {
+    margin-left: auto;
+  }
+}
+@media (max-width: 600px) {
+  .map-bar {
+    padding: 16px;
+    gap: 12px;
+  }
+  .seg {
+    width: 100%;
+  }
+  .dataset-control {
+    font-size: 12px;
+    flex: 1;
+  }
+  .dataset-control select {
+    max-width: 100%;
+    width: 100%;
+  }
+  #activeRun {
+    font-size: 12px;
+  }
+  #mapStatus {
+    flex-basis: 100%;
+  }
+  .field-search {
+    max-width: none;
+    flex: 1;
+  }
+  .field-search input {
+    width: 100%;
+  }
+  .slider-row {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+  }
+  .slider-box {
+    flex-basis: calc(100% - 100px);
+    flex-grow: 1;
+  }
+  .radar-switch {
+    width: 100%;
+    margin: 8px 0 0;
+  }
+  .ticks span:nth-child(even) {
+    display: none;
+  }
+  .fc-foot {
+    flex-wrap: wrap;
+  }
+  .pv-head {
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .pv-head > div {
+    min-width: 0;
+  }
+  .verdict {
+    white-space: normal !important;
+    height: auto !important;
+    padding: 8px 0 !important;
+    background: none !important;
+    border: 0 !important;
+    max-width: 100%;
+    line-height: 1.5;
+  }
+  .hero h1 {
+    font-size: clamp(36px, 10vw, 58px);
+    line-height: 1.08;
+  }
+  .hero .lede {
+    font-size: 16px;
+    line-height: 1.7;
+  }
+  .pv-foot {
+    gap: 16px;
+  }
+  .pv-foot b {
+    font-size: 16px;
+  }
+  .map-controls {
+    bottom: 48px;
+  }
+  .map-attr {
+    max-width: 90%;
+    line-height: 1.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *:before,
+  *:after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .rv {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+.pass-gap {
+  position: absolute;
+  top: 8px;
+  height: 8px;
+  border-inline: 1px solid #b16b5b;
+  background: repeating-linear-gradient(
+    45deg,
+    #aa776244 0 2px,
+    #223037aa 2px 5px
+  );
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+.nav-toggle {
+  display: none;
+}
+@media (max-width: 900px) {
+  nav {
+    gap: 16px;
+  }
+  nav > ul {
+    display: none !important;
+  }
+  .nav-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 12px;
+    background: transparent;
+    color: var(--ink);
+    font: 13px var(--sans);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .nav-toggle svg {
+    width: 18px;
+    height: 18px;
+  }
+  nav.menu-open > ul {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    top: calc(100% - 4px);
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    gap: 0;
+    box-shadow: 0 12px 30px #060d1280;
+  }
+  nav.menu-open > ul > li {
+    display: block !important;
+  }
+  nav.menu-open > ul > li > a {
+    display: block;
+    padding: 12px;
+    min-height: 44px;
+  }
+  nav.menu-open .legal-menu {
+    display: none !important;
+  }
+}
+@media (max-width: 700px) {
+  .credit {
+    display: none;
+  }
+  .dataset-control {
+    flex-basis: 100%;
+    display: grid;
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+  .dataset-control select {
+    max-width: none;
+  }
+  .map-attr {
+    font-size: 11px;
+  }
+}

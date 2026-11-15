@@ -1,0 +1,47 @@
+{
+ "country": {
+  "src": "img/sat_country.jpg",
+  "b": [
+   60,
+   4,
+   100,
+   38
+  ]
+ },
+ "fazilka_district": {
+  "src": "img/sat_fazilka_district.jpg",
+  "b": [
+   73.81300499999999,
+   30.24667,
+   74.153005,
+   30.54667
+  ]
+ },
+ "fazilka_fields": {
+  "src": "img/sat_fazilka_fields.jpg",
+  "b": [
+   73.95848,
+   30.37209,
+   74.00753,
+   30.42125
+  ]
+ },
+ "muktsar_district": {
+  "src": "img/sat_muktsar_district.jpg",
+  "b": [
+   74.37956999999999,
+   30.26932,
+   74.71956999999999,
+   30.569319999999998
+  ]
+ },
+ "muktsar_fields": {
+  "src": "img/sat_muktsar_fields.jpg",
+  "b": [
+   74.52533,
+   30.39512,
+   74.57381,
+   30.44352
+  ]
+ }
+}

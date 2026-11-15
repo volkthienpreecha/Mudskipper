@@ -1,0 +1,33 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data, licences and credits · Mudskipper</title>
+
+<style>
+@font-face{font-family:Asimovian;src:url("/fonts/Asimovian-Regular.ttf") format("truetype");font-display:swap}
+body{margin:0;background:#0E1A1F;color:#EAE6DA;font:16px/1.65 Asimovian,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:0 auto;padding:96px 24px 80px}
+a{color:#3FA7D6} .back{font:13px Asimovian,system-ui,sans-serif;color:#9FB0A8;text-decoration:none}
+h1{font:400 48px/1.05 Asimovian,system-ui,sans-serif;letter-spacing:-.02em;margin:24px 0 8px}
+.upd{font:12px Asimovian,system-ui,sans-serif;color:#6f817a;margin-bottom:40px}
+h2{font:500 18px Asimovian,system-ui,sans-serif;margin:40px 0 8px}
+p,li{color:#c9cfc6} ul{padding-left:20px} li{margin:6px 0}
+.note{padding:16px 20px;border:1px solid #2C3E46;border-radius:12px;background:#16262D;font-size:14px;color:#9FB0A8}
+code{font:13px Asimovian,system-ui,sans-serif}
+</style></head><body><main><a class="back" href="index.html">Back to Mudskipper</a><h1>Data, licences and credits</h1><p class="upd">Last updated 14 November 2026 · hackathon draft</p>
+
+<h2>NASA and partner data</h2>
+<ul><li><b>NISAR L2 GCOV</b> (provisional, CRID P05023), NASA-ISRO, via the Alaska Satellite Facility DAAC. Granule IDs are on the provenance page.</li>
+<li><b>OPERA DSWx-S1</b> surface water, NASA JPL, used as a cross-check.</li>
+<li><b>VIIRS active fires</b> (VNP14IMG, VJ114IMG, VJ214IMG) via NASA FIRMS / Earthdata, used as a validation check.</li></ul>
+<h2>Other data</h2>
+<ul><li><b>Sentinel-1 RTC and Sentinel-2</b>, Copernicus / ESA, via Microsoft Planetary Computer. Contains modified Copernicus Sentinel data 2026.</li>
+<li><b>ESA WorldCover</b> cropland mask, CC-BY-4.0.</li>
+<li><b>North India paddy rice map 2024</b> (30 m), Zenodo doi:10.5281/zenodo.21349862, CC-BY-4.0.</li>
+<li><b>Punjab Agriculture Department</b> DSR acreage figures.</li>
+<li><b>Background photos</b> from Unsplash, under the Unsplash licence.</li><li><b>Map imagery:</b> Sentinel-2 cloudless 2016 (https://s2maps.eu) by EOX IT Services GmbH, CC BY 4.0. Contains modified Copernicus Sentinel data 2016. Shown as background only; it is not 2026 imagery.</li></ul>
+<h2>Design source</h2><p>Site design adapted from <a href="https://github.com/IshaanLingichetty/mudskipper-redesign/tree/78e3045">Ishaan Lingichetty’s Mudskipper redesign</a>, revision 78e3045.</p><h2>Software</h2>
+<p>pyNISAR (GPL-3.0), polsartools (GPL-3.0), asf_search (BSD-3), rasterio, NumPy, scikit-learn, earthaccess, MapLibre GL JS (BSD-3), PMTiles (BSD-3), Hono (MIT), Cloudflare Workers. The full list is in the repository's NOTICE file.</p>
+<h2>Fonts and maps</h2><p>Asimovian, under the SIL Open Font License. Country outlines from Natural Earth (public domain) via world-atlas; boundaries are shown for orientation only and are not authoritative.</p>
+<h2>AI use</h2>
+<p>Claude Code assisted with code and drafting. Published dataset information is shown in the application. No AI-generated images are used.</p>
+<h2>Team</h2><p>Ishaan (radar and ML pipeline), Karthik (backend, data platform, field geometry), Volk (frontend, page and video).</p>
+</main></body></html>
