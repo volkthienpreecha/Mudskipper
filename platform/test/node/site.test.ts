@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { APP_CSP, buildSite } from "../../scripts/build-site.ts";
+import { APP_CSP, buildSite, installApp } from "../../scripts/build-site.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT } from "../../scripts/lib/run.ts";
 import { smoke } from "../../scripts/smoke.ts";
 import { LIMITS_TEXT } from "../../src/limits.ts";
@@ -146,6 +146,13 @@ describe.runIf(existsSync(join(REPO_ROOT, "app", "package.json")))("build-site w
     expect(html).toContain('<link rel="canonical" href="https://mudskipper-nisar.pages.dev/">');
     expect(existsSync(join(appOut, "og.png"))).toBe(true);
     expect(readFileSync(join(REPO_ROOT, "app", "index.html"), "utf8")).not.toContain("og:image");
+  });
+
+  it("publish's production step re-installs the app with the same page assembly (link preview kept, /data untouched)", () => {
+    const before = readFileSync(join(appOut, "data", "live.json"), "utf8");
+    installApp(appOut, "https://mudskipper-nisar.pages.dev");
+    expect(readFileSync(join(appOut, "index.html"), "utf8")).toContain('property="og:image"');
+    expect(readFileSync(join(appOut, "data", "live.json"), "utf8")).toBe(before);
   });
 
   it("gives the app its own CSP (MapLibre worker, basemap tiles, the API) and immutable hashed assets", () => {

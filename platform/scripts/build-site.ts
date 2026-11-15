@@ -285,6 +285,22 @@ export function withLinkPreview(html: string, siteUrl: string): string {
   return html.replace("</head>", tags.map(([, t]) => `    ${t}\n`).join("") + "  </head>");
 }
 
+/**
+ * Put app/dist into the site directory `out` (replacing an earlier copy of the app, never touching /data):
+ * the app's files, plus the link-preview and canonical tags its head lacks and the share image, so a shared
+ * link shows a card (app/ sources are Volk's and untouched). publish.ts calls it again after rebuilding the
+ * app for the production origin, so production gets exactly the page assembly the preview was smoked with.
+ */
+export function installApp(out: string, siteUrl: string): void {
+  if (existsSync(join(APP_DIST, "data"))) throw new Error("app/dist contains /data, which is reserved for the API bundle");
+  if (existsSync(join(APP_DIST, "404.html"))) console.warn("warning: app/dist has a top-level 404.html, which turns off Pages' SPA fallback");
+  rmSync(join(out, "assets"), { recursive: true, force: true });
+  cpSync(APP_DIST, out, { recursive: true });
+  const indexPath = join(out, "index.html");
+  writeFileSync(indexPath, withLinkPreview(readFileSync(indexPath, "utf8"), siteUrl));
+  for (const f of ["og.png", "favicon-48.png", "apple-touch-icon.png"]) if (!existsSync(join(out, f))) cpSync(join(PLACEHOLDER, f), join(out, f));
+}
+
 /** `npm run build -w @mudskipper/app` with the API origin baked in (never edits app/ sources). */
 export function buildApp(apiBase: string): void {
   const res = spawnSync("npm", ["run", "build", "-w", "@mudskipper/app"], {
@@ -322,13 +338,7 @@ export function buildSite(opts: SiteOptions): SiteResult {
 
   if (!opts.placeholder && opts.appApiBase && existsSync(join(REPO_ROOT, "app", "package.json"))) buildApp(opts.appApiBase);
   const useApp = !opts.placeholder && existsSync(join(APP_DIST, "index.html"));
-  if (useApp) {
-    cpSync(APP_DIST, out, { recursive: true });
-    if (existsSync(join(out, "data"))) throw new Error("app/dist contains /data, which is reserved for the API bundle");
-    if (existsSync(join(out, "404.html"))) {
-      console.warn("warning: app/dist has a top-level 404.html, which turns off Pages' SPA fallback");
-    }
-  }
+  if (useApp) installApp(out, siteUrl);
 
   const bundle = buildBundle(opts.runDir, {
     out: join(out, "data"),
@@ -337,13 +347,6 @@ export function buildSite(opts: SiteOptions): SiteResult {
   });
 
   let csp: string | null = null;
-  if (useApp) {
-    // The app's own head has no link-preview or canonical tags; add them to the built page (app/ sources are
-    // Volk's and untouched) together with the share image, so a shared link shows a card.
-    const indexPath = join(out, "index.html");
-    writeFileSync(indexPath, withLinkPreview(readFileSync(indexPath, "utf8"), siteUrl));
-    for (const f of ["og.png", "favicon-48.png", "apple-touch-icon.png"]) if (!existsSync(join(out, f))) cpSync(join(PLACEHOLDER, f), join(out, f));
-  }
   if (!useApp) {
     const page = placeholderHtml(bundle, siteUrl);
     csp = page.csp;

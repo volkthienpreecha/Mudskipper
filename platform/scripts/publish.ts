@@ -43,10 +43,10 @@
  *   --no-carry                do not keep the previous live run's /tiles files (step 8)
  */
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { buildApp, buildSite, countFiles, MAX_FILES } from "./build-site.ts";
+import { buildApp, buildSite, countFiles, installApp, MAX_FILES } from "./build-site.ts";
 import { carryRun, liveRunOf } from "./lib/carry.ts";
 import { loadD1 } from "./load-d1.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT, missingPublished, readRun } from "./lib/run.ts";
@@ -232,10 +232,7 @@ async function main() {
       run: async () => {
         if (built!.app === "app/dist") {
           buildApp(PRODUCTION_URL);
-          for (const f of ["index.html", "assets", "favicon.svg", "fonts"]) {
-            rmSync(join(site, f), { recursive: true, force: true });
-            if (existsSync(join(REPO_ROOT, "app", "dist", f))) cpSync(join(REPO_ROOT, "app", "dist", f), join(site, f), { recursive: true });
-          }
+          installApp(site, PRODUCTION_URL); // the same page assembly the smoked preview got
           console.log("   app rebuilt for the production origin (/data unchanged)");
         }
         const previous = await liveRunOf(PRODUCTION_URL).catch(() => null);
