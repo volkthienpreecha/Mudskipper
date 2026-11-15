@@ -167,7 +167,8 @@ const PRERENDER_STYLE =
 /**
  * The app's index.html, made into `page`: its title, description and canonical URL, the agent links in <head>,
  * JSON-LD on the homepage, and either the prerendered content in the mount node (hidden while JavaScript runs
- * the app, shown without it) or, when the app already has its own content, a links row in its footer.
+ * the app, shown without it) or, when the app already has its own content, a links row in its footer (a div
+ * with role="navigation", because app styles may target every <nav>: the current app's is a fixed top bar).
  */
 export function appPageHtml(ctx: SiteContext, template: string, page: Page, ld: string | null): string {
   let html = template;
@@ -188,11 +189,11 @@ export function appPageHtml(ctx: SiteContext, template: string, page: Page, ld: 
   } else {
     const links = DEV_LINKS.map(([h, l]) => `<a href="${h}">${l}</a>`).join("");
     if (html.includes('<div class="foot-meta"')) {
-      html = html.replace('<div class="foot-meta"', `<nav class="foot-col" aria-label="For developers and AI agents" style="grid-column:1/-1;flex-direction:row;flex-wrap:wrap;gap:0 24px;align-items:center"><b style="margin:0 8px 0 0">Developers and agents</b>${links}</nav>\n  <div class="foot-meta"`);
+      html = html.replace('<div class="foot-meta"', `<div class="foot-col" role="navigation" aria-label="For developers and AI agents" style="grid-column:1/-1;flex-direction:row;flex-wrap:wrap;gap:0 24px;align-items:center"><b style="margin:0 8px 0 0">Developers and agents</b>${links}</div>\n  <div class="foot-meta"`);
     } else if (html.includes("</footer>")) {
-      html = html.replace("</footer>", `<nav aria-label="For developers and AI agents">${links}</nav></footer>`);
+      html = html.replace("</footer>", `<div role="navigation" aria-label="For developers and AI agents">${links}</div></footer>`);
     } else {
-      html = html.replace("</body>", `<nav aria-label="For developers and AI agents">${links}</nav>\n</body>`);
+      html = html.replace("</body>", `<div role="navigation" aria-label="For developers and AI agents">${links}</div>\n</body>`);
     }
   }
   if (!html.includes("</head>")) throw new Error("app index.html has no </head>");

@@ -594,8 +594,12 @@ function developers(ctx: SiteContext): Page {
       { h: 2, text: "Markdown for agents" },
       { p: "Every page on this site answers `Accept: text/markdown` with a Markdown version (Vary: Accept), and unknown paths return a real 404 in either format." },
       { code: `curl -s -H 'Accept: text/markdown' ${u}/developers`, lang: "sh" },
+      { h: 2, text: "Versioning" },
+      {
+        p: "Every response carries the contract version as `v` (currently 1, matching the OpenAPI `info.version` 1.x). Within a version, changes are additive only: new endpoints and new fields, never a removed or renamed one, so clients should ignore fields they do not know. The run behind the data is named by `run_id`; a published real run never changes its bytes.",
+      },
       { h: 2, text: "Help" },
-      { p: "Questions and bug reports: see [Contact](/contact). Contract changes are additive only; the contract version is `v` in every response." },
+      { p: "Questions and bug reports: see [Contact](/contact)." },
     ],
   };
 }

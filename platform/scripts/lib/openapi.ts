@@ -83,7 +83,23 @@ const jsonBody = (name: string, description: string, headers?: Obj): Obj => ({
   ...(headers ? { headers } : {}),
   content: { "application/json": { schema: ref(name) } },
 });
-const err = (description: string): Obj => ({ $ref: `#/components/responses/${description}` });
+/**
+ * Error responses, written inline in every operation (not as $refs to components/responses) so every operation
+ * names the Error schema itself: some tools only follow schema refs.
+ */
+const ERROR_RESPONSES: Record<string, Obj> = {
+  NotModified: { description: "Not modified: the ETag still matches." },
+  BadRequest: jsonBody("Error", "Invalid request: invalid_json, invalid_request, too_many_claims, duplicate_claim_id or invalid_geometry (audits), or a bad query parameter."),
+  NotFound: jsonBody("Error", "not_found: no such field, audit, file or route."),
+  TooLarge: jsonBody("Error", `too_large: the body is over ${MAX_BODY_BYTES} bytes.`),
+  RateLimited: jsonBody("Error", "rate_limited: too many audits from this address.", { "Retry-After": { $ref: "#/components/headers/RetryAfter" } }),
+  PreconditionFailed: jsonBody("Error", "precondition_failed: an If-Match precondition did not hold."),
+  RangeNotSatisfiable: jsonBody("Error", "range_not_satisfiable: the range lies outside the file.", { "Content-Range": { $ref: "#/components/headers/ContentRange" } }),
+  Unavailable: jsonBody("Error", "no_live_run (the live run's data is missing) or storage_unavailable (audit storage is not configured)."),
+  Internal: jsonBody("Error", "internal: an unexpected error; nothing was stored."),
+  MethodNotAllowed: jsonBody("Error", "method_not_allowed: the path exists but not for this method; Allow lists the methods.", { Allow: { schema: { type: "string" } } }),
+};
+const err = (name: string): Obj => ERROR_RESPONSES[name]!;
 
 /** One GET of a live-scoped run document (ETag + 304, CACHE.live). */
 function docGet(operationId: string, summary: string, description: string, schema: string, extra: Obj = {}): Obj {
@@ -240,6 +256,7 @@ export function buildOpenApi(opts: OpenApiOptions): Obj {
         "SAMPLE fixture run, so its numbers are not results). Every failure is `{\"error\":{\"code\",\"message\"}}`.\n\n" +
         "Every number has an evidence tag: OBSERVED (a radar measurement), INFERRED (our model's reading) or ASSUMED " +
         "(a cited parameter); the tag of each field is fixed in contracts/evidence_tags.json.\n\n" +
+        "Versioning: every response carries the contract version `v` (1, this document's 1.x); within a version changes are additive only (new endpoints or fields, never removed or renamed ones), so ignore unknown fields.\n\n" +
         `Limits: ${LIMITS_TEXT}`,
       ...(opts.terms ? { termsOfService: `${opts.siteUrl}/terms` } : {}),
       contact: { name: "Mudskipper team (NASA Space Apps 2026)", url: `${opts.siteUrl}/contact` },
@@ -438,16 +455,6 @@ export function buildOpenApi(opts: OpenApiOptions): Obj {
         ContentRange: { description: "bytes start-end/size of the returned part.", schema: { type: "string" } },
       },
       responses: {
-        NotModified: { description: "Not modified: the ETag still matches." },
-        BadRequest: jsonBody("Error", "Invalid request: invalid_json, invalid_request, too_many_claims, duplicate_claim_id or invalid_geometry (audits), or a bad query parameter."),
-        NotFound: jsonBody("Error", "not_found: no such field, audit, file or route."),
-        TooLarge: jsonBody("Error", `too_large: the body is over ${MAX_BODY_BYTES} bytes.`),
-        RateLimited: jsonBody("Error", "rate_limited: too many audits from this address.", { "Retry-After": { $ref: "#/components/headers/RetryAfter" } }),
-        PreconditionFailed: jsonBody("Error", "precondition_failed: an If-Match precondition did not hold."),
-        RangeNotSatisfiable: jsonBody("Error", "range_not_satisfiable: the range lies outside the file.", { "Content-Range": { $ref: "#/components/headers/ContentRange" } }),
-        Unavailable: jsonBody("Error", "no_live_run (the live run's data is missing) or storage_unavailable (audit storage is not configured)."),
-        Internal: jsonBody("Error", "internal: an unexpected error; nothing was stored."),
-        MethodNotAllowed: jsonBody("Error", "method_not_allowed: the path exists but not for this method; Allow lists the methods.", { Allow: { schema: { type: "string" } } }),
         FileBytes: {
           description: "The whole file.",
           headers: { ETag: { $ref: "#/components/headers/ETag" }, "Accept-Ranges": { schema: { type: "string", const: "bytes" } } },

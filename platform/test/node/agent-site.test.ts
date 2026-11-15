@@ -245,6 +245,7 @@ describe("prerendering into an app's mount node", () => {
     expect(html.match(/<h1/g)).toHaveLength(1);
     expect(html).toContain('aria-label="For developers and AI agents"');
     expect(html.indexOf("For developers and AI agents")).toBeLessThan(html.indexOf('<div class="foot-meta"'));
+    expect(html).not.toContain("<nav"); // the app may style every <nav> (the current one pins it to the top)
   });
 
   it("checks every generated page's outline", () => {
