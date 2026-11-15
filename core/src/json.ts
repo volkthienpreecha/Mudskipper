@@ -30,7 +30,7 @@ export function dumpJsonl(rows: Iterable<unknown>): string {
 }
 
 /** `states.json` with the header compact and one field per line, as contracts/make_fixtures.py lays it out. */
-export function dumpStates(doc: { readonly states: ReadonlyArray<string> } & Record<string, unknown>): string {
+export function dumpStates(doc: { readonly states: ReadonlyArray<string> }): string {
   const { states, ...head } = doc;
   assertFinite(head, "$");
   const h = JSON.stringify(head);
