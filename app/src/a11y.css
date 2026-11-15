@@ -83,6 +83,7 @@ html { scroll-padding-top: calc(var(--nav-h, 72px) + 16px); scroll-padding-botto
   cursor: pointer;
 }
 .motion-toggle svg { width: 16px; height: 16px; flex: none; }
+@media (min-width: 901px) { nav > ul { margin-left: auto; } }
 .motion-toggle:hover { background: #253940; color: var(--ink); }
 .motion-toggle[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 @media (max-width: 900px) {
@@ -128,7 +129,7 @@ html.motion-paused .step, html.motion-paused .card { opacity: 1 !important; tran
 
 /* 1.4.10: reflow at 320 CSS pixels. */
 @media (max-width: 400px) {
-  nav { padding-inline: 16px; }
+  nav { padding-inline: 16px; column-gap: 8px; }
   section { padding-inline: 16px; }
   .hero { padding-inline: 16px; }
   .mapapp { padding: 12px; }
