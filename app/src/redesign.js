@@ -599,17 +599,19 @@ function focusField(i = selected ?? 0, move = true) {
   paths.forEach((path, k) => path.setAttribute("tabindex", k === index ? "0" : "-1"));
   if (move) paths[index].focus({ preventScroll: false });
 }
-function fieldName(f, i) {
+// `when` is the formatted pass date, computed once per repaint rather than once per field.
+function fieldName(f, i, when = fmt(DATA.passes[pass])) {
   const c = f.s[pass];
-  return `Field ${f.id}, ${stateLabel(c).toLowerCase()} on ${fmt(DATA.passes[pass])}${selected === i ? ", selected" : ""}`;
+  return `Field ${f.id}, ${stateLabel(c).toLowerCase()} on ${when}${selected === i ? ", selected" : ""}`;
 }
 
 function drawFields() {
-  const fs = DATA.tiles[tile].fields;
+  const fs = DATA.tiles[tile].fields,
+    when = fmt(DATA.passes[pass]);
   $("gF").innerHTML = fs
     .map(
       (f, i) =>
-        `<path data-i="${i}" tabindex="${i === 0 ? 0 : -1}" role="button" aria-label="${esc(fieldName(f, i))}" fill-rule="evenodd" d="${ringsOf(
+        `<path data-i="${i}" tabindex="${i === 0 ? 0 : -1}" role="button" aria-label="${esc(fieldName(f, i, when))}" fill-rule="evenodd" d="${ringsOf(
           f,
         )
           .map(
@@ -737,7 +739,8 @@ async function goCountry(push = true) {
 }
 
 function paint() {
-  const fs = DATA.tiles[tile].fields;
+  const fs = DATA.tiles[tile].fields,
+    when = fmt(DATA.passes[pass]);
   $("gF")
     .querySelectorAll("path")
     .forEach((p, i) => {
@@ -747,7 +750,7 @@ function paint() {
         (c === "-" ? "n" : c) + (selected === i ? " sel" : ""),
       );
       // The name carries the state too, so colour is never the only cue (WCAG 1.4.1, 4.1.2).
-      p.setAttribute("aria-label", fieldName(fs[i], i));
+      p.setAttribute("aria-label", fieldName(fs[i], i, when));
     });
   slider.value = day(DATA.passes[pass]);
   slider.setAttribute("aria-valuetext", fmt(DATA.passes[pass]));
