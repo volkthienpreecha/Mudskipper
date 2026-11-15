@@ -42,6 +42,45 @@ export {
 } from "./verdicts.ts";
 export { STATE_CODE, states, type StatesPass, type StatesObservation } from "./states.ts";
 export { story, getSummary, type StoryAoi, type StoryField, type StorySummary, type SummaryLookup } from "./story.ts";
+export {
+  GeometryError,
+  ringsOf,
+  planarArea,
+  checkRings,
+  inRing,
+  contains,
+  representativePoint,
+  bboxOf,
+  bboxMayContain,
+  type Pos,
+  type Ring,
+  type BBox,
+  type GeometryInput,
+  type AreaGeometryInput,
+  type PointGeometry,
+  type PolygonGeometry,
+  type MultiPolygonGeometry,
+} from "./geometry.ts";
 export { sha256Hex } from "./sha.ts";
+export {
+  NOTICE,
+  MAX_BODY_BYTES,
+  MAX_CLAIMS,
+  MAX_BUDGET,
+  AWD_WEIGHT,
+  DSR_WEIGHT,
+  UNMATCHED_WEIGHT,
+  NO_SUMMARY_WEIGHT,
+  UNMATCHED_STRATUM,
+  RankError,
+  rank,
+  readAuditBody,
+  validateAuditRequest,
+  seedFor,
+  type RankErrorCode,
+  type RankField,
+  type RankSummary,
+  type RankRequest,
+} from "./rank.ts";
 export { DEFAULT_PARAMS, DEFAULT_PARAM_SOURCES, DEFAULT_SEED, DEFAULT_N_SIM, type ParamKey } from "./params.ts";
 export { dumpJson, dumpJsonl, dumpStates, parseJsonl } from "./json.ts";
