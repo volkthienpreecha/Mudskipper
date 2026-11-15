@@ -89,7 +89,7 @@ Read these numbers with two caveats. A typical Punjab field is about 0.3–0.4 h
 removes 60–70% of the polygons and the kept fields are the larger ones. And FTW's polygons are model predictions,
 not surveyed parcels: the kept fields cover about 12% (Fazilka) and 30% (Muktsar) of each tile's mapped rice.
 Running the FTW model locally on the Fazilka tile found 20,578 polygons and 1,832 kept fields, so the local path
-is the lever if we need more fields. Details and reasoning: [DECISIONS.md](../DECISIONS.md) K-101 to K-112.
+is the lever if we need more fields. Details and reasoning: [DECISIONS.md](../DECISIONS.md) K-101 to K-113.
 
 ## Determinism
 
