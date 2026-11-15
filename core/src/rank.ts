@@ -151,7 +151,8 @@ export async function readAuditBody(body: string | Uint8Array<ArrayBuffer>): Pro
   if (bytes.byteLength > MAX_BODY_BYTES) throw new RankError("too_large", `request body is larger than ${MAX_BODY_BYTES} bytes`);
   let request: unknown;
   try {
-    request = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    // ignoreBOM: a leading U+FEFF stays in the text, so JSON.parse rejects it like Python's json.loads (C0: no BOM).
+    request = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes));
   } catch {
     throw new RankError("invalid_json", "request body is not valid UTF-8 JSON");
   }

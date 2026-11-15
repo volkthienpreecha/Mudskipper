@@ -387,3 +387,19 @@ describe("request handling", () => {
     expect(bad((r) => (r.claims.features[0].geometry.coordinates = [74.1, 30.1, 210]))).toBe("ok");
   });
 });
+
+describe("review regressions (rules.py parity)", () => {
+  const DEGENERATE = { type: "Polygon", coordinates: [[[74.1, 30.32], [74.2, 30.32], [74.3, 30.32], [74.1, 30.32]]] };
+  const claim = (geometry: unknown, props: Record<string, unknown>): ClaimFeature => ({
+    type: "Feature",
+    geometry,
+    properties: { claimed: ["awd"], synthetic: true, ...props },
+  });
+
+  it("a BOM-prefixed body is invalid_json, as in Python's json.loads (C0: no BOM)", async () => {
+    const text = body(FIELDS.slice(0, 1), 1, 1);
+    const bom = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(text)]);
+    await expect(readAuditBody(bom)).rejects.toMatchObject({ code: "invalid_json", status: 400 });
+    await expect(readAuditBody("\ufeff" + text)).rejects.toMatchObject({ code: "invalid_json" });
+  });
+});
