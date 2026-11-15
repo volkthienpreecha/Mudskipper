@@ -24,6 +24,24 @@ export {
   type PassTime,
   type DetectabilityCore,
 } from "./sim.ts";
+export {
+  VALID_FRAC_MIN,
+  P_DRAINED_MAX,
+  P_FLOODED_MIN,
+  uncertainState,
+  confidenceFrom,
+  awdVerdict,
+  awdReason,
+  dsrSignal,
+  clearLooks,
+  fieldSummary,
+  type ClearLook,
+  type DsrResult,
+  type ObservationInput,
+  type PassLookup,
+} from "./verdicts.ts";
+export { STATE_CODE, states, type StatesPass, type StatesObservation } from "./states.ts";
+export { story, getSummary, type StoryAoi, type StoryField, type StorySummary, type SummaryLookup } from "./story.ts";
 export { sha256Hex } from "./sha.ts";
 export { DEFAULT_PARAMS, DEFAULT_PARAM_SOURCES, DEFAULT_SEED, DEFAULT_N_SIM, type ParamKey } from "./params.ts";
 export { dumpJson, dumpJsonl, dumpStates, parseJsonl } from "./json.ts";
