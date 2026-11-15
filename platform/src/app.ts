@@ -7,7 +7,8 @@
  * checked against contracts/fixtures/api in the tests.
  */
 import { Hono, type Context } from "hono";
-import { DOC_NAMES, AUDIT_ID, TILE_ID, VERDICTS, type DocName, type Live } from "./contracts.ts";
+import { parseFieldsQuery, QueryError } from "@mudskipper/core";
+import { DOC_NAMES, AUDIT_ID, type DocName, type Live } from "./contracts.ts";
 import type { AppEnv } from "./env.ts";
 import { auditId, defaultSeed } from "./crypto.ts";
 import { ApiError, badRequest, errorBody, notFound } from "./http/errors.ts";
@@ -15,7 +16,8 @@ import { CACHE, applySecurityHeaders, etagMatches } from "./http/headers.ts";
 import { parseAuditBody, readBodyCapped, toApiError } from "./audit/validate.ts";
 import { RankError, defaultRank, type RankFn } from "./audit/rank.ts";
 import { selectBackend, type Backend } from "./backend.ts";
-import { fieldsPage, header } from "./shapes.ts";
+import type { Body } from "./repo/types.ts";
+import { header, type FieldQuery } from "./shapes.ts";
 import { serveTile } from "./tiles.ts";
 
 export interface AppOptions {
@@ -57,30 +59,32 @@ function errorResponse(e: ApiError): Response {
   return json(errorBody(e.code, e.message), e.status, CACHE.none, e.headers);
 }
 
-/** Live-scoped GET: ETag from the run's content version, 304 on a match. */
-async function liveJson(c: Context<AppEnv>, backend: Backend, live: Live, body: unknown): Promise<Response> {
+/**
+ * Live-scoped GET: ETag from the run's content version, 304 on a match. The body is the exact response text
+ * from the repository (a stream for the static bundle), sent without parsing it.
+ */
+async function liveJson(c: Context<AppEnv>, backend: Backend, live: Live, body: Body): Promise<Response> {
   const version = await backend.repo.version(live);
   const etag = `W/"${live.run_id}-${version.slice(0, 16)}"`;
   if (etagMatches(c.req.header("if-none-match") ?? null, etag)) {
+    if (typeof body !== "string") await body.cancel();
     return new Response(null, { status: 304, headers: { etag, "cache-control": CACHE.live } });
   }
-  return json(body, 200, CACHE.live, { etag });
+  return new Response(body, {
+    status: 200,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": CACHE.live, etag },
+  });
 }
 
-function parseFieldQuery(url: URL): { tile: string | null; verdict: string | null; page: number } {
-  const param = (k: string) => {
-    const v = url.searchParams.get(k);
-    return v === null || v === "" ? null : v;
-  };
-  const tile = param("tile");
-  const verdict = param("verdict");
-  const pageRaw = param("page");
-  if (tile !== null && !TILE_ID.test(tile)) throw badRequest(`tile must match ${TILE_ID.source}.`);
-  if (verdict !== null && !(VERDICTS as readonly string[]).includes(verdict)) {
-    throw badRequest(`verdict must be one of ${VERDICTS.join(", ")}.`);
+/** GET /api/fields query, with the checks the fixtures client shares (core/src/query.ts). */
+function parseFieldQuery(url: URL): FieldQuery {
+  const p = url.searchParams;
+  try {
+    return parseFieldsQuery({ tile: p.get("tile"), verdict: p.get("verdict"), page: p.get("page") });
+  } catch (e) {
+    if (e instanceof QueryError) throw badRequest(e.message);
+    throw e;
   }
-  if (pageRaw !== null && !/^[1-9][0-9]{0,6}$/.test(pageRaw)) throw badRequest("page must be a positive integer.");
-  return { tile, verdict, page: pageRaw === null ? 1 : Number(pageRaw) };
 }
 
 export function createApp(options: AppOptions = {}): Hono<AppEnv> {
@@ -141,8 +145,7 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     const backend = backendOf(c);
     const q = parseFieldQuery(new URL(c.req.url));
     const live = await backend.repo.live();
-    const rows = await backend.repo.fieldRows(live);
-    return liveJson(c, backend, live, fieldsPage(live.run_id, live.fixture, rows, q));
+    return liveJson(c, backend, live, await backend.repo.fieldsPage(live, q));
   });
 
   app.get("/api/fields/:id", async (c) => {
@@ -172,7 +175,7 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     const inputs = await backend.repo.rankInputs(live);
     let result;
     try {
-      result = await rank(request, inputHash, inputs.fields, inputs.summaries, live.run_id, isoSeconds(now()), live.fixture);
+      result = await rank(request, inputHash, inputs.index, inputs.summaries, live.run_id, isoSeconds(now()), live.fixture);
     } catch (e) {
       if (e instanceof RankError) throw toApiError(e);
       throw e;

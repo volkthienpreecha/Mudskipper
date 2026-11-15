@@ -5,13 +5,14 @@
  * `meta` under key "live". Reads are cheap on D1 but not free (5M rows read per day on the free plan), so the
  * whole-run field list is read once per isolate and filtered in memory, exactly like the static backend.
  */
-import type { Doc, DocName, FieldDetail, FieldRow, FieldSummary, Live } from "../contracts.ts";
+import { fieldIndex } from "@mudskipper/core";
+import type { DocName, FieldRow, FieldSummary, Live } from "../contracts.ts";
 import { FIELD_ID } from "../contracts.ts";
 import { ApiError } from "../http/errors.ts";
-import { fieldDetail, fieldRow, orderedObservationRows } from "../shapes.ts";
+import { fieldDetail, fieldRow, fieldsPage, orderedObservationRows, type FieldQuery } from "../shapes.ts";
 import { FIELDS, OBSERVATIONS, SUMMARIES, rowToField, rowToObservation, rowToSummary, type Row } from "../d1/tables.ts";
 import { IsolateCache } from "./cache.ts";
-import type { BundleManifest, RankInputs, Repo } from "./types.ts";
+import type { Body, BundleManifest, RankInputs, Repo } from "./types.ts";
 
 const cache = new IsolateCache(64);
 /** How long an isolate trusts its copy of live.json; a flip is visible within this window. */
@@ -48,32 +49,37 @@ export class D1Repo implements Repo {
     });
   }
 
-  private docBody<T>(runId: string, name: string): Promise<T | null> {
+  /** A `docs` row's body: the exact response text the loader stored (JSON.stringify of the response). */
+  private docText(runId: string, name: string): Promise<string | null> {
     return cache.get(`doc:${runId}:${name}`, DATA_TTL_MS, async () => {
       const row = await this.db
         .prepare("SELECT body FROM docs WHERE run_id = ? AND name = ?")
         .bind(runId, name)
         .first<{ body: string }>();
-      return row ? (JSON.parse(row.body) as T) : null;
+      return row ? row.body : null;
     });
   }
 
   private async manifest(live: Live): Promise<BundleManifest> {
-    const m = await this.docBody<BundleManifest>(live.run_id, "manifest");
-    if (!m) throw new ApiError(503, "no_live_run", `Live run ${live.run_id} is not loaded in D1.`);
-    return m;
+    const text = await this.docText(live.run_id, "manifest");
+    if (!text) throw new ApiError(503, "no_live_run", `Live run ${live.run_id} is not loaded in D1.`);
+    return JSON.parse(text) as BundleManifest;
   }
 
   async version(live: Live): Promise<string> {
     return (await this.manifest(live)).bundle_hash;
   }
 
-  async doc(live: Live, name: DocName): Promise<Doc | null> {
+  async doc(live: Live, name: DocName): Promise<Body | null> {
     await this.manifest(live);
-    return this.docBody<Doc>(live.run_id, name);
+    return this.docText(live.run_id, name);
   }
 
-  fieldRows(live: Live): Promise<FieldRow[]> {
+  async fieldsPage(live: Live, q: FieldQuery): Promise<Body> {
+    return JSON.stringify(fieldsPage(live.run_id, live.fixture, await this.fieldRows(live), q));
+  }
+
+  private fieldRows(live: Live): Promise<FieldRow[]> {
     return cache.get(`rows:${live.run_id}`, DATA_TTL_MS, async () => {
       await this.manifest(live);
       const cols = FIELDS.columns.filter((c) => c !== "geometry").map((c) => `f.${c}`);
@@ -100,7 +106,7 @@ export class D1Repo implements Repo {
     });
   }
 
-  async field(live: Live, fieldId: string): Promise<FieldDetail | null> {
+  async field(live: Live, fieldId: string): Promise<Body | null> {
     if (!FIELD_ID.test(fieldId)) return null;
     await this.manifest(live);
     const id = live.run_id;
@@ -122,7 +128,7 @@ export class D1Repo implements Repo {
     const observations = (obs?.results ?? []).map((r) => rowToObservation(r, id));
     const summaryRow = s?.results[0];
     const summary = summaryRow ? rowToSummary(summaryRow, id, live.fixture) : undefined;
-    return fieldDetail(id, live.fixture, rowToField(fieldRowDb), orderedObservationRows(observations, datetimeOf), summary);
+    return JSON.stringify(fieldDetail(id, live.fixture, rowToField(fieldRowDb), orderedObservationRows(observations, datetimeOf), summary));
   }
 
   rankInputs(live: Live): Promise<RankInputs> {
@@ -134,7 +140,7 @@ export class D1Repo implements Repo {
       ]);
       const summaries = new Map<string, FieldSummary>();
       for (const r of s?.results ?? []) summaries.set(r["field_id"] as string, rowToSummary(r, live.run_id, live.fixture));
-      return { fields: (f?.results ?? []).map(rowToField), summaries };
+      return { index: fieldIndex((f?.results ?? []).map(rowToField)), summaries };
     });
   }
 }
