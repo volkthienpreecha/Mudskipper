@@ -12,9 +12,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   app:
-    name: frontend adapter, typecheck and build
+    name: frontend adapter, typecheck, build and accessibility
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -26,3 +26,9 @@ jobs:
       - run: npm ci
       - run: npm test -w @mudskipper/app
       - run: npm run build -w @mudskipper/app
+      # WCAG 2.2 AA: axe-core in every state plus a keyboard-only walkthrough, in headless Chromium.
+      # The published-run states call the live API, as the deployed app does.
+      - name: Install Playwright Chromium (headless shell)
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Accessibility (axe-core and keyboard walkthrough)
+        run: npm run test:a11y -w @mudskipper/app
