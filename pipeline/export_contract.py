@@ -65,6 +65,37 @@ def warp_overlay(src_png, dst_png, tile, bbox):
     Image.fromarray(out, "RGBA").save(dst_png)
 
 
+def write_checks(dst, head):
+    """checks.json (B3.8): season shape from the exported observations + OPERA pairs from opera_check.py."""
+    rows = [json.loads(l) for l in open(os.path.join(dst, "observations.jsonl"))]
+    pct = {}
+    for stg in ("early", "mid", "late"):
+        clear = [r for r in rows if r["stage"] == stg and r["inferred"]["state"] != "uncertain"]
+        pct[stg] = round(100 * sum(r["inferred"]["state"] == "flooded" for r in clear) / len(clear), 2) if clear else None
+    by_pass = {}
+    for r in rows:
+        if r["inferred"]["state"] != "uncertain":
+            c = by_pass.setdefault(r["pass_id"], [0, 0]); c[0] += r["inferred"]["state"] == "flooded"; c[1] += 1
+    share = {p: f / n for p, (f, n) in by_pass.items()}
+    last = max(share, key=lambda p: p[:8])
+    peak_stage = max((v for k, v in pct.items() if k != "early" and v is not None), default=None)
+    ok = (pct["early"] is not None and peak_stage is not None and pct["early"] < peak_stage
+          and share[last] < max(share.values()))
+    opera = None
+    op = os.path.join(SRC, "opera_pairs.json")
+    if os.path.exists(op):
+        o = json.load(open(op)); inv = {}
+        for p in json.load(open(os.path.join(dst, "passes.json")))["passes"]:
+            inv[p["datetime"][:10]] = p["pass_id"]
+        opera = {k: o[k] for k in ("product", "version", "pairs", "note")}
+        opera["n_dates"] = len({p["date"] for p in o["pairs"]})  # distinct pair dates (validator rule)
+    json.dump({**head, "season_shape": {"pct_flooded_by_stage": pct, "pass": bool(ok),
+                                        "rule": "Flooding should rise from the early stage (before transplanting) to a "
+                                                "mid/late-season peak, and the last pass should be below the season peak "
+                                                "(pre-harvest drain); pass is true when both hold."},
+               "opera": opera}, open(os.path.join(dst, "checks.json"), "w"), indent=1)
+
+
 def hist_by_stage(dst):
     """hist/<stage>.png (B3.10): HH and HH/HV of exported observations, flooded vs drained vs uncertain."""
     import matplotlib
@@ -183,6 +214,7 @@ def main():
                    "coordinates": [[b[0], b[3]], [b[2], b[3]], [b[2], b[1]], [b[0], b[1]]]})
     json.dump({**head, "overlays": ov}, open(os.path.join(DST, "overlays", "index.json"), "w"), indent=1)
     hist_by_stage(DST)
+    write_checks(DST, head)
     # ---- provenance (last: hashes the files above)
     prov = json.load(open(os.path.join(SRC, "provenance.json")))
     used_g = {p["granule_id"] for p in passes if p["used"]}
@@ -195,7 +227,7 @@ def main():
             if os.path.isfile(p) and not p.endswith("provenance.json")]
     dc = prov.get("decomposition_check") or {}
     json.dump({**head, "git_sha": git if len(git) >= 7 else "0000000",
-               "created_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+               "created_at": os.environ.get("RUN_CREATED_AT", "2026-11-14T00:00:00Z"),  # run config, not wall clock (T2)
                "granules": [{"granule_id": g["granule_id"], "crid": g.get("crid", "P05023"), "subset_sha256": gsha(g["subset_sha256"], tiles)}
                             for g in prov["granules"] if g["granule_id"] in used_g],
                "artifacts": arts,

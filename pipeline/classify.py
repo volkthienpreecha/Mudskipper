@@ -32,11 +32,11 @@ RAW = ("hh_db", "hv_db", "hh_hv_db")
 CANOPY_FROM = "2026-08-01"
 NOT_RICE_DB = -3.0
 MIN_PX = 20
+MIN_CANOPY_LOOKS = 4  # a field's own canopy level (q75) needs >= 4 looks; 3 gave labels contradicting fire data (track 135)
 SEED = 0
 # v5 change rule for later open-season passes (standard SAR flood change detection):
-# flooded if HH dropped >= 3 dB below the field's own first-pass value, drained if < 2 dB, else uncertain.
+# flooded if HH dropped >= 3 dB below the field's own first pass on that track, drained if < 2 dB, else uncertain.
 # Self-referenced, so the 3 dB district offset that broke absolute cutoffs cancels out. Not fit to optical.
-BASE_PASS = "p20260702"
 DROP_FLOOD, DROP_MID = 3.0, 2.5
 DROP_K = 1.24  # logistic slope: drop 3.0 -> p 0.65, 2.0 -> p 0.35
 S1_DAYS = 2  # Sentinel-1 scenes within this many days of an open-season NISAR pass are fused
@@ -90,10 +90,16 @@ def featurize(rows, dates):
         if not r["_ok"]:
             r["flags"].append("too_few_valid_px")
     sets = collections.defaultdict(list)
-    base = {(r["field_id"], r["track"]): r["observed"]["hh_db"] for r in rows
-            if r["_ok"] and r["pass_id"] == BASE_PASS}
+    # baseline = each track's first open-season pass (track 84: Jul 2; track 135: Jun 23)
+    first = {}
     for r in rows:
-        if r["_ok"] and r["_reg"] == "open" and r["pass_id"] != BASE_PASS and (r["field_id"], r["track"]) in base:
+        if r["_reg"] == "open":
+            t = r["track"]; first[t] = min(first.get(t, r["pass_id"]), r["pass_id"], key=lambda k: dates[k])
+    base = {(r["field_id"], r["track"]): r["observed"]["hh_db"] for r in rows
+            if r["_ok"] and r["pass_id"] == first[r["track"]]}
+    for r in rows:
+        if (r["_ok"] and r["_reg"] == "open" and r["pass_id"] != first[r["track"]]
+                and (r["field_id"], r["track"]) in base):
             r["_drop"] = [base[(r["field_id"], r["track"])] - r["observed"]["hh_db"]]  # drop in dB
             sets[("change", r["track"])].append(r)
         if r["_ok"] and r["_reg"] == "open":  # open GMM still fit on all July passes; labels only Jul 2
@@ -129,7 +135,7 @@ def featurize(rows, dates):
         for r in fr:
             bytrack[r["track"]].append(r)
         for track, tr in bytrack.items():
-            if len(tr) < 3:
+            if len(tr) < MIN_CANOPY_LOOKS:
                 for r in tr:
                     r["flags"].append("too_few_canopy_looks")
                 continue
@@ -178,6 +184,12 @@ def main():
             if regime in ("open", "change") and (r["field_id"], r["pass_id"]) in s1p:
                 pf = (float(pf) + s1p[(r["field_id"], r["pass_id"])]) / 2  # equal-weight two-radar fusion
                 r["flags"].append("fused_sentinel1")
+            elif regime == "open" and s1p:
+                # a track's first pass with no Sentinel-1 scene nearby: the July mixture alone is not
+                # trustworthy (kappa ~0 vs optical), so report it as uncertain instead of guessing
+                r["flags"].append("no_change_baseline")
+                r["inferred"].update(state="uncertain", p_flooded=None, confidence=None)
+                continue
             pf = round(float(pf), 4)  # apply the B3.4 rule to the value that is written out
             if regime == "change":
                 r["flags"].append("hh_change_vs_jul2")  # method name stays hhhv_v1 per B3.4

@@ -168,3 +168,20 @@ fazilka Jul 2 10% wet. Held-out tests (never trained on the test district/date):
   Timing test has low power (fires ~3 weeks after the last pass, when nearly all fields are drained).
 - artifacts/dsr_official_check.json: official DSR share (2023-24) vs our no-early-water share. Bathinda 8 vs 7.6 (match);
   Fazilka/Muktsar order reversed (likely cotton passing the rice filter). No 2026 district figures published yet.
+
+## Contract v1 + GitHub (2026-11-14)
+- Team repo: github.com/volkthienpreecha/Mudskipper. Contracts on branch docs/decisions-readme (validator: contracts/validate.py).
+- pipeline/export_contract.py r01 r01v1 -> artifacts/r01v1 in contract format (ids fazilka-00123 / 20260702-T084A,
+  5,000-field random sample, north-up overlays, hist/<stage>.png). validate.py --stage pipeline: 0 errors.
+- Pushed branch ishaan/pipeline-v1 (commit ecb4fcf). Data never goes in git: Karthik gets artifacts/r01v1 via the zip / make publish.
+- Open with team: (1) aoi.json tile boxes differ from ours (fixture fazilka 74.042-74.198/30.262-30.398); if geo/ keeps
+  those, refetch on them. (2) D-003 says track 135 D has 6 DH passes over our tiles: add as second series.
+  (3) fields source "grid" used for our segments (enum has no "segments"). (4) Jun 20 radiometric outlier mapped to
+  excluded_reason "processing_failed".
+
+## Session end (2026-11-14, later)
+- Track 135 DH tried as r02 (fetched, data/ cached) -> rejected, see search.py comment + TEAM-NOTE. Code kept: per-track change
+  baseline, MIN_CANOPY_LOOKS=4, `no_change_baseline` (track first pass w/o Sentinel-1 -> uncertain), zonal TILES env.
+- opera_check.py (DSWx-S1) -> artifacts/r01/opera_pairs.json; export_contract.py now writes checks.json (B3.8) and a fixed created_at.
+- r01v1 re-exported; validator 0 errors. drained_fraction_of_cycle: derived 0.3–0.5, paste-ready row in TEAM-NOTE.
+- Karthik has NOT started geo/ (only README). Our segments ship as fields (source "grid") until FTW fields exist.

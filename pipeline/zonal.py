@@ -49,6 +49,12 @@ def field_rasters(tile, x, y):
     return lab, crop
 
 
+def want(tile):
+    """Tiles for this run: TILES=a,b (or legacy ONLY_TILE=a); default all cached tiles."""
+    t = os.environ.get("TILES") or os.environ.get("ONLY_TILE")
+    return t is None or tile in t.split(",")
+
+
 def main():
     if os.path.exists(os.path.join(ART, "fields.geojson")):
         raise SystemExit("fields.geojson found: polygon rasterisation not wired yet (TODO), refusing to silently use segments")
@@ -57,7 +63,7 @@ def main():
     with open(os.path.join(ART, "fields_provisional.jsonl"), "w") as ff:
         for path in sorted(glob.glob("data/segments_*.npz")):
             tile = os.path.basename(path)[9:-4]
-            if os.environ.get("ONLY_TILE", tile) != tile:
+            if not want(tile):
                 continue
             s = np.load(path)
             for i, (a, c) in enumerate(zip(s["area_ha"], s["crop_frac"]), 1):
@@ -66,7 +72,7 @@ def main():
     with open(os.path.join(ART, "zonal.jsonl"), "w") as out:
         for path in sorted(glob.glob("data/p2026*_*.npz")):
             pass_id, tile = os.path.basename(path)[:-4].split("_", 1)
-            if pass_id not in passes or os.environ.get("ONLY_TILE", tile) != tile:
+            if pass_id not in passes or not want(tile):
                 continue
             d = np.load(path)
             lab, crop = field_rasters(tile, d["x"], d["y"])

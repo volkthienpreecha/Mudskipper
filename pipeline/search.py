@@ -19,6 +19,9 @@ SEASON = ("2026-06-17", "2026-10-23")
 GAP = (dt.datetime(2026, 7, 27, 22, 3, 25), dt.datetime(2026, 8, 10, 0, 55, 27))
 CRID = "P05023"
 MAIN = [("084", "A", "017", "DH")]
+# Track 135 D DH (6 passes, team D-003) was tested as run r02 and NOT adopted: its first pass has no change
+# baseline, it has only 3 canopy looks (Aug-Sep are quad-pol), Jul 17 kappa 0.12 vs optical, and its Oct 21
+# labels contradicted VIIRS fires (49% vs 94% drained on track 84 Oct 18). Details: STATE.md.
 QP = [("135", "D", "073", "QP")]
 # filled from the per-pass radiometry check (median cropland HH far outside the series range)
 EXCLUDE = {"p20260620": "radiometric outlier: tile HH median ~+14 dB vs -4..-16 dB for all other passes"}
