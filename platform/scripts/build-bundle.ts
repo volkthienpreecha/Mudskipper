@@ -72,7 +72,7 @@ export function buildBundle(runDir: string, opts: BundleOptions): BundleResult {
   if (missing.length) {
     throw new Error(
       `${runDir} is not a published run (missing ${missing.join(", ")}). ` +
-        "Run core first: `node scripts/publish.ts --run <id>` computes them (Phase 2, TODO(core)).",
+        "Run core first: `node core/scripts/compute-run.ts <run_dir>` (publish.ts --run does this as step 1).",
     );
   }
   const docs = buildApiDocs(run);

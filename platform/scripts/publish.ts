@@ -7,7 +7,10 @@
  *   node scripts/publish.ts --run r01 --dry-run       # print the plan, change nothing
  *
  * Steps, in order (each stops the publish on failure; live flips last):
- *   1. compute core outputs (detectability, field summaries, story, states)   TODO(core): Phase 2
+ *   0. preflight: which run files exist, who owes the missing ones (the whole report on --dry-run)
+ *   1. real runs: core outputs (node core/scripts/compute-run.ts <run>: detectability, field_summary, states,
+ *      story, provenance list), then the district table (make district, geo's uv venv), then compute-run
+ *      again so provenance lists district_check.json too; the fixture run already has them
  *   2. python3 contracts/validate.py <run> --recompute (the repo venv; `make setup` if missing)
  *   3. refuse to re-publish a real run_id whose bytes changed (its /tiles are cached as immutable)
  *   4. build the static API bundle + site into platform/.site
@@ -19,6 +22,7 @@
  *
  * Flags:
  *   --fixtures | --run ID     what to publish (exactly one)
+ *   --run-dir DIR             where run ID lives (default artifacts/ID)
  *   --backend static|d1       default: d1 if wrangler.jsonc binds DB, else static
  *   --dry-run                 print the plan only
  *   --skip-validate           skip step 2 (never for a real run on the day)
@@ -29,12 +33,13 @@
  */
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { buildSite } from "./build-site.ts";
 import { loadD1 } from "./load-d1.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT, missingPublished, readRun } from "./lib/run.ts";
 import { smoke } from "./smoke.ts";
+import { preflight } from "./lib/preflight.ts";
 import { ACCOUNT_ID, PRODUCTION_URL, PROJECT, d1Binding, r2Binding, readWranglerConfig, wrangler } from "./lib/wrangler.ts";
 
 interface Step {
@@ -57,6 +62,7 @@ async function main() {
     options: {
       fixtures: { type: "boolean", default: false },
       run: { type: "string" },
+      "run-dir": { type: "string" },
       backend: { type: "string" },
       "dry-run": { type: "boolean", default: false },
       "skip-validate": { type: "boolean", default: false },
@@ -69,15 +75,14 @@ async function main() {
   });
   if (values.help || values.fixtures === Boolean(values.run)) {
     console.log(
-      "usage: node scripts/publish.ts (--fixtures | --run ID) [--backend static|d1] [--dry-run] [--skip-validate]\n" +
+      "usage: node scripts/publish.ts (--fixtures | --run ID [--run-dir DIR]) [--backend static|d1] [--dry-run] [--skip-validate]\n" +
         "       [--skip-smoke] [--allow-republish] [--allow-over-budget] [--branch main]",
     );
     process.exit(values.help ? 0 : 2);
   }
   process.env["CLOUDFLARE_ACCOUNT_ID"] ??= ACCOUNT_ID;
 
-  const runDir = values.fixtures ? FIXTURE_RUN : join(REPO_ROOT, "artifacts", values.run!);
-  if (!existsSync(runDir)) throw new Error(`${runDir} does not exist`);
+  const runDir = values.fixtures ? FIXTURE_RUN : resolve(values["run-dir"] ?? join(REPO_ROOT, "artifacts", values.run!));
   const validateTarget = values.fixtures ? join(REPO_ROOT, "contracts", "fixtures") : runDir;
   const cfg = readWranglerConfig();
   const backend = values.backend ?? (d1Binding(cfg) ? "d1" : "static");
@@ -92,17 +97,27 @@ async function main() {
 
   const steps: Step[] = [
     {
-      name: "1. core outputs (detectability, field_summary, story, states)",
+      name: "1. core outputs + district table",
       run: () => {
+        if (values.fixtures) {
+          const run = readRun(runDir);
+          runId = run.run_id;
+          fixture = run.fixture;
+          return console.log("   fixture run: core outputs and district table are part of contracts/fixtures");
+        }
+        const compute = () => sh(process.execPath, [join(REPO_ROOT, "core", "scripts", "compute-run.ts"), runDir]);
+        compute();
+        const pre = readRun(runDir);
+        if (pre.fields.features.length > 0) {
+          sh("make", ["district", `RUN_ID=${pre.run_id}`, `RUN_DIR=${runDir}`]);
+          compute(); // re-list provenance artifacts so district_check.json is hashed too (B3.9)
+        }
         const run = readRun(runDir);
         runId = run.run_id;
         fixture = run.fixture;
         const missing = missingPublished(run);
-        // TODO(core): compute them here with @mudskipper/core `computeRun({aoi, fields, passes, observations, runId, …})`
-        // and write detectability.json, field_summary.jsonl, story.json and states.json into the run directory,
-        // then re-write provenance.json's artifact list (CONTRACTS.md B3.9).
-        if (missing.length) throw new Error(`run ${run.run_id} lacks ${missing.join(", ")}; computing them needs core (Phase 2).`);
-        console.log(`   run ${run.run_id}${run.fixture ? " (SAMPLE)" : ""} already has core outputs`);
+        if (missing.length) throw new Error(`compute-run did not produce ${missing.join(", ")}`);
+        console.log(`   run ${run.run_id}: core outputs written, district table ${run.district ? "written" : "skipped"}`);
       },
     },
     {
@@ -201,6 +216,18 @@ async function main() {
   ];
 
   console.log(`publish ${values.fixtures ? "fixtures" : values.run} → ${base} (backend ${backend}${r2 ? " + R2" : ""}, account ${process.env["CLOUDFLARE_ACCOUNT_ID"]})`);
+  console.log(`0. preflight ${relative(REPO_ROOT, runDir) || runDir}  (✓ present, ✗ missing and required, ○ missing and optional, · made by publish)`);
+  const pf = preflight(runDir, values.fixtures);
+  for (const line of pf.lines) console.log(line);
+  for (const note of pf.notes) console.log(`   ! ${note}`);
+  if (pf.blocking.length) {
+    const owners = [...new Set(pf.blocking.map((b) => b.owner))].join(", ");
+    const msg = `blocked: ${pf.blocking.map((b) => b.file).join(", ")} missing (waiting on ${owners}); nothing was changed.`;
+    if (values["dry-run"]) {
+      console.log(`   ${msg}`);
+      console.log("dry run: the steps below would run once the run directory is complete");
+    } else throw new Error(msg);
+  }
   for (const step of steps) {
     console.log(step.name);
     if (values["dry-run"]) continue;

@@ -70,7 +70,7 @@ describe("build-bundle refuses bad input", () => {
     return d;
   }
 
-  it("a pipeline-stage run (no core outputs) is refused with a pointer to Phase 2", () => {
+  it("a pipeline-stage run (no core outputs) is refused with a pointer to compute-run", () => {
     const d = copyRun();
     rmSync(join(d, "field_summary.jsonl"));
     expect(() => buildBundle(d, { out: tmp() })).toThrow(/not a published run.*field_summary\.jsonl/);
