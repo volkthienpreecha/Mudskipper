@@ -7,10 +7,11 @@ export const LIMITS_TEXT =
   "We show irrigation evidence, not emissions.";
 
 /**
- * POST /api/audit limits come from core (one copy of the rules, SPEC A4): body ≤ 5 MiB
- * (5,242,880 bytes → 413 too_large); the claim cap and notice text are core's MAX_CLAIMS and NOTICE.
+ * POST /api/audit limits and notice come from core (one copy of the rules, SPEC A4): body ≤ 5 MiB
+ * (5,242,880 bytes → 413 too_large), ≤ 5,000 claims (400 too_many_claims), and the B6 notice text
+ * (also quoted by the generated OpenAPI spec and developer pages, scripts/lib/openapi.ts and content.ts).
  */
-export { MAX_BODY_BYTES } from "@mudskipper/core";
+export { MAX_BODY_BYTES, MAX_CLAIMS, NOTICE as AUDIT_NOTICE } from "@mudskipper/core";
 
 /** GET /api/fields page size (B6). */
 export const PAGE_SIZE = 500;
