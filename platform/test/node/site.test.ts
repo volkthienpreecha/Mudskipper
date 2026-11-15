@@ -141,6 +141,11 @@ describe.runIf(existsSync(join(REPO_ROOT, "app", "package.json")))("build-site w
     const js = /src="(\/assets\/[^"]+\.js)"/.exec(html)![1]!;
     expect(readFileSync(join(appOut, js), "utf8")).toContain("https://staging.mudskipper-nisar.pages.dev");
     expect(existsSync(join(appOut, "data", "live.json"))).toBe(true);
+    // link preview added to the built page only (app/index.html is untouched)
+    expect(html).toContain('<meta property="og:image" content="https://mudskipper-nisar.pages.dev/og.png">');
+    expect(html).toContain('<link rel="canonical" href="https://mudskipper-nisar.pages.dev/">');
+    expect(existsSync(join(appOut, "og.png"))).toBe(true);
+    expect(readFileSync(join(REPO_ROOT, "app", "index.html"), "utf8")).not.toContain("og:image");
   });
 
   it("gives the app its own CSP (MapLibre worker, basemap tiles, the API) and immutable hashed assets", () => {

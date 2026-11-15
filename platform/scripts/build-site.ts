@@ -263,6 +263,28 @@ function headersFile(b: BundleResult, csp: string | null): string {
   return lines.join("\n");
 }
 
+/** Link-preview, canonical and icon tags for a built page whose head lacks them (only the missing ones). */
+export function withLinkPreview(html: string, siteUrl: string): string {
+  const tags = [
+    ['rel="canonical"', `<link rel="canonical" href="${siteUrl}/">`],
+    ['rel="apple-touch-icon"', '<link rel="apple-touch-icon" href="/apple-touch-icon.png">'],
+    ['property="og:type"', '<meta property="og:type" content="website">'],
+    ['property="og:site_name"', '<meta property="og:site_name" content="Mudskipper">'],
+    ['property="og:title"', '<meta property="og:title" content="Mudskipper: proof, not paperwork">'],
+    ['property="og:description"', `<meta property="og:description" content="Was this rice field really drained? NASA-ISRO NISAR radar, field by field, for Punjab's 2026 rice season.">`],
+    ['property="og:url"', `<meta property="og:url" content="${siteUrl}/">`],
+    ['property="og:image"', `<meta property="og:image" content="${siteUrl}/og.png">`],
+    ['property="og:image:width"', '<meta property="og:image:width" content="1200">'],
+    ['property="og:image:height"', '<meta property="og:image:height" content="630">'],
+    ['property="og:image:alt"', '<meta property="og:image:alt" content="Mudskipper: Was this rice field really drained? The wordmark beside a decorative pattern of water and mud squares (an illustration, not data).">'],
+    ['name="twitter:card"', '<meta name="twitter:card" content="summary_large_image">'],
+    ['name="twitter:image"', `<meta name="twitter:image" content="${siteUrl}/og.png">`],
+  ].filter(([probe]) => !html.includes(probe!));
+  if (!tags.length) return html;
+  if (!html.includes("</head>")) throw new Error("app/dist/index.html has no </head>");
+  return html.replace("</head>", tags.map(([, t]) => `    ${t}\n`).join("") + "  </head>");
+}
+
 /** `npm run build -w @mudskipper/app` with the API origin baked in (never edits app/ sources). */
 export function buildApp(apiBase: string): void {
   const res = spawnSync("npm", ["run", "build", "-w", "@mudskipper/app"], {
@@ -315,6 +337,13 @@ export function buildSite(opts: SiteOptions): SiteResult {
   });
 
   let csp: string | null = null;
+  if (useApp) {
+    // The app's own head has no link-preview or canonical tags; add them to the built page (app/ sources are
+    // Volk's and untouched) together with the share image, so a shared link shows a card.
+    const indexPath = join(out, "index.html");
+    writeFileSync(indexPath, withLinkPreview(readFileSync(indexPath, "utf8"), siteUrl));
+    for (const f of ["og.png", "favicon-48.png", "apple-touch-icon.png"]) if (!existsSync(join(out, f))) cpSync(join(PLACEHOLDER, f), join(out, f));
+  }
   if (!useApp) {
     const page = placeholderHtml(bundle, siteUrl);
     csp = page.csp;
