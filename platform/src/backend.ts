@@ -20,7 +20,7 @@ export interface Backend {
 
 export function selectBackend(env: Bindings, origin: string): Backend {
   const useD1 = env.DB !== undefined && env.BACKEND !== "static";
-  const repo: Repo = useD1 ? new D1Repo(env.DB!, env.DATA) : new StaticRepo(env.ASSETS, origin);
+  const repo: Repo = useD1 ? new D1Repo(env.DB!, env.ASSETS, origin) : new StaticRepo(env.ASSETS, origin);
   const audits = env.DB ? new D1AuditStore(env.DB) : env.AUDITS ? new KvAuditStore(env.AUDITS) : null;
   return { repo, audits, tiles: env.DATA ? "r2" : "static" };
 }

@@ -173,6 +173,40 @@ describe("routing and headers", () => {
     expect(del.status).toBe(405);
   });
 
+  it("/api/health is 503 no_live_run when live.json names a run whose files are missing", async () => {
+    const broken: Fetcher = {
+      fetch: (input: string | Request | URL, init?: RequestInit) =>
+        String(input instanceof Request ? input.url : input).endsWith("/manifest.json")
+          ? Promise.resolve(new Response("<!doctype html>", { headers: { "content-type": "text/html" } }))
+          : env.ASSETS.fetch(input, init),
+    };
+    const res = await call("/api/health", envFor("static", { ASSETS: broken }));
+    expect(res.status).toBe(503);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("no_live_run");
+  });
+
+  it("OPTIONS on an unknown route is a 404; on a known one it lists that route's methods", async () => {
+    const res = await call("/api/nope", "static", { method: "OPTIONS" });
+    expect(res.status).toBe(404);
+    expectValid(V.error, await res.json());
+    const known = await call("/api/meta", "static", { method: "OPTIONS" });
+    expect(known.status).toBe(204);
+    expect(known.headers.get("access-control-allow-methods")).toBe("GET, HEAD, OPTIONS");
+  });
+
+  it("the /api index carries the C0 header (v, run_id, fixture) and the audit limits", async () => {
+    const body = (await (await call("/api", "static")).json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ v: 1, run_id: "fixture", fixture: true });
+    expect(body["limits"]).toMatchObject({ audit_max_claims: expect.any(Number), audit_max_body_bytes: 5 * 1024 * 1024, fields_page_size: 500 });
+  });
+
+  it("page 10000000 says the real limit", async () => {
+    const res = await call("/api/fields?page=10000000", "static");
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toBe("page must be an integer from 1 to 9999999.");
+    expect((await call("/api/fields?page=9999999", "static")).status).toBe(200);
+  });
+
   it("CORS preflight is answered", async () => {
     const res = await call("/api/audit", "static", { method: "OPTIONS" });
     expect(res.status).toBe(204);
@@ -199,8 +233,29 @@ describe("routing and headers", () => {
   });
 
   it("BACKEND=static forces the static bundle even with DB bound", async () => {
-    const res = await call("/api/meta", envFor("d1", { BACKEND: "static", ASSETS: env.ASSETS_EMPTY }));
-    expect(res.status).toBe(503); // proves it read ASSETS, not D1
+    const untouchable = new Proxy({}, { get: () => () => { throw new Error("D1 must not be read"); } }) as unknown as D1Database;
+    const res = await call("/api/meta", envFor("d1", { BACKEND: "static", DB: untouchable }));
+    expect(res.status).toBe(200);
+    expect(await call("/api/fields/fazilka-00114", envFor("d1", { BACKEND: "static", DB: untouchable }))).toHaveProperty("status", 200);
+  });
+
+  it("D1 serves only the version the deployment names: another upload of the run is 503, never a mixed answer", async () => {
+    const other: Fetcher = {
+      async fetch(input: string | Request | URL, init?: RequestInit) {
+        const res = await env.ASSETS.fetch(input, init);
+        if (!String(input instanceof Request ? input.url : input).endsWith("/data/runs/fixture/manifest.json")) return res;
+        return Response.json({ ...((await res.json()) as object), bundle_hash: "e".repeat(64) });
+      },
+    };
+    for (const path of ["/api/meta", "/api/fields", "/api/fields/fazilka-00114"]) {
+      const res = await call(path, envFor("d1", { ASSETS: other }));
+      expect(res.status, path).toBe(503);
+      expect(((await res.json()) as { error: { code: string; message: string } }).error).toMatchObject({ code: "no_live_run" });
+    }
+    // the deployment's own live.json is the pointer: no D1 meta row is needed (it is only a mirror)
+    await env.DB.prepare("DELETE FROM meta WHERE key = 'live'").run();
+    resetCaches(); // a fresh isolate of the real deployment
+    expect((await call("/api/meta", "d1")).status).toBe(200);
   });
 
   it("no response leaks request data: errors never echo the body", async () => {

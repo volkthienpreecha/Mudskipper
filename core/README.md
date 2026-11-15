@@ -87,11 +87,14 @@ build contains no fixture bytes at all.
 `Served<T>` is `T` with `fixture: boolean` required: every API response carries it, and the SAMPLE DATA
 badge reads it (T8). Errors are always `ApiError { status, code, message }`. `code` is the contract's code
 (`not_found`, `invalid_json`, `invalid_request`, `too_large`, `too_many_claims`, `duplicate_claim_id`,
-`invalid_geometry`), or `http_<status>` when the server sent no contract error body, `network_error`
-(status 0) or `invalid_response`.
+`invalid_geometry`, `rate_limited`), or `http_<status>` when the server sent no contract error body,
+`network_error` (status 0, also when the connection drops while the body is read), `timeout` / `aborted`
+(status 0, from `createClient({ source: "api", timeoutMs, signal })`) or `invalid_response`.
 
 **Fixtures mode answers exactly like the API**, from `contracts/fixtures/api/` plus `run/`: fields are
-filtered and paged in memory (invalid `page`, `tile` or `verdict` → 400; past the last page → an empty page),
+filtered and paged in memory with the API's own checks (`src/query.ts`: an empty `tile` or `verdict` is no
+filter, `page` runs 1 to 9,999,999, a bad audit id is 400; same codes and messages; past the last page → an
+empty page),
 the detail of *any* of the 300 fields is built from `run/fields.geojson`, `observations.jsonl` and
 `field_summary.jsonl`, and `postAudit` runs core's `rank` on the same bytes the Worker would hash, so
 `postAudit(<text of audit.request.json>)` returns `audit.response.json` exactly. Results are copies, so
@@ -152,6 +155,7 @@ the B3.9 list; `dumpJson`, `dumpJsonl` and `dumpStates` write deterministic, fin
 | `states.ts` | `states(fieldIds, passes, observations, runId, fixture?)` | B3.13 |
 | `story.ts` | `story(aoi, fieldProps, summaries, usedPasses, runId, fixture?)` | B3.11 |
 | `geometry.ts` | `planarArea`, `representativePoint`, `contains`, `inRing`, `checkRings`, `bboxOf`, `bboxMayContain` | B6 step 1 |
+| `field-index.ts` | `fieldIndex(fields, { boxes?, cellDeg? })`: a uniform grid whose `locate(x, y)` returns exactly the linear scan's field (smallest `field_id` containing the point); `rank` accepts it in place of the field list | B6 step 1 |
 | `rank.ts` | `rank`, `readAuditBody`, `validateAuditRequest`, `seedFor`, `RankError`, weights and limits | B6 |
 | `sha.ts` | `sha256Hex(data)` via WebCrypto | B6 step 8 |
 | `params.ts` | `DEFAULT_PARAMS`, `DEFAULT_PARAM_SOURCES`, `DEFAULT_SEED`, `DEFAULT_N_SIM` | B3.6 |

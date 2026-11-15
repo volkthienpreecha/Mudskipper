@@ -1,91 +1,102 @@
 /**
  * D1Repo: serves the API from the SPEC B4 tables (migrations/0001_init.sql).
  *
- * Live run: R2 `live.json` when DATA is bound (SPEC B5; publish writes it last), else the D1 copy in
- * `meta` under key "live". Reads are cheap on D1 but not free (5M rows read per day on the free plan), so the
- * whole-run field list is read once per isolate and filtered in memory, exactly like the static backend.
+ * One version at a time, never a mix (review item 11, DECISIONS.md K-317):
+ *
+ * - The live run and the version it must be are the deployment's own: `/data/live.json` and that run's
+ *   `/data/runs/<id>/manifest.json` ship inside every Pages deployment (the bundle builder writes them for
+ *   both backends), so a preview deployment can serve a new run while production still serves the old one,
+ *   and "flipping live" is deploying production (scripts/publish.ts). R2 `live.json` and D1 `meta.live` are
+ *   mirrors written after the production smoke test, for other readers.
+ * - Every read checks that D1 holds exactly that version: the `docs` manifest's bundle_hash is read in the same
+ *   query batch as the data, and a mismatch is 503 `no_live_run` (D1 is still loading, or holds another
+ *   upload of the same run_id). So an ETag (from the bundle_hash) never goes out with a body of another version.
+ * - Cached values are keyed by `<run_id>:<bundle_hash>` and kept for the isolate's lifetime: a version's rows
+ *   never change, and a new version has a new key.
+ *
+ * New content is loaded under a new run_id (publish refuses to replace a real run in place without
+ * --allow-republish), so a mismatch is a transient state, not a normal one.
  */
-import type { Doc, DocName, FieldDetail, FieldRow, FieldSummary, Live } from "../contracts.ts";
+import { fieldIndex } from "@mudskipper/core";
+import type { DocName, FieldRow, FieldSummary, Live } from "../contracts.ts";
 import { FIELD_ID } from "../contracts.ts";
 import { ApiError } from "../http/errors.ts";
-import { fieldDetail, fieldRow, orderedObservationRows } from "../shapes.ts";
+import { fieldDetail, fieldRow, fieldsPage, orderedObservationRows, type FieldQuery } from "../shapes.ts";
 import { FIELDS, OBSERVATIONS, SUMMARIES, rowToField, rowToObservation, rowToSummary, type Row } from "../d1/tables.ts";
-import { IsolateCache } from "./cache.ts";
-import type { BundleManifest, RankInputs, Repo } from "./types.ts";
+import { FOREVER, IsolateCache } from "./cache.ts";
+import { StaticRepo } from "./static.ts";
+import type { Body, RankInputs, Repo } from "./types.ts";
 
 const cache = new IsolateCache(64);
-/** How long an isolate trusts its copy of live.json; a flip is visible within this window. */
-export const LIVE_TTL_MS = 15_000;
-/** How long an isolate keeps run data (a re-load of the same run_id shows up within this window). */
-export const DATA_TTL_MS = 60_000;
 
 export function clearD1Cache(): void {
   cache.clear();
 }
 
+const MANIFEST_SQL = "SELECT body FROM docs WHERE run_id = ? AND name = 'manifest'";
+
 export class D1Repo implements Repo {
   readonly kind = "d1" as const;
   private readonly db: D1Database;
-  private readonly data: R2Bucket | undefined;
+  /** The deployment's own bundle: live.json and the live run's manifest (the version D1 must hold). */
+  private readonly deployment: StaticRepo;
 
-  constructor(db: D1Database, data?: R2Bucket) {
+  constructor(db: D1Database, assets: Fetcher, origin: string) {
     this.db = db;
-    this.data = data;
+    this.deployment = new StaticRepo(assets, origin);
   }
 
   live(): Promise<Live> {
-    return cache.get("live", LIVE_TTL_MS, async () => {
-      let live: Live | null = null;
-      if (this.data) {
-        const obj = await this.data.get("live.json");
-        if (obj) live = (await obj.json()) as Live;
-      } else {
-        const row = await this.db.prepare("SELECT value FROM meta WHERE key = 'live'").first<{ value: string }>();
-        if (row) live = JSON.parse(row.value) as Live;
-      }
-      if (!live) throw new ApiError(503, "no_live_run", "No run is published yet (live.json is missing).");
-      return live;
+    return this.deployment.live();
+  }
+
+  version(live: Live): Promise<string> {
+    return this.deployment.version(live);
+  }
+
+  /** Run `statements` in one batch after the manifest check; throws 503 unless D1 holds `version`. */
+  private async read(live: Live, statements: D1PreparedStatement[]): Promise<{ version: string; results: D1Result<Row>[] }> {
+    const version = await this.version(live);
+    const [m, ...results] = await this.db.batch<Row>([this.db.prepare(MANIFEST_SQL).bind(live.run_id), ...statements]);
+    const body = m?.results[0]?.["body"];
+    const held = typeof body === "string" ? (JSON.parse(body) as { bundle_hash?: string }).bundle_hash : undefined;
+    if (held === undefined) throw new ApiError(503, "no_live_run", `Live run ${live.run_id} is not loaded in D1.`);
+    if (held !== version) {
+      throw new ApiError(503, "no_live_run", `D1 holds another version of run ${live.run_id} than this deployment serves; retry shortly.`);
+    }
+    return { version, results };
+  }
+
+  private async cached<T>(live: Live, what: string, load: () => Promise<T>): Promise<T> {
+    const version = await this.version(live);
+    return cache.get(`${what}:${live.run_id}:${version}`, FOREVER, load);
+  }
+
+  doc(live: Live, name: DocName): Promise<Body | null> {
+    return this.cached(live, `doc:${name}`, async () => {
+      const { results } = await this.read(live, [this.db.prepare("SELECT body FROM docs WHERE run_id = ? AND name = ?").bind(live.run_id, name)]);
+      const body = results[0]?.results[0]?.["body"];
+      return typeof body === "string" ? body : null;
     });
   }
 
-  private docBody<T>(runId: string, name: string): Promise<T | null> {
-    return cache.get(`doc:${runId}:${name}`, DATA_TTL_MS, async () => {
-      const row = await this.db
-        .prepare("SELECT body FROM docs WHERE run_id = ? AND name = ?")
-        .bind(runId, name)
-        .first<{ body: string }>();
-      return row ? (JSON.parse(row.body) as T) : null;
-    });
+  async fieldsPage(live: Live, q: FieldQuery): Promise<Body> {
+    return JSON.stringify(fieldsPage(live.run_id, live.fixture, await this.fieldRows(live), q));
   }
 
-  private async manifest(live: Live): Promise<BundleManifest> {
-    const m = await this.docBody<BundleManifest>(live.run_id, "manifest");
-    if (!m) throw new ApiError(503, "no_live_run", `Live run ${live.run_id} is not loaded in D1.`);
-    return m;
-  }
-
-  async version(live: Live): Promise<string> {
-    return (await this.manifest(live)).bundle_hash;
-  }
-
-  async doc(live: Live, name: DocName): Promise<Doc | null> {
-    await this.manifest(live);
-    return this.docBody<Doc>(live.run_id, name);
-  }
-
-  fieldRows(live: Live): Promise<FieldRow[]> {
-    return cache.get(`rows:${live.run_id}`, DATA_TTL_MS, async () => {
-      await this.manifest(live);
+  private fieldRows(live: Live): Promise<FieldRow[]> {
+    return this.cached(live, "rows", async () => {
       const cols = FIELDS.columns.filter((c) => c !== "geometry").map((c) => `f.${c}`);
-      const res = await this.db
-        .prepare(
-          `SELECT ${cols.join(", ")}, s.awd_verdict, s.clear_looks, s.drained_hits, s.p_catch, s.dsr_signal, ` +
-            `s.field_id AS s_field_id FROM fields f LEFT JOIN summaries s ON s.run_id = f.run_id AND s.field_id = f.field_id ` +
-            `WHERE f.run_id = ? ORDER BY f.field_id`,
-        )
-        .bind(live.run_id)
-        .all<Row>();
-      return res.results.map((r) => {
+      const { results } = await this.read(live, [
+        this.db
+          .prepare(
+            `SELECT ${cols.join(", ")}, s.awd_verdict, s.clear_looks, s.drained_hits, s.p_catch, s.dsr_signal, ` +
+              `s.field_id AS s_field_id FROM fields f LEFT JOIN summaries s ON s.run_id = f.run_id AND s.field_id = f.field_id ` +
+              `WHERE f.run_id = ? ORDER BY f.field_id`,
+          )
+          .bind(live.run_id),
+      ]);
+      return (results[0]?.results ?? []).map((r) => {
         const { properties } = rowToField({ ...r, geometry: "null" });
         const has = r["s_field_id"] !== null;
         return {
@@ -100,16 +111,16 @@ export class D1Repo implements Repo {
     });
   }
 
-  async field(live: Live, fieldId: string): Promise<FieldDetail | null> {
+  async field(live: Live, fieldId: string): Promise<Body | null> {
     if (!FIELD_ID.test(fieldId)) return null;
-    await this.manifest(live);
     const id = live.run_id;
-    const [f, obs, s, passes] = await this.db.batch<Row>([
+    const { results } = await this.read(live, [
       this.db.prepare(`SELECT ${FIELDS.columns.join(", ")} FROM fields WHERE run_id = ? AND field_id = ?`).bind(id, fieldId),
       this.db.prepare(`SELECT ${OBSERVATIONS.columns.join(", ")} FROM observations WHERE run_id = ? AND field_id = ?`).bind(id, fieldId),
       this.db.prepare(`SELECT ${SUMMARIES.columns.join(", ")} FROM summaries WHERE run_id = ? AND field_id = ?`).bind(id, fieldId),
       this.db.prepare("SELECT pass_id, datetime FROM passes WHERE run_id = ?").bind(id),
     ]);
+    const [f, obs, s, passes] = results;
     const fieldRowDb = f?.results[0];
     if (!fieldRowDb) return null;
     const datetimes = new Map((passes?.results ?? []).map((p) => [p["pass_id"] as string, p["datetime"] as string]));
@@ -122,19 +133,19 @@ export class D1Repo implements Repo {
     const observations = (obs?.results ?? []).map((r) => rowToObservation(r, id));
     const summaryRow = s?.results[0];
     const summary = summaryRow ? rowToSummary(summaryRow, id, live.fixture) : undefined;
-    return fieldDetail(id, live.fixture, rowToField(fieldRowDb), orderedObservationRows(observations, datetimeOf), summary);
+    return JSON.stringify(fieldDetail(id, live.fixture, rowToField(fieldRowDb), orderedObservationRows(observations, datetimeOf), summary));
   }
 
   rankInputs(live: Live): Promise<RankInputs> {
-    return cache.get(`rank:${live.run_id}`, DATA_TTL_MS, async () => {
-      await this.manifest(live);
-      const [f, s] = await this.db.batch<Row>([
+    return this.cached(live, "rank", async () => {
+      const { results } = await this.read(live, [
         this.db.prepare(`SELECT ${FIELDS.columns.join(", ")} FROM fields WHERE run_id = ? ORDER BY field_id`).bind(live.run_id),
         this.db.prepare(`SELECT ${SUMMARIES.columns.join(", ")} FROM summaries WHERE run_id = ?`).bind(live.run_id),
       ]);
+      const [f, s] = results;
       const summaries = new Map<string, FieldSummary>();
       for (const r of s?.results ?? []) summaries.set(r["field_id"] as string, rowToSummary(r, live.run_id, live.fixture));
-      return { fields: (f?.results ?? []).map(rowToField), summaries };
+      return { index: fieldIndex((f?.results ?? []).map(rowToField)), summaries };
     });
   }
 }

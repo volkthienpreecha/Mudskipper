@@ -117,6 +117,26 @@ describe("fixtures mode", () => {
     }
   });
 
+  it("validates queries and ids exactly like the API (same codes and messages)", async () => {
+    const client = fixtureClient();
+    // an empty tile or verdict is no filter, as `?tile=&verdict=` is for the API
+    const blank = await client.getFields({ tile: "", verdict: "" as never });
+    expect(blank.filters).toEqual({ tile: null, verdict: null });
+    expect(blank.total).toBe(300);
+    expect((await client.getFields({ page: 9_999_999 })).fields).toEqual([]);
+    expect(await apiError(client.getFields({ page: 10_000_000 }))).toMatchObject({
+      status: 400,
+      code: "invalid_request",
+      message: "page must be an integer from 1 to 9999999.",
+    });
+    expect(await apiError(client.getFields({ tile: "Bad!" }))).toMatchObject({ status: 400, message: "tile must match ^[a-z][a-z0-9]{0,15}$." });
+    expect(await apiError(client.getFields({ verdict: "fraud" as never }))).toMatchObject({
+      status: 400,
+      message: "verdict must be one of consistent, inconsistent, not_enough_evidence.",
+    });
+    expect(await apiError(client.getAudit("bad"))).toMatchObject({ status: 400, code: "invalid_request", message: "audit id must match ^a_[0-9a-f]{16}$." });
+  });
+
   it("pages 500 fields at a time, ordered by field_id", async () => {
     const base = nodeFixtureLoader();
     const fields = fixtureJson<FieldCollection>("run/fields.geojson");
@@ -328,6 +348,32 @@ describe("api mode", () => {
     expect(await apiError(down.getStory())).toMatchObject({ status: 0, code: "network_error" });
     const garbage = createClient({ source: "api", fetch: mockFetch(() => new Response("not json", { status: 200 })).fetch });
     expect(await apiError(garbage.getStory())).toMatchObject({ status: 200, code: "invalid_response" });
+  });
+
+  it("a body that fails mid-read is a network_error, not an unhandled rejection", async () => {
+    const broken = new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('{"v":1,'));
+        ctrl.error(new TypeError("connection reset"));
+      },
+    });
+    const c = createClient({ source: "api", fetch: mockFetch(() => new Response(broken, { status: 200 })).fetch });
+    expect(await apiError(c.getStory())).toMatchObject({ status: 0, code: "network_error" });
+  });
+
+  it("timeoutMs and signal abort a request: ApiError timeout / aborted", async () => {
+    const hang: typeof fetch = (_url, init) =>
+      new Promise((_resolve, reject) => {
+        const s = init?.signal;
+        s?.addEventListener("abort", () => reject(s.reason));
+      });
+    const slow = createClient({ source: "api", fetch: hang, timeoutMs: 20 });
+    expect(await apiError(slow.getStory())).toMatchObject({ status: 0, code: "timeout" });
+    const ctrl = new AbortController();
+    const user = createClient({ source: "api", fetch: hang, signal: ctrl.signal });
+    const pending = apiError(user.getMeta());
+    ctrl.abort();
+    expect(await pending).toMatchObject({ status: 0, code: "aborted" });
   });
 
   it("uses the global fetch by default, looked up at call time", async () => {

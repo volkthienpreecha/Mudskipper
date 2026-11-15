@@ -125,6 +125,29 @@ def main():
             expected, error = None, exc.code
         rank_cases.append({"body": body, "summary_ids": sorted(sums), "expected": expected, "error": error})
 
+    # Fixed regression cases (review 2): validation order and the BOM. The reference computes every claim's
+    # point in its first loop, so these are invalid_geometry; a BOM is not JSON (json.loads refuses it).
+    degen = {"type": "Polygon", "coordinates": [[[74.1, 30.32], [74.2, 30.32], [74.3, 30.32], [74.1, 30.32]]]}
+    f0 = fields[0]["properties"]
+    pt0 = {"type": "Point", "coordinates": [f0["lon"], f0["lat"]]}
+    claim = lambda g, **p: {"type": "Feature", "geometry": g, "properties": {"claimed": ["awd"], "synthetic": True, **p}}
+    fixed = [
+        {"claims": {"type": "FeatureCollection", "features": [claim(degen, claim_id="c1", field_id=f0["field_id"])]}, "budget": 5, "seed": 7},
+        {"claims": {"type": "FeatureCollection", "features": [claim(pt0, claim_id="x"), claim(pt0, claim_id="x"),
+                                                              claim(degen, claim_id="z")]}, "budget": 5, "seed": 7},
+    ]
+    bodies = [json.dumps(r) for r in fixed] + ["\ufeff" + json.dumps({"claims": {"type": "FeatureCollection",
+                                                                                "features": [claim(pt0)]}, "budget": 1})]
+    for body in bodies:
+        try:
+            expected, error = rules.rank(body.encode("utf-8"), fields, summaries, "fixture", "2026-11-14T00:00:00Z", True), None
+        except rules.RankError as exc:
+            expected, error = None, exc.code
+        except json.JSONDecodeError:
+            expected, error = None, "invalid_json"
+        rank_cases.append({"body": body, "summary_ids": sorted(summaries), "expected": expected, "error": error})
+    assert [c["error"] for c in rank_cases[-3:]] == ["invalid_geometry", "invalid_geometry", "invalid_json"], rank_cases[-3:]
+
     pathlib.Path(args.out).write_text(json.dumps({"sim": sim_cases, "rank": rank_cases}, allow_nan=False), encoding="utf-8")
     errors = sum(1 for c in rank_cases if c["error"])
     print(f"differential.py: {len(sim_cases)} rule cases, {len(rank_cases)} ranking cases ({errors} rejected) -> {args.out}")

@@ -387,3 +387,45 @@ describe("request handling", () => {
     expect(bad((r) => (r.claims.features[0].geometry.coordinates = [74.1, 30.1, 210]))).toBe("ok");
   });
 });
+
+describe("review regressions (rules.py parity)", () => {
+  const DEGENERATE = { type: "Polygon", coordinates: [[[74.1, 30.32], [74.2, 30.32], [74.3, 30.32], [74.1, 30.32]]] };
+  const claim = (geometry: unknown, props: Record<string, unknown>): ClaimFeature => ({
+    type: "Feature",
+    geometry,
+    properties: { claimed: ["awd"], synthetic: true, ...props },
+  });
+
+  it("a BOM-prefixed body is invalid_json, as in Python's json.loads (C0: no BOM)", async () => {
+    const text = body(FIELDS.slice(0, 1), 1, 1);
+    const bom = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(text)]);
+    await expect(readAuditBody(bom)).rejects.toMatchObject({ code: "invalid_json", status: 400 });
+    await expect(readAuditBody("\ufeff" + text)).rejects.toMatchObject({ code: "invalid_json" });
+  });
+
+  it("a degenerate polygon is invalid_geometry even with a valid field_id hint", async () => {
+    const hinted = [claim(DEGENERATE, { claim_id: "c1", field_id: FIELDS[0]!.properties.field_id })];
+    expect((await rankError(body([], 5, 7, hinted))).code).toBe("invalid_geometry");
+  });
+
+  it("a degenerate polygon after a duplicate claim_id is invalid_geometry, not duplicate_claim_id", async () => {
+    const pt = { type: "Point", coordinates: [FIELDS[0]!.properties.lon, FIELDS[0]!.properties.lat] };
+    const claims = [claim(pt, { claim_id: "x" }), claim(pt, { claim_id: "x" }), claim(DEGENERATE, { claim_id: "z" })];
+    const err = await rankError(body([], 5, 7, claims));
+    expect(err.code).toBe("invalid_geometry");
+    expect(err.message).toContain("claim z");
+  });
+
+  it("an unknown top-level member gets a fixed message that never quotes the upload", () => {
+    const req = { ...JSON.parse(body(FIELDS.slice(0, 1), 1, 1)), "<img src=x onerror=alert(1)>": 1 };
+    let caught: unknown;
+    try {
+      validateAuditRequest(req);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(RankError);
+    expect((caught as RankError).code).toBe("invalid_request");
+    expect((caught as RankError).message).toBe("request has an unknown top-level member (allowed: claims, budget, seed)");
+  });
+});
