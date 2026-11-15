@@ -5,7 +5,11 @@
  * - R2 (DATA bound): `<key>` in bucket mudskipper-data (live.json, runs/<run_id>/…, basemap/…).
  * - Static (today): `<key>` = `runs/<run_id>/<path>` in the deployment under /data/. Only files the run's
  *   manifest lists are served (so the SPA fallback page is never mistaken for a tile), with a strong ETag from
- *   the file's sha256 and exact Range/206/416/304 semantics (src/http/range.ts).
+ *   the file's sha256 and exact Range/206/416/304/412 semantics (src/http/range.ts).
+ *
+ * Pages static assets ignore Range (K-303), so a ranged read needs the whole file. Files up to
+ * TILE_CACHE_FILE_BYTES are read once per isolate and kept (keyed by sha256, LRU within TILE_CACHE_BYTES),
+ * so the many small ranges a PMTiles client sends cost a slice, not a 3 MB copy each (DECISIONS.md K-314).
  */
 import { contentTypeOf, manifestPath, tilePath } from "./bundle-layout.ts";
 import { RUN_ID } from "./contracts.ts";
@@ -19,8 +23,61 @@ import type { BundleManifest } from "./repo/types.ts";
 
 const manifests = new IsolateCache(16);
 
+/** Per-isolate byte budget for whole tile files (isolates have 128 MB). */
+export const TILE_CACHE_BYTES = 24 * 1024 * 1024;
+/** Larger files are never cached; their ranges read the asset each time. */
+export const TILE_CACHE_FILE_BYTES = 8 * 1024 * 1024;
+
+/** LRU of whole files by sha256, within a byte budget. Entries are promises, so concurrent reads share one fetch. */
+export class ByteCache {
+  private readonly entries = new Map<string, { bytes: Promise<ArrayBuffer>; size: number }>();
+  private used = 0;
+  private readonly budget: number;
+
+  constructor(budget: number) {
+    this.budget = budget;
+  }
+
+  get(key: string, size: number, load: () => Promise<ArrayBuffer>): Promise<ArrayBuffer> {
+    const hit = this.entries.get(key);
+    if (hit) {
+      this.entries.delete(key); // re-insert: most recently used last
+      this.entries.set(key, hit);
+      return hit.bytes;
+    }
+    while (this.used + size > this.budget && this.entries.size > 0) {
+      const [oldest, e] = this.entries.entries().next().value!;
+      this.entries.delete(oldest);
+      this.used -= e.size;
+    }
+    const bytes = load();
+    const entry = { bytes, size };
+    this.entries.set(key, entry);
+    this.used += size;
+    bytes.catch(() => {
+      if (this.entries.get(key) === entry) {
+        this.entries.delete(key);
+        this.used -= size;
+      }
+    });
+    return bytes;
+  }
+
+  get bytesUsed(): number {
+    return this.used;
+  }
+
+  clear(): void {
+    this.entries.clear();
+    this.used = 0;
+  }
+}
+
+const tileBytes = new ByteCache(TILE_CACHE_BYTES);
+
 export function clearTilesCache(): void {
   manifests.clear();
+  tileBytes.clear();
 }
 
 /** Cache policy by key: a real run's files never change; the fixture run is regenerated in place. */
@@ -61,9 +118,15 @@ async function serveStatic(req: Request, assets: Fetcher, key: string): Promise<
     const res = await fetchAsset(assets, origin, manifestPath(runId));
     return res ? ((await res.json()) as BundleManifest) : null;
   });
-  const file = manifest?.files[rel];
+  // Object.hasOwn: a key like `__proto__` or `constructor` must not reach Object.prototype (404, not 500).
+  const file = manifest && Object.hasOwn(manifest.files, rel) ? manifest.files[rel] : undefined;
   if (!manifest || !file) throw notFound(`No tile ${key}.`);
   const assetUrl = tilePath(runId, rel);
+  const whole = async (): Promise<ArrayBuffer> => {
+    const res = await fetchAsset(assets, origin, assetUrl);
+    if (!res || !res.ok) throw new ApiError(502, "internal", `Static asset ${assetUrl} is missing from the deployment.`);
+    return res.arrayBuffer();
+  };
 
   return serveRepresentation(req, {
     size: file.size,
@@ -71,24 +134,22 @@ async function serveStatic(req: Request, assets: Fetcher, key: string): Promise<
     contentType: file.type || contentTypeOf(rel),
     cacheControl: tileCacheControl(key),
     async body(range) {
-      const init: RequestInit = range ? { headers: { range: `bytes=${range.start}-${range.end}` } } : {};
-      const res = await fetchAsset(assets, origin, assetUrl, init);
-      if (!res || !res.ok) throw new ApiError(502, "internal", `Static asset ${assetUrl} is missing from the deployment.`);
-      if (!range) return res.body;
-      // Pages may or may not honour Range on asset fetches; slice the full body ourselves when it does not.
-      if (res.status === 206 && res.headers.get("content-range") === `bytes ${range.start}-${range.end}/${file.size}`) {
+      if (!range) {
+        const res = await fetchAsset(assets, origin, assetUrl);
+        if (!res || !res.ok) throw new ApiError(502, "internal", `Static asset ${assetUrl} is missing from the deployment.`);
         return res.body;
       }
-      const buf = await res.arrayBuffer();
+      const buf = file.size <= TILE_CACHE_FILE_BYTES ? await tileBytes.get(file.sha256, file.size, whole) : await whole();
       return buf.slice(range.start, range.end + 1);
     },
   });
 }
 
 /**
- * R2 proxy. Derived from the tested handler in the research notes, with one change: the object's size comes
- * from `head()` first and the range is computed by src/http/range.ts, so R2 and static answer every Range,
- * If-None-Match and If-Range case identically (including 416 with the size, which `get()` alone cannot give).
+ * R2 proxy. The object's size comes from `head()` first and the range is computed by src/http/range.ts, so R2
+ * and static answer every Range and conditional case identically (including 416 with the size, which `get()`
+ * alone cannot give). The body is read with `onlyIf: { etagMatches }`, so an object replaced between the two
+ * calls is a 503 to retry, never bytes of one version under the headers of another.
  */
 async function serveR2(req: Request, bucket: R2Bucket, key: string): Promise<Response> {
   const head = await bucket.head(key);
@@ -96,11 +157,16 @@ async function serveR2(req: Request, bucket: R2Bucket, key: string): Promise<Res
   return serveRepresentation(req, {
     size: head.size,
     etag: head.httpEtag,
+    lastModified: head.uploaded,
     contentType: head.httpMetadata?.contentType ?? contentTypeOf(key),
     cacheControl: tileCacheControl(key),
     async body(range) {
-      const obj = await bucket.get(key, range ? { range: { offset: range.start, length: range.end - range.start + 1 } } : {});
+      const obj = await bucket.get(key, {
+        onlyIf: { etagMatches: head.etag },
+        ...(range ? { range: { offset: range.start, length: range.end - range.start + 1 } } : {}),
+      });
       if (!obj) throw notFound(`No tile ${key}.`);
+      if (!("body" in obj)) throw new ApiError(503, "storage_unavailable", `Tile ${key} changed while it was read; retry.`);
       return obj.body;
     },
   });

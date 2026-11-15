@@ -2,7 +2,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { parseRange } from "../../src/http/range.ts";
-import { tileCacheControl, tileKey } from "../../src/tiles.ts";
+import { ByteCache, tileCacheControl, tileKey } from "../../src/tiles.ts";
 import type { BundleManifest } from "../../src/repo/types.ts";
 import { call, envFor, resetCaches, validators as V } from "./helpers.ts";
 import type { Bindings } from "../../src/env.ts";
@@ -155,5 +155,87 @@ describe.each(BACKENDS)("/tiles on %s", (_name, bindings) => {
     const res = await call(p, bindings());
     expect(res.status).toBe(404);
     expect(V.error(await res.json())).toBe(true);
+  });
+});
+
+describe.each(BACKENDS)("/tiles preconditions and lookups on %s", (name, bindings) => {
+  const path = "/tiles/runs/fixture/fields.geojson";
+
+  it.each(["__proto__", "constructor", "toString", "hasOwnProperty", "valueOf"])("prototype key %s is a 404, not a 500", async (key) => {
+    const res = await call(`/tiles/runs/fixture/${key}`, bindings());
+    expect(res.status).toBe(404);
+    expect(V.error(await res.json())).toBe(true);
+  });
+
+  it("If-Match: the current ETag or * proceeds, any other is 412 precondition_failed", async () => {
+    const etag = (await call(path, bindings())).headers.get("etag")!;
+    expect((await call(path, bindings(), { headers: { "if-match": etag, range: "bytes=0-9" } })).status).toBe(206);
+    expect((await call(path, bindings(), { headers: { "if-match": "*" } })).status).toBe(200);
+    const res = await call(path, bindings(), { headers: { "if-match": '"someone-else"', range: "bytes=0-9" } });
+    expect(res.status).toBe(412);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(V.error(body)).toBe(true);
+    expect(body.error.code).toBe("precondition_failed");
+    expect((await call(path, bindings(), { method: "HEAD", headers: { "if-match": '"x"' } })).status).toBe(412);
+  });
+
+  it("If-Unmodified-Since: 412 only where the store has a modification date (R2), ignored otherwise", async () => {
+    const res = await call(path, bindings(), { headers: { "if-unmodified-since": "Mon, 01 Jan 2001 00:00:00 GMT" } });
+    expect(res.status).toBe(name === "r2" ? 412 : 200);
+    const future = await call(path, bindings(), { headers: { "if-unmodified-since": "Fri, 01 Jan 2100 00:00:00 GMT" } });
+    expect(future.status).toBe(200);
+    if (name === "r2") expect(future.headers.get("last-modified")).toMatch(/GMT$/);
+  });
+});
+
+describe("R2 /tiles reads the body only if the object is still the one head() saw", () => {
+  it("an object replaced between head() and get() is a 503 to retry, never mixed bytes", async () => {
+    let onlyIf: unknown = null;
+    const head = { key: "k", size: 10, etag: "e1", httpEtag: '"e1"', uploaded: new Date(0), httpMetadata: { contentType: "application/geo+json" } };
+    const racing = {
+      head: async () => head,
+      get: async (_key: string, opts: { onlyIf?: unknown }) => ((onlyIf = opts.onlyIf), { ...head, etag: "e2" }), // no body: precondition failed
+      put: async () => null,
+    } as unknown as R2Bucket;
+    const res = await call("/tiles/runs/fixture/fields.geojson", envFor("r2", { DATA: racing }));
+    expect(onlyIf).toEqual({ etagMatches: "e1" });
+    expect(res.status).toBe(503);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("storage_unavailable");
+  });
+});
+
+describe("static /tiles keeps whole files per isolate for ranged reads", () => {
+  it("many ranges of one file read the asset once", async () => {
+    let reads = 0;
+    const counting: Fetcher = {
+      fetch: (input: string | Request | URL, init?: RequestInit) => {
+        if (String(input instanceof Request ? input.url : input).endsWith("/fields.geojson")) reads++;
+        return env.ASSETS.fetch(input, init);
+      },
+    };
+    const b = envFor("static", { ASSETS: counting });
+    const want = await fileBytes("fields.geojson");
+    for (let i = 0; i < 12; i++) {
+      const start = i * 97;
+      const res = await call("/tiles/runs/fixture/fields.geojson", b, { headers: { range: `bytes=${start}-${start + 99}` } });
+      expect(res.status).toBe(206);
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(want.subarray(start, start + 100));
+    }
+    expect(reads).toBe(1);
+  });
+
+  it("ByteCache evicts least recently used files to stay inside its budget", async () => {
+    const cache = new ByteCache(10);
+    const load = (n: number) => async () => new ArrayBuffer(n);
+    await cache.get("a", 4, load(4));
+    await cache.get("b", 4, load(4));
+    await cache.get("a", 4, load(4)); // a is now the most recent
+    let loaded = false;
+    await cache.get("c", 4, async () => ((loaded = true), new ArrayBuffer(4)));
+    expect(loaded).toBe(true);
+    expect(cache.bytesUsed).toBe(8); // b was evicted
+    let again = false;
+    await cache.get("a", 4, async () => ((again = true), new ArrayBuffer(4)));
+    expect(again).toBe(false);
   });
 });

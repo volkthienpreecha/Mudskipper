@@ -36,6 +36,7 @@ interface R2Object {
   size: number;
   etag: string;
   httpEtag: string;
+  uploaded: Date;
   httpMetadata?: R2HTTPMetadata;
 }
 interface R2ObjectBody extends R2Object {
@@ -47,6 +48,11 @@ interface R2ObjectBody extends R2Object {
 interface R2Bucket {
   head(key: string): Promise<R2Object | null>;
   get(key: string, options?: { range?: { offset: number; length?: number } | { suffix: number } }): Promise<R2ObjectBody | null>;
+  /** With a failed `onlyIf` precondition, the object comes back without a body. */
+  get(
+    key: string,
+    options: { range?: { offset: number; length?: number } | { suffix: number }; onlyIf: { etagMatches?: string } },
+  ): Promise<R2ObjectBody | R2Object | null>;
   put(
     key: string,
     value: string | ArrayBuffer | ArrayBufferView | ReadableStream | null,
