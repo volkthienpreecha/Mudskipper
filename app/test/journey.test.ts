@@ -108,6 +108,7 @@ test('reduced motion and phone layouts preserve all chapters and the complete li
     for (const width of [390,320]) {
       await page.setViewportSize({width,height:844});
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      assert.equal(await page.locator('#brandName').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth}),true,'The complete wordmark fits the phone, including native font differences');
       for (const item of await page.locator('.journey-chapter').all()) assert.equal(await item.isVisible(), true);
       assert.notEqual(await page.locator('.journey-pin').evaluate(e => getComputedStyle(e).position), 'sticky');
       assert.equal(await page.locator('#preview [data-load="check"]').isVisible(), true);

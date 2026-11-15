@@ -24,7 +24,7 @@ html #opening .hero-bottom>span { position:absolute; right:0; font-size:.75rem; 
 html .brand-interlude { display:block; position:relative; padding:0; min-height:65svh; background:#0b2456; border:0; }
 .brand-pin { position:relative; height:65svh; min-height:320px; display:grid; place-items:center; overflow:clip; isolation:isolate; }
 .brand-sky { z-index:-1; filter:blur(16px); transform:scale(var(--brand-sky-scale,1.08)); background-image:linear-gradient(180deg,#12347450,#3b6cbb52 50%,#091b45c9),url('/img/rice-sky.png'); }
-html #brandName { position:relative; z-index:1; max-width:none; width:max-content; text-align:center; font:500 clamp(4rem,16vw,21rem)/1 var(--sans)!important; letter-spacing:-.075em!important; color:#eaf3ff; text-shadow:none; margin:0; transform:translateY(var(--brand-y,0)) scale(var(--brand-scale,1)); opacity:var(--brand-opacity,1); }
+html #brandName { position:relative; z-index:1; max-width:none; width:max-content; text-align:center; font:500 min(16vw,21rem)/1 var(--sans)!important; letter-spacing:-.075em!important; color:#eaf3ff; text-shadow:none; margin:0; transform:translateY(var(--brand-y,0)) scale(var(--brand-scale,1)); opacity:var(--brand-opacity,1); }
 .brand-interlude.is-scroll-pinned { height:210svh; }
 .brand-interlude.is-scroll-pinned .brand-pin { position:sticky; top:var(--nav-h,73px); height:calc(100svh - var(--nav-h,73px)); }
 /* One continuous acquisition plot is uncovered by the scroll, without altering data. */
