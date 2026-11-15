@@ -16,7 +16,7 @@ import { ApiError, badRequest, errorBody, notFound } from "./http/errors.ts";
 import { CACHE, applySecurityHeaders, etagMatches } from "./http/headers.ts";
 import { parseAuditBody, readBodyCapped, toApiError } from "./audit/validate.ts";
 import { RankError, defaultRank, type RankFn } from "./audit/rank.ts";
-import { defaultRateLimiter, defaultStoreBudget, type RateLimiter, type StoreBudget } from "./audit/guard.ts";
+import { clientKey, defaultRateLimiter, defaultStoreBudget, type RateLimiter, type StoreBudget } from "./audit/guard.ts";
 import type { KvAuditStore } from "./audit/store.ts";
 import { selectBackend, type Backend } from "./backend.ts";
 import type { Body } from "./repo/types.ts";
@@ -28,7 +28,7 @@ export interface AppOptions {
   rank?: RankFn;
   /** Clock, for tests. */
   now?: () => Date;
-  /** POST /api/audit rate limit per client IP (default: 20 at once, then one every 3 s, per isolate). */
+  /** POST /api/audit rate limit per client IP, IPv6 per /64 (default: 20 at once, then one every 3 s, per isolate). */
   limiter?: RateLimiter;
   /** Daily stored-audit budget shared through KV (default: 800 a day). */
   budget?: StoreBudget;
@@ -192,7 +192,7 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
       throw new ApiError(503, "storage_unavailable", "Audit storage is not configured on this deployment.");
     }
     const audits = backend.audits;
-    const client = c.req.header("cf-connecting-ip") ?? "unknown";
+    const client = clientKey(c.req.header("cf-connecting-ip"));
     const turn = limiter.take(client, now().getTime());
     if (!turn.ok) {
       await c.req.raw.body?.cancel();

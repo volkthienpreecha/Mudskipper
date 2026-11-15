@@ -397,4 +397,17 @@ describe("api mode", () => {
     });
     expect(await apiError(noAssets.getClaimsSample())).toMatchObject({ status: 404, code: "not_found" });
   });
+
+  it("refuses meta.assets URLs outside /tiles/ instead of fetching another origin (K-344)", async () => {
+    const meta = fixtureJson<{ assets: Record<string, string | null> }>("api/meta.json");
+    for (const bad of ["//evil.example/x.json", "https://evil.example/x.json", "/tiles/../api/x", "/tiles/runs/%2e%2e/x", "/tiles/a\\b", "/api/meta", "tiles/x", "/tiles/"]) {
+      const { fetch, calls } = mockFetch((url) =>
+        url.endsWith("/api/meta") ? json({ ...meta, assets: { ...meta.assets, claims_sample: bad, overlays_index: bad } }) : json({}),
+      );
+      const c = createClient({ source: "api", fetch });
+      expect(await apiError(c.getClaimsSample()), bad).toMatchObject({ status: 0, code: "invalid_response" });
+      expect(await apiError(c.getOverlaysIndex()), bad).toMatchObject({ status: 0, code: "invalid_response" });
+      expect(calls.map((x) => x.url)).toEqual(["/api/meta"]); // nothing but meta was requested
+    }
+  });
 });

@@ -20,11 +20,40 @@ export const CACHE = {
   fixtureRun: "public, max-age=300, stale-while-revalidate=86400",
 } as const;
 
-/** Security headers for API and tile responses. JSON is never a document, so it gets the tightest CSP. */
+/**
+ * HTTPS only, for a year, on this host and its preview subdomains (`<branch>.mudskipper-nisar.pages.dev`).
+ * No `preload`: a pages.dev subdomain cannot be submitted to the preload list (docs/SECURITY.md, K-341).
+ */
+export const HSTS = "max-age=31536000; includeSubDomains";
+
+/** Powerful features the site never uses, switched off for every document (static `_headers` too). */
+export const PERMISSIONS_POLICY = [
+  "accelerometer=()",
+  "bluetooth=()",
+  "browsing-topics=()",
+  "camera=()",
+  "display-capture=()",
+  "geolocation=()",
+  "gyroscope=()",
+  "hid=()",
+  "magnetometer=()",
+  "microphone=()",
+  "midi=()",
+  "payment=()",
+  "serial=()",
+  "usb=()",
+].join(", ");
+
+/** The CSP of every API and tile response: JSON is never a document, so it gets the tightest policy. */
+export const API_CSP = "default-src 'none'; frame-ancestors 'none'";
+
+/** Security headers for API and tile responses (docs/SECURITY.md lists every header and why). */
 export function applySecurityHeaders(h: Headers): void {
   h.set("x-content-type-options", "nosniff");
   h.set("referrer-policy", "strict-origin-when-cross-origin");
-  h.set("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
+  h.set("content-security-policy", API_CSP);
+  h.set("strict-transport-security", HSTS);
+  h.set("x-frame-options", "DENY");
   h.set("cross-origin-resource-policy", "cross-origin");
   // Public, read-only data plus an anonymous ranking endpoint: any origin may read it (no credentials).
   h.set("access-control-allow-origin", "*");

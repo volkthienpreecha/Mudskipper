@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { MAX_BODY_BYTES } from "../../src/limits.ts";
 import { auditId, defaultSeed, sha256Hex } from "../../src/crypto.ts";
 import { RankError, type RankFn } from "../../src/audit/rank.ts";
-import { RateLimiter, StoreBudget } from "../../src/audit/guard.ts";
+import { RateLimiter, StoreBudget, clientKey } from "../../src/audit/guard.ts";
 import { AUDIT_TTL_SECONDS, D1AuditStore, KvAuditStore, kvAuditKey } from "../../src/audit/store.ts";
 import { createApp } from "../../src/app.ts";
 import type { BundleManifest } from "../../src/repo/types.ts";
@@ -311,6 +311,27 @@ describe("review item 2: rate limit and daily store budget", () => {
     await expectError(third.clone(), 429, "rate_limited");
     expect(third.headers.get("retry-after")).toBe("30");
     expect((await postTo(app, body(63), "static", "198.51.100.1")).status).toBe(201);
+  });
+
+  it("one IPv6 host cannot dodge the limit by rotating addresses inside its /64 (K-343)", async () => {
+    const app = createApp({ now: () => FIXED_NOW, rank: goldenRank, limiter: new RateLimiter(2, 1 / 30) });
+    expect((await postTo(app, body(64), "static", "2001:db8:1:2::1")).status).toBe(201);
+    expect((await postTo(app, body(65), "static", "2001:db8:1:2:aaaa:bbbb:cccc:dddd")).status).toBe(201);
+    await expectError(await postTo(app, body(66), "static", "2001:0db8:0001:0002:ffff::9"), 429, "rate_limited");
+    expect((await postTo(app, body(66), "static", "2001:db8:1:3::1")).status).toBe(201); // another /64
+  });
+
+  it("clientKey: IPv4 as is, IPv6 by /64, IPv4-mapped as IPv4, garbage in one bucket", () => {
+    expect(clientKey("203.0.113.7")).toBe("203.0.113.7");
+    expect(clientKey("2001:db8:1:2::1")).toBe("2001:db8:1:2::/64");
+    expect(clientKey("2001:0DB8:0001:0002:0:0:0:1")).toBe("2001:db8:1:2::/64");
+    expect(clientKey("[2001:db8::1]")).toBe("2001:db8:0:0::/64");
+    expect(clientKey("fe80::1%eth0")).toBe("fe80:0:0:0::/64");
+    expect(clientKey("::1")).toBe("0:0:0:0::/64");
+    expect(clientKey("::ffff:198.51.100.4")).toBe("198.51.100.4");
+    for (const bad of [null, undefined, "", "unknown", "1:2:3", "1::2::3", "1:2:3:4:5:6:7:8:9", "zz::1", "<script>"]) {
+      expect(clientKey(bad)).toBe("unknown");
+    }
   });
 
   it("over the daily budget it ranks but does not store: 200, x-audit-stored false, no Location, GET 404", async () => {

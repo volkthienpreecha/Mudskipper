@@ -56,6 +56,32 @@ export class RateLimiter {
   }
 }
 
+/**
+ * The rate-limit key for a client address (DECISIONS.md K-343). An IPv4 address is its own key. An IPv6 client
+ * usually holds a whole /64 (and often more), so keying by the full address would let one host rotate through
+ * 2^64 fresh buckets; the key is the /64 prefix instead. Anything unparseable is one shared bucket.
+ */
+export function clientKey(ip: string | null | undefined): string {
+  const raw = (ip ?? "").trim().toLowerCase();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(raw)) return raw;
+  const addr = raw.replace(/^\[|\]$/g, "").replace(/%.*$/, ""); // brackets, zone id
+  if (!addr.includes(":") || !/^[0-9a-f:.]+$/.test(addr)) return "unknown";
+  const halves = addr.split("::");
+  if (halves.length > 2) return "unknown";
+  const groups = (part: string) => (part === "" ? [] : part.split(":"));
+  const head = groups(halves[0]!);
+  const tail = halves.length === 2 ? groups(halves[1]!) : [];
+  // An embedded IPv4 tail (::ffff:1.2.3.4) counts as two groups; it is always past the first 64 bits.
+  const width = (g: string[]) => g.reduce((n, x) => n + (x.includes(".") ? 2 : 1), 0);
+  const missing = 8 - width(head) - width(tail);
+  if (missing < 0 || (halves.length === 1 && missing !== 0)) return "unknown";
+  const full = [...head, ...Array<string>(missing).fill("0"), ...tail];
+  if (full.slice(0, 4).some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return "unknown";
+  // IPv4-mapped (::ffff:a.b.c.d): the IPv4 address is the client.
+  if (full.slice(0, 5).every((g) => /^0+$/.test(g)) && /^ffff$/.test(full[5] ?? "") && (full[6] ?? "").includes(".")) return full[6]!;
+  return full.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
+}
+
 /** POST /api/audit: 20 at once per client, then one every 3 seconds. */
 export const defaultRateLimiter = () => new RateLimiter(20, 1 / 3);
 

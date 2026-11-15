@@ -26,7 +26,7 @@ const TOOLS: { id: Tool; title: string; description: string }[] = [
   { id: 'evidence', title: 'Evidence', description: 'Read the run checks and trace the source artifacts.' },
 ];
 const escape = (value: unknown): string => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
-const number = (value: number): string => value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+const number = (value: number): string => Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 });
 const percent = (value: number): string => `${number(value * 100)}%`;
 const displayNumber = (value: number | null): string => value === null ? '—' : number(value);
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);

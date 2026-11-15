@@ -8,7 +8,7 @@
  *   - `_routes.json`: Functions run only on /api, /api/* and /tiles/*; everything else is static, and with no
  *     top-level 404.html Pages serves index.html for unknown paths (SPA fallback);
  *   - `_headers` for static assets (security headers, CSP for the placeholder, cache policy);
- *   - robots.txt and sitemap.xml.
+ *   - robots.txt, sitemap.xml and /.well-known/security.txt (RFC 9116).
  *
  *   node scripts/build-site.ts --fixtures                     # sample run
  *   node scripts/build-site.ts --run ../artifacts/r01 [--updated-at now] [--out DIR] [--placeholder]
@@ -20,6 +20,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type { JsonObject } from "../src/contracts.ts";
 import { ROUTES } from "../src/app.ts";
+import { HSTS, PERMISSIONS_POLICY } from "../src/http/headers.ts";
 import { LIMITS_TEXT } from "../src/limits.ts";
 import { buildBundle, type BundleResult } from "./build-bundle.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT } from "./lib/run.ts";
@@ -40,6 +41,7 @@ export const APP_CSP = [
   "script-src 'self'",
   "worker-src 'self' blob:",
   "child-src blob:",
+  "frame-src 'none'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://server.arcgisonline.com https://mudskipper-nisar.pages.dev https://*.mudskipper-nisar.pages.dev",
   "font-src 'self'",
@@ -50,6 +52,27 @@ export const APP_CSP = [
   "form-action 'none'",
   "frame-ancestors 'none'",
 ].join("; ");
+/** Where vulnerability reports go (docs/SECURITY.md, "Reporting a vulnerability"). */
+export const SECURITY_CONTACT = "https://github.com/volkthienpreecha/Mudskipper/security/advisories/new";
+export const SECURITY_POLICY = "https://github.com/volkthienpreecha/Mudskipper/blob/main/docs/SECURITY.md";
+
+/**
+ * RFC 9116 security.txt. `Expires` is one year after `now` (the RFC recommends less than a year ahead), so every
+ * deploy renews it; `Canonical` names the production URL.
+ */
+export function securityTxt(siteUrl: string, now = new Date()): string {
+  const expires = new Date(now.getTime() + 365 * 86_400_000);
+  expires.setUTCHours(0, 0, 0, 0);
+  return [
+    `Contact: ${SECURITY_CONTACT}`,
+    `Expires: ${expires.toISOString().replace(/\.\d{3}Z$/, "Z")}`,
+    `Policy: ${SECURITY_POLICY}`,
+    "Preferred-Languages: en",
+    `Canonical: ${siteUrl}/.well-known/security.txt`,
+    "",
+  ].join("\n");
+}
+
 /** Pages limits (Free plan): 20,000 files per deployment, 25 MiB per file. */
 export const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -238,10 +261,16 @@ function headersFile(b: BundleResult, csp: string | null): string {
     "/*",
     "  X-Content-Type-Options: nosniff",
     "  Referrer-Policy: strict-origin-when-cross-origin",
-    "  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    `  Permissions-Policy: ${PERMISSIONS_POLICY}`,
     "  Cross-Origin-Opener-Policy: same-origin",
+    // same-site, not same-origin: the deployment hash URLs and branch previews are subdomains of this host.
+    "  Cross-Origin-Resource-Policy: same-site",
+    `  Strict-Transport-Security: ${HSTS}`,
     `  Content-Security-Policy: ${csp ?? APP_CSP}`,
     "  X-Frame-Options: DENY",
+    "",
+    "/.well-known/security.txt",
+    "  Cache-Control: public, max-age=86400",
     "",
     "/fonts/*",
     "  Cache-Control: public, max-age=31536000, immutable",
@@ -258,6 +287,10 @@ function headersFile(b: BundleResult, csp: string | null): string {
     `/data/runs/${b.run.run_id}/*`,
     `  Cache-Control: ${runCache}`,
     "  Access-Control-Allow-Origin: *",
+    "",
+    // The static API bundle is public data other origins may read (like /api and /tiles): no CORP here.
+    "/data/*",
+    "  ! Cross-Origin-Resource-Policy",
     "",
   ];
   return lines.join("\n");
@@ -361,6 +394,9 @@ export function buildSite(opts: SiteOptions): SiteResult {
   const ours = headersFile(bundle, csp);
   const existing = existsSync(join(out, "_headers")) ? readFileSync(join(out, "_headers"), "utf8").trimEnd() + "\n\n" : "";
   writeFileSync(join(out, "_headers"), existing + ours);
+
+  mkdirSync(join(out, ".well-known"), { recursive: true });
+  writeFileSync(join(out, ".well-known", "security.txt"), securityTxt(siteUrl));
 
   const pages = useApp ? APP_ROUTES : ["/"];
   writeFileSync(
