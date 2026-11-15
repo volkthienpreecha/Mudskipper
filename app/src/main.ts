@@ -35,7 +35,7 @@ let route = location.pathname,
   layer = new URLSearchParams(location.search).get("layer") || "pass",
   pass = 0,
   playing = false;
-let perspective = true,
+let perspective = false,
   radar = false;
 let overlayIndex: Awaited<ReturnType<typeof client.getOverlaysIndex>> = null;
 let overlayStatus = "Loading";
@@ -48,7 +48,7 @@ const esc = (v: unknown) =>
       ]!,
   );
 const tag = (kind: string, source: string) =>
-  `<span class="tag ${kind.toLowerCase()}" title="${esc(source)}">${kind}</span>`;
+  `<span class="tag ${kind.toLowerCase()}" title="${esc(source)}">${kind[0] + kind.slice(1).toLowerCase()}</span>`;
 const date = (s: string) =>
   new Date(s).toLocaleDateString("en-GB", {
     day: "2-digit",
@@ -57,9 +57,12 @@ const date = (s: string) =>
     timeZone: "UTC",
   });
 const icon = (name: string) =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${({ play: '<path d="m8 5 11 7-11 7z"/>', pause: '<path d="M8 5v14M16 5v14"/>', close: '<path d="M6 6l12 12M18 6 6 18"/>', search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/>', reset: '<path d="M4 11a8 8 0 1 1 2 5.3M4 5v6h6"/>', external: '<path d="M7 17 17 7M8 7h9v9"/>' } as Record<string, string>)[name] || ""}</svg>`;
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${({ play: '<path d="m8 5 11 7-11 7z"/>', pause: '<path d="M8 5v14M16 5v14"/>', close: '<path d="M6 6l12 12M18 6 6 18"/>', search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/>', reset: '<path d="M4 11a8 8 0 1 1 2 5.3M4 5v6h6"/>', external: '<path d="M7 17 17 7M8 7h9v9"/>' } as Record<string, string>)[name] || ""}</svg>`;
 const pct = (n: number) => `${Math.round(n * 100)}%`;
-const words = (s: string) => s.replaceAll("_", " ");
+const words = (s: string) => {
+  const value = s.replaceAll("_", " ");
+  return value[0].toUpperCase() + value.slice(1);
+};
 const evidence = (
   text: unknown,
   kind = "INFERRED",
@@ -128,17 +131,25 @@ function shell(content: string) {
     route === "/" || route === "/map" || route.startsWith("/field/");
   return `<div class="shell ${mapView ? "map-view" : "content-view"}"><header class="top"><a href="/" data-nav="/" class="brand">MUDSKIPPER<span>Field intelligence</span></a><nav aria-label="Main navigation"><a data-nav="/" class="${mapView ? "active" : ""}" href="/">Explore</a><a data-nav="/lab" class="${route === "/lab" ? "active" : ""}" href="/lab">Lab</a><a data-nav="/scarecrow" class="${route === "/scarecrow" ? "active" : ""}" href="/scarecrow">Inspection</a><a data-nav="/evidence" class="${route === "/evidence" ? "active" : ""}" href="/evidence">Evidence</a></nav><div class="topright">${data.meta.fixture ? '<span class="sample">Sample run</span>' : ""}<a href="/methods" data-nav="/methods">Methods</a></div></header><main>${content}</main>${new URLSearchParams(location.search).has("tour") ? '<button class="exit-tour" id="exit-tour">Exit tour</button>' : ""}</div>`;
 }
-function heading(kicker: string, title: string, text: string) {
-  return `<div class="page-head"><div><div class="eyebrow">${kicker}</div><h1>${title}</h1><p>${text}</p></div><div class="page-index">${esc(data.meta.run_id)}<br>Field intelligence</div></div>`;
+function heading(_kicker: string, title: string, text: string) {
+  return `<div class="page-head"><div><h1>${esc(title.replace(/\.$/, ""))}</h1><p>${esc(text.replace(/\.$/, ""))}</p></div><div class="page-index">Run / ${esc(data.meta.run_id)}</div></div>`;
 }
 function mapPage() {
   const tileInfo = data.meta.tiles.find((t) => t.id === tile);
-  const tileCount = data.rows.filter((r) => r.tile === tile).length;
-  return `<section class="explorer"><div class="map-frame"><div id="map" aria-label="Interactive map of study fields"></div><div class="map-tint"></div><div class="map-context glass-dark"><span class="eyebrow">Study area / Punjab</span><h1>${esc(tileInfo?.district || tile)}</h1><div class="context-meta"><span>${esc(data.meta.season.start.slice(0, 4))} season</span><span title="Field count from current run">${tileCount} fields</span><span title="Used pass count from current run">${data.states.pass_ids.length} passes</span></div></div><div class="toolbar glass-light"><label class="sr-only" for="district">Study area</label><select id="district">${data.meta.tiles.map((t) => `<option value="${esc(t.id)}" ${tile === t.id ? "selected" : ""}>${esc(t.district)}</option>`).join("")}</select><div class="segmented" aria-label="Map layer"><button data-layer="pass" class="${layer === "pass" ? "on" : ""}">Pass state</button><button data-layer="season" class="${layer === "season" ? "on" : ""}">Season</button></div><button id="radar-toggle" class="radar-toggle" title="Radar image for this pass">Radar</button></div><div class="camera-controls glass-dark"><button id="camera-toggle">${perspective ? "Flat" : "Perspective"}</button><button id="camera-reset" aria-label="Reset map view" title="Reset map view">${icon("reset")}</button><button id="legend-toggle" class="legend-toggle" aria-expanded="false" aria-controls="map-key">Key</button></div><div class="map-key glass-dark" id="map-key"></div><aside class="inspector glass-light" id="inspector"></aside><div class="timeline glass-dark"><div class="timeline-left"><span class="eyebrow">Season playback</span><strong id="pass-date"></strong><span id="pass-id"></span></div><button id="play" class="play" aria-label="Play season">${icon("play")}</button><div class="track-wrap"><div class="track" id="track"></div><div class="track-labels"><span>${esc(date(data.meta.season.start))}</span><span>Pass dates</span><span>${esc(date(data.meta.season.end))}</span></div></div><button id="start-tour" class="tour-button">Start tour</button></div><div class="map-source"><span id="coords"></span><span>Context imagery: Esri and contributors</span></div></div></section>`;
+  return `<section class="explorer"><div class="explorer-head"><div><span class="eyebrow">Punjab, India</span><h1>Field intelligence</h1></div><div class="run-summary"><span>Kharif ${esc(data.meta.season.start.slice(0, 4))}</span><span>${data.rows.length} fields</span><span>${data.states.pass_ids.length} passes</span><button id="start-tour" class="button light">Start tour</button></div></div><div class="map-layout"><div class="map-area"><div class="toolbar"><label class="sr-only" for="district">Study area</label><select id="district">${data.meta.tiles.map((t) => `<option value="${esc(t.id)}" ${tile === t.id ? "selected" : ""}>${esc(t.district)}</option>`).join("")}</select><div class="segmented" aria-label="Map layer"><button data-layer="pass" aria-pressed="${layer === "pass"}" class="${layer === "pass" ? "on" : ""}">Model state</button><button data-layer="season" aria-pressed="${layer === "season"}" class="${layer === "season" ? "on" : ""}">Season</button></div><button id="radar-toggle" class="radar-toggle" aria-pressed="false" title="Radar image for this pass">Radar</button><div class="camera-controls"><button id="camera-toggle" aria-label="${perspective ? "Enable flat view" : "Enable perspective view"}" aria-pressed="${perspective}" title="${perspective ? "Flat view" : "Perspective view"}">${perspective ? "2D" : "3D"}</button><button id="camera-reset" aria-label="Reset map view" title="Reset map view">${icon("reset")}</button></div></div><div class="map-frame"><div id="map" aria-label="Interactive map of study fields"></div><div class="map-context"><span>Study area</span><strong>${esc(tileInfo?.district || tile)}</strong></div><div class="map-source"><span id="coords"></span></div></div><div class="map-key" id="map-key"></div><div class="timeline"><button id="play" class="play" aria-label="Play season">${icon("play")}</button><div class="timeline-left"><span class="eyebrow">Selected pass</span><strong id="pass-date"></strong><span id="pass-id"></span></div><div class="track-wrap"><div class="track" id="track"></div><div class="track-labels"><span>${esc(date(data.meta.season.start))}</span><span>Acquisition dates</span><span>${esc(date(data.meta.season.end))}</span></div></div></div></div><aside class="inspector" id="inspector"></aside></div></section>`;
 }
 function fieldHTML() {
   if (!selected)
-    return `<div class="inspector-head"><span class="eyebrow">Field inspector</span></div><h3>Select a field</h3><p>Choose a boundary or search by field ID</p><form id="search"><label class="sr-only" for="search-id">Field ID</label><div class="search"><input id="search-id" placeholder="Search field ID" required><button aria-label="Find field">${icon("search")}</button></div></form>`;
+    return `<div class="inspector-head"><span class="eyebrow">Field inspector</span></div><h3>Select a field</h3><p>Select a boundary on the map or enter an ID</p><form id="search"><label class="sr-only" for="search-id">Field ID</label><div class="search"><input id="search-id" placeholder="Search field ID" required><button aria-label="Find field">${icon("search")}</button></div></form><div class="browse-fields"><div class="browse-head"><span>Fields in this area</span><span>${data.rows.filter((r) => r.tile === tile).length}</span></div>${data.rows
+      .filter((r) => r.tile === tile)
+      .slice(0, 8)
+      .map(
+        (r) =>
+          `<button class="field-row" data-field-id="${esc(r.field_id)}"><span>${esc(r.field_id)}</span><span>${Number(r.area_ha).toFixed(2)} ha</span></button>`,
+      )
+      .join(
+        "",
+      )}<p class="browse-note">Showing 8 fields · search by ID for more</p></div>`;
   if (fieldError)
     return `<div class="inspector-head"><span class="eyebrow">Field inspector</span><button id="close-field" aria-label="Close field">${icon("close")}</button></div><h3>Field unavailable</h3><p role="alert">${esc(fieldError)}</p><button class="button primary" id="retry-field">Retry field</button>`;
   if (!field)
@@ -149,7 +160,7 @@ function fieldHTML() {
     );
   const measurement = (v: unknown) =>
     v === null || v === undefined ? "Unavailable" : `${esc(v)} dB`;
-  return `<div class="inspector-head"><span class="eyebrow">Selected field</span><button id="close-field" aria-label="Close field">${icon("close")}</button></div><div class="field-title"><div><h3>${esc(selected)}</h3><p>${esc(field.field.properties.district)} / ${esc(field.field.properties.area_ha)} ha</p></div><span class="selected-marker" aria-label="Selected field"></span></div><div class="field-state"><div><span>Pass state <small>Inferred</small></span><strong>${esc(o?.inferred.state || "No observation")}</strong></div><span class="state-date">${o ? esc(date(o.datetime)) : "No observation"}</span></div><div class="telemetry"><div><span>Model probability</span><b>${o?.inferred.p_flooded == null ? "Unavailable" : pct(o.inferred.p_flooded)}</b><small>Flooded</small></div><div><span>Clear looks</span><b>${s?.awd.clear_looks ?? "Unavailable"}</b><small>Season</small></div></div><div class="detail-row"><span>Season assessment</span><b>${esc(s ? words(s.awd.verdict) : "Unavailable")}</b><p>${esc(s?.awd.reason || "")}</p></div><div class="detail-row"><span>DSR signal</span><b>${esc(s ? words(s.dsr.signal) : "Unavailable")}</b><p>${esc(s?.dsr.reason || "")}</p></div><div class="detail-row"><span>Pass history</span><div class="chips">${field.observations.map((x: any) => `<button class="chip ${esc(x.inferred.state)} ${x.pass_id === data.states.pass_ids[pass] ? "current" : ""}" data-pass-id="${esc(x.pass_id)}" aria-label="${esc(date(x.datetime) + " " + x.inferred.state)}" title="${esc(date(x.datetime) + " / " + x.inferred.state)}">${esc(x.inferred.state[0].toUpperCase())}</button>`).join("")}</div><p>F flooded / D drained / U uncertain</p></div><details class="field-details"><summary>Radar and model details</summary><div class="measurement-grid"><span>HH</span><b>${measurement(o?.observed.hh_db)}</b><span>HV</span><b>${measurement(o?.observed.hv_db)}</b><span>Surface (Ps)</span><b>${measurement(o?.observed.ps_db)}</b><span>Double bounce (Pd)</span><b>${measurement(o?.observed.pd_db)}</b><span>Volume (Pv)</span><b>${measurement(o?.observed.pv_db)}</b><span>Classifier</span><b>${esc(o?.inferred.method || "Unavailable")}</b><span>Flags</span><b>${esc(o?.flags?.length ? o.flags.join(", ") : "None reported")}</b><span>Boundary</span><b>${esc(field.field.properties.source)}</b></div><p>Radar measurements are observed; states and model probability are inferred.</p></details>`;
+  return `<div class="inspector-head"><span class="eyebrow">Selected field</span><button id="close-field" aria-label="Close field">${icon("close")}</button></div><div class="field-title"><div><h3>${esc(selected)}</h3><p>${esc(field.field.properties.district)} / ${Number(field.field.properties.area_ha).toFixed(2)} ha</p></div><span class="selected-marker" aria-label="Selected field"></span></div><div class="field-state"><div><span>Model state</span><strong>${esc(o?.inferred.state || "No observation")}</strong></div><span class="state-date">${o ? esc(date(o.datetime)) : "No observation"}</span></div><div class="telemetry"><div><span>Model probability</span><b>${o?.inferred.p_flooded == null ? "Unavailable" : pct(o.inferred.p_flooded)}</b><small>Flooded</small></div><div><span>Clear looks</span><b>${s?.awd.clear_looks ?? "Unavailable"}</b><small>Season</small></div></div><div class="detail-row"><span>Season assessment</span><b>${esc(s ? words(s.awd.verdict) : "Unavailable")}</b><p>${esc(s?.awd.reason || "")}</p></div><div class="detail-row"><span>DSR signal</span><b>${esc(s ? words(s.dsr.signal) : "Unavailable")}</b><p>${esc(s?.dsr.reason || "")}</p></div><div class="detail-row"><span>Pass history</span><div class="chips">${field.observations.map((x: any) => `<button class="chip ${esc(x.inferred.state)} ${x.pass_id === data.states.pass_ids[pass] ? "current" : ""}" data-pass-id="${esc(x.pass_id)}" aria-label="${esc(date(x.datetime) + " " + x.inferred.state)}" title="${esc(date(x.datetime) + " / " + x.inferred.state)}">${esc(x.inferred.state[0].toUpperCase())}</button>`).join("")}</div><p>F flooded / D drained / U uncertain</p></div><details class="field-details"><summary>Radar and model details</summary><div class="measurement-grid"><span>HH</span><b>${measurement(o?.observed.hh_db)}</b><span>HV</span><b>${measurement(o?.observed.hv_db)}</b><span>Surface (Ps)</span><b>${measurement(o?.observed.ps_db)}</b><span>Double bounce (Pd)</span><b>${measurement(o?.observed.pd_db)}</b><span>Volume (Pv)</span><b>${measurement(o?.observed.pv_db)}</b><span>Classifier</span><b>${esc(o?.inferred.method || "Unavailable")}</b><span>Flags</span><b>${esc(o?.flags?.length ? o.flags.join(", ") : "None reported")}</b><span>Boundary</span><b>${esc(field.field.properties.source)}</b></div><p>Radar measurements are observed; states and model probability are inferred.</p></details>`;
 }
 function updateInspector() {
   const el = document.querySelector("#inspector");
@@ -216,15 +227,10 @@ function features() {
 function updateMap() {
   const district = document.querySelector<HTMLSelectElement>("#district");
   if (district) district.value = tile;
-  const label = document.querySelector(".map-label");
-  if (label) label.textContent = `Study area / ${tile}`;
-  const context = document.querySelector(".map-context h1");
+  const context = document.querySelector(".map-context strong");
   if (context)
     context.textContent =
       data.meta.tiles.find((t) => t.id === tile)?.district || tile;
-  const countLabel = document.querySelector(".context-meta span:nth-child(2)");
-  if (countLabel)
-    countLabel.textContent = `${data.rows.filter((r) => r.tile === tile).length} fields`;
   if (!map?.getSource("fields")) return;
   (map.getSource("fields") as maplibregl.GeoJSONSource).setData(
     features() as any,
@@ -235,25 +241,32 @@ function updateMap() {
           "match",
           ["get", "code"],
           "F",
-          "#aa8bff",
+          "#b49bdd",
           "D",
-          "#e8f725",
+          "#d6c65c",
           "U",
-          "#a2a1a8",
-          "#62616a",
+          "#bec5b8",
+          "#8b9386",
         ]
       : [
           "match",
           ["get", "verdict"],
           "consistent",
-          "#aa8bff",
+          "#b49bdd",
           "inconsistent",
-          "#e8f725",
+          "#d6c65c",
           "not_enough_evidence",
-          "#a2a1a8",
-          "#62616a",
+          "#bec5b8",
+          "#8b9386",
         ];
   map.setPaintProperty("fill", "fill-color", color as any);
+  map.setPaintProperty("outline", "line-color", color as any);
+  map.setFilter(
+    "uncertainty",
+    layer === "pass"
+      ? ["==", ["get", "code"], "U"]
+      : ["==", ["get", "verdict"], "not_enough_evidence"],
+  );
   updateRadar();
   updateTimeline();
 }
@@ -267,6 +280,7 @@ function updateRadar() {
   if (button) {
     button.disabled = !item;
     button.classList.toggle("on", Boolean(item && radar));
+    button.setAttribute("aria-pressed", String(Boolean(item && radar)));
     button.title = item
       ? "Toggle radar image for this pass"
       : "No radar image for this pass";
@@ -343,7 +357,7 @@ function fitTile() {
       )
     : bounds;
   map.fitBounds(target, {
-    padding: 45,
+    padding: matchMedia("(max-width: 700px)").matches ? 28 : 64,
     duration: matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 600,
     maxZoom: 16,
     bearing: perspective ? -15 : 0,
@@ -378,9 +392,9 @@ function initMap() {
           type: "raster",
           source: "imagery",
           paint: {
-            "raster-saturation": -0.65,
-            "raster-brightness-max": 0.57,
-            "raster-contrast": 0.12,
+            "raster-saturation": -0.2,
+            "raster-brightness-max": 0.88,
+            "raster-contrast": 0.06,
           },
         },
       ],
@@ -401,24 +415,48 @@ function initMap() {
       id: "fill",
       type: "fill",
       source: "fields",
-      paint: { "fill-color": "#aa8bff", "fill-opacity": 0.44 },
+      paint: {
+        "fill-color": "#b49bdd",
+        "fill-opacity": ["case", ["get", "selected"], 0.28, 0.13],
+      },
     });
     map!.addLayer({
       id: "outline",
       type: "line",
       source: "fields",
       paint: {
-        "line-color": "#eee8ff",
-        "line-width": 0.65,
-        "line-opacity": 0.65,
+        "line-color": [
+          "match",
+          ["get", "code"],
+          "F",
+          "#b49bdd",
+          "D",
+          "#ded17a",
+          "#d3d3cc",
+        ],
+        "line-width": 1,
+        "line-opacity": 0.8,
       },
+    });
+    const hatch = new Uint8Array(8 * 8 * 4);
+    for (let y = 0; y < 8; y++)
+      for (let x = 0; x < 8; x++) {
+        if ((x + y) % 8 < 2) hatch.set([230, 232, 220, 160], (y * 8 + x) * 4);
+      }
+    map!.addImage("uncertain-hatch", { width: 8, height: 8, data: hatch });
+    map!.addLayer({
+      id: "uncertainty",
+      type: "fill",
+      source: "fields",
+      filter: ["==", ["get", "code"], "U"],
+      paint: { "fill-pattern": "uncertain-hatch", "fill-opacity": 0.45 },
     });
     map!.addLayer({
       id: "selected",
       type: "line",
       source: "fields",
       filter: ["==", ["get", "selected"], true],
-      paint: { "line-color": "#ff544e", "line-width": 3 },
+      paint: { "line-color": "#e35e52", "line-width": 3 },
     });
     updateMap();
     fitTile();
@@ -458,7 +496,7 @@ function updateTimeline() {
         0,
         Math.min(100, (100 * (Date.parse(x) - start)) / (end - start)),
       );
-  track.innerHTML = `<div class="track-line"></div>${data.meta.gaps.map((g) => `<div class="gap" style="left:${pos(g.start)}%;width:${pos(g.end) - pos(g.start)}%" title="No data: ${esc(date(g.start))}–${esc(date(g.end))}"><span>NO DATA</span></div>`).join("")}${data.states.pass_ids
+  track.innerHTML = `<div class="track-line"></div>${data.meta.gaps.map((g) => `<div class="gap" style="left:${pos(g.start)}%;width:${pos(g.end) - pos(g.start)}%" title="No data: ${esc(date(g.start))}–${esc(date(g.end))}"><span>No data</span></div>`).join("")}${data.states.pass_ids
     .map((p, i) => {
       const x = data.passes.passes.find((v) => v.pass_id === p);
       return x
@@ -485,7 +523,7 @@ function updateTimeline() {
           ["not_enough_evidence", "Not enough evidence"],
           ["none", "No summary"],
         ];
-  key.innerHTML = `<div class="key-title">${layer === "pass" ? "PASS STATE" : "SEASON ASSESSMENT"} ${tag("INFERRED", "states.json / field summaries")}</div>${items.map(([k, v], i) => `<span><i class="swatch s${i}"></i>${v} <b>${count[k] || 0}</b></span>`).join("")}`;
+  key.innerHTML = `<div class="key-title">${layer === "pass" ? "Model state" : "Season assessment"} </div>${items.map(([k, v], i) => `<span><i class="swatch s${i}"></i>${v} <b>${count[k] || 0}</b></span>`).join("")}`;
   bindLocal();
 }
 function setPass(i: number, push = true) {
@@ -534,7 +572,7 @@ function step() {
   );
 }
 function labPage() {
-  return `${heading("02 / DETECTABILITY LAB", "Detectability lab", "Explore the pass schedule under different assumptions.")}<div class="lab-grid"><div class="panel controls"><div class="eyebrow">MODEL INPUTS ${tag("ASSUMED", "detectability.json · param_sources")}</div><h2>Simulation parameters</h2><p>Inputs are applied to the current pass dates and fixed simulation seed.</p><label>Drainage cycle <output id="cycle-value"></output><input type="range" id="cycle" min="4" max="14" step="1" value="${data.sim.params.cycle_days[1]}"></label><small>${esc(data.sim.param_sources.cycle_days?.citation || "Source not provided")} <a href="${esc(data.sim.param_sources.cycle_days?.url || "#")}" target="_blank" rel="noreferrer">Source</a></small><label>Per-pass classification assumption <output id="accuracy-value"></output><input type="range" id="accuracy" min="50" max="99" step="1" value="${Math.round(data.sim.params.per_pass_accuracy.mid * 100)}"></label><small>${esc(data.sim.param_sources.per_pass_accuracy?.citation || "Source not provided.")} <a href="${esc(data.sim.param_sources.per_pass_accuracy?.url || "#")}" target="_blank" rel="noreferrer">Source</a></small><div class="notice">Drained fraction: ${data.sim.params.drained_fraction_of_cycle.map(pct).join("–")} of each cycle. ${tag("ASSUMED", "detectability.json · drained_fraction_of_cycle")}</div></div><div class="panel results"><div class="eyebrow">SIMULATION OUTPUT ${tag("INFERRED", "core detectability simulation · detectability.json assumptions")}</div><h2>Simulation results</h2><p id="sim-sentence" class="sim-sentence"></p><div class="charts" id="charts"></div></div></div>`;
+  return `${heading("02 / DETECTABILITY LAB", "Detectability lab", "Explore the pass schedule under different assumptions.")}<div class="lab-grid"><div class="panel controls"><div class="eyebrow">Model inputs ${tag("ASSUMED", "detectability.json · param_sources")}</div><h2>Simulation parameters</h2><p>Inputs are applied to the current pass dates and fixed simulation seed.</p><label>Drainage cycle <output id="cycle-value"></output><input type="range" id="cycle" min="4" max="14" step="1" value="${data.sim.params.cycle_days[1]}"></label><small>${esc(data.sim.param_sources.cycle_days?.citation || "Source not provided")} <a href="${esc(data.sim.param_sources.cycle_days?.url || "#")}" target="_blank" rel="noreferrer">Source</a></small><label>Per-pass classification assumption <output id="accuracy-value"></output><input type="range" id="accuracy" min="50" max="99" step="1" value="${Math.round(data.sim.params.per_pass_accuracy.mid * 100)}"></label><small>${esc(data.sim.param_sources.per_pass_accuracy?.citation || "Source not provided.")} <a href="${esc(data.sim.param_sources.per_pass_accuracy?.url || "#")}" target="_blank" rel="noreferrer">Source</a></small><div class="notice">Drained fraction: ${data.sim.params.drained_fraction_of_cycle.map(pct).join("–")} of each cycle. ${tag("ASSUMED", "detectability.json · drained_fraction_of_cycle")}</div></div><div class="panel results"><div class="eyebrow">Simulation output ${tag("INFERRED", "core detectability simulation · detectability.json assumptions")}</div><h2>Simulation results</h2><p id="sim-sentence" class="sim-sentence"></p><div class="charts" id="charts"></div></div></div>`;
 }
 function runLab() {
   const c = document.querySelector<HTMLInputElement>("#cycle"),
@@ -564,12 +602,12 @@ function runLab() {
   document.querySelector("#charts")!.innerHTML = groups
     .map(
       ([title, values]) =>
-        `<div><h3>${title}</h3><div class="bars">${values.map((v, i) => `<div class="bar-col"><span>${Math.round(v * 100)}%</span><div class="bar" style="height:${Math.max(1, v * 180)}px"></div><small>${i}</small></div>`).join("")}</div><div class="chart-label">NUMBER OF DRAINED LABELS · ${tag("INFERRED", "core detectability simulation")}</div></div>`,
+        `<div><h3>${title}</h3><div class="bars">${values.map((v, i) => `<div class="bar-col"><span>${Math.round(v * 100)}%</span><div class="bar" style="--probability:${v}"></div><small>${i}</small></div>`).join("")}</div><div class="chart-label">Number of drained labels · ${tag("INFERRED", "core detectability simulation")}</div></div>`,
     )
     .join("");
 }
 function inspectionPage() {
-  return `${heading("03 / INSPECTION PLANNING", "Inspection planning", "Rank field claims against the current run.")}<div class="inspection-layout"><div class="panel"><div class="eyebrow">SAMPLE PROGRAM <span class="sample">SYNTHETIC CLAIMS</span></div><h2>Sample program</h2><p>Choose an inspection budget and generate a ranked queue.</p><label class="input-label" for="budget">Inspection budget ${tag("ASSUMED", "User-selected inspection budget")}</label><input id="budget" type="number" min="1" max="5000" value="20"><button class="button primary wide" id="audit">Generate inspection list</button><div id="audit-message" class="notice">Ready to generate an inspection queue.</div></div><div class="panel"><div class="eyebrow">RANKED QUEUE ${tag("INFERRED", "core ranking through audit API")}</div><h2>Inspection list</h2><div id="audit-results" class="placeholder"><span></span><p>Run the sample program to generate a ranked list.</p></div></div></div>`;
+  return `${heading("03 / INSPECTION PLANNING", "Inspection planning", "Rank field claims against the current run.")}<div class="inspection-layout"><div class="panel"><div class="eyebrow">Sample program <span class="sample">Synthetic claims</span></div><h2>Sample program</h2><p>Choose an inspection budget and generate a ranked queue.</p><label class="input-label" for="budget">Inspection budget ${tag("ASSUMED", "User-selected inspection budget")}</label><input id="budget" type="number" min="1" max="5000" value="20"><button class="button primary wide" id="audit">Generate inspection list</button><div id="audit-message" class="notice">Ready to generate an inspection queue.</div></div><div class="panel"><div class="eyebrow">Ranked queue ${tag("INFERRED", "core ranking through audit API")}</div><h2>Inspection list</h2><div id="audit-results" class="placeholder"><span></span><p>Run the sample program to generate a ranked list.</p></div></div></div>`;
 }
 async function audit() {
   const generation = ++auditRequest;
@@ -618,7 +656,7 @@ async function loadEvidence() {
     )
       throw new Error("Checks and provenance belong to a different run.");
     if (!document.querySelector("#evidence-content")) return;
-    el.innerHTML = `<div class="evidence-grid"><div><div class="eyebrow">SEASON SHAPE ${tag("INFERRED", "checks.json · season_shape")}</div><h2>${checks.season_shape ? (checks.season_shape.pass ? "Check passed" : "Check did not pass") : "Not run"}</h2><p>${esc(checks.season_shape?.rule || "No season-shape check is available for this run.")}</p>${
+    el.innerHTML = `<div class="evidence-grid"><div><div class="eyebrow">Season shape ${tag("INFERRED", "checks.json · season_shape")}</div><h2>${checks.season_shape ? (checks.season_shape.pass ? "Check passed" : "Check did not pass") : "Not run"}</h2><p>${esc(checks.season_shape?.rule || "No season-shape check is available for this run.")}</p>${
       checks.season_shape
         ? Object.entries(checks.season_shape.pct_flooded_by_stage)
             .map(
@@ -627,14 +665,14 @@ async function loadEvidence() {
             )
             .join("")
         : ""
-    }</div><div><div class="eyebrow">OPERA CROSS-CHECK ${tag("INFERRED", "checks.json · opera")}</div><h2>${checks.opera ? esc(checks.opera.product) : "Not run"}</h2><p>${checks.opera ? esc(checks.opera.version) : "No OPERA comparison is available for this run."}</p>${checks.opera ? `<p>${evidence(checks.opera.n_dates + " comparison dates", "INFERRED", "checks.json · opera")}</p>` : ""}</div></div><div class="source-status"><span>Radar imagery</span><strong id="overlay-status">${esc(overlayStatus)}</strong><span>Run</span><strong>${esc(data.meta.run_id)}</strong></div><div class="evidence-grid"><div><div class="eyebrow">DISTRICT CONTEXT ${tag("INFERRED", "checks.json · district")}</div>${checks.district ? `<p>District reference / ${esc(checks.district.year)}</p>${checks.district.rows.map((r) => `<div class="evidence-line"><span>${esc(r.district)}</span><strong>${r.tile_dsr_signal_frac === null ? "No tile" : pct(r.tile_dsr_signal_frac)}</strong></div>`).join("")}` : "<p>District comparison not run.</p>"}</div><div><div class="eyebrow">PROVENANCE</div><h2>Trace the inputs.</h2><p>Run ${esc(prov.run_id)} · created ${esc(prov.created_at)} · revision ${esc(prov.git_sha)}</p><details><summary>Granules and artifact hashes</summary>${prov.granules.map((g) => `<p class="hash">${esc(g.granule_id)}<br>${esc(g.crid)} · ${esc(g.subset_sha256)}</p>`).join("")}${prov.artifacts.map((a) => `<p class="hash">${esc(a.path)}<br>${esc(a.sha256)}</p>`).join("")}</details></div></div>`;
+    }</div><div><div class="eyebrow">OPERA cross-check ${tag("INFERRED", "checks.json · opera")}</div><h2>${checks.opera ? esc(checks.opera.product) : "Not run"}</h2><p>${checks.opera ? esc(checks.opera.version) : "No OPERA comparison is available for this run."}</p>${checks.opera ? `<p>${evidence(checks.opera.n_dates + " comparison dates", "INFERRED", "checks.json · opera")}</p>` : ""}</div></div><div class="source-status"><span>Radar imagery</span><strong id="overlay-status">${esc(overlayStatus)}</strong><span>Run</span><strong>${esc(data.meta.run_id)}</strong></div><div class="evidence-grid"><div><div class="eyebrow">District context ${tag("INFERRED", "checks.json · district")}</div>${checks.district ? `<p>District reference / ${esc(checks.district.year)}</p>${checks.district.rows.map((r) => `<div class="evidence-line"><span>${esc(r.district)}</span><strong>${r.tile_dsr_signal_frac === null ? "No tile" : pct(r.tile_dsr_signal_frac)}</strong></div>`).join("")}` : "<p>District comparison not run.</p>"}</div><div><div class="eyebrow">Provenance</div><h2>Trace the inputs</h2><p>Run ${esc(prov.run_id)} · created ${esc(prov.created_at)} · revision ${esc(prov.git_sha)}</p><details><summary>Granules and artifact hashes</summary>${prov.granules.map((g) => `<p class="hash">${esc(g.granule_id)}<br>${esc(g.crid)} · ${esc(g.subset_sha256)}</p>`).join("")}${prov.artifacts.map((a) => `<p class="hash">${esc(a.path)}<br>${esc(a.sha256)}</p>`).join("")}</details></div></div>`;
   } catch (e) {
     el.innerHTML = `<p>Checks could not be loaded: ${esc(e instanceof Error ? e.message : String(e))}</p><button id="retry-evidence" class="button light">Retry</button>`;
     bindLocal();
   }
 }
 function methodsPage() {
-  return `${heading("Methods", "From radar to field evidence", "Processing and model sources for this run")}<div class="panel prose"><h2>Processing sequence</h2><p>NISAR GCOV radar observations are summarized within mapped field boundaries. The pipeline infers flooded, drained or uncertain states from the available radar features. Season rules combine clear looks with a detectability simulation to assess alternate wetting and drying.</p><p>Polarization modes determine which features are available. Per-pass states, season assessments and model probabilities are inferred; radar backscatter is observed.</p><details><summary>Simulation parameters and sources</summary>${Object.entries(
+  return `${heading("Methods", "Radar to field evidence", "Processing and model sources for this run")}<div class="panel prose"><h2>Processing sequence</h2><p>NISAR GCOV radar observations are summarized within mapped field boundaries. The pipeline infers flooded, drained or uncertain states from the available radar features. Season rules combine clear looks with a detectability simulation to assess alternate wetting and drying.</p><p>Polarization modes determine which features are available. Per-pass states, season assessments and model probabilities are inferred; radar backscatter is observed.</p><details><summary>Simulation parameters and sources</summary>${Object.entries(
     data.sim.param_sources,
   )
     .map(
@@ -710,6 +748,11 @@ function bindLocal() {
     inspector.addEventListener("focusin", stopPlayback);
     inspector.onpointerdown = stopPlayback;
   }
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-field-id]")
+    .forEach((button) => {
+      button.onclick = () => void choose(button.dataset.fieldId!);
+    });
   const retryField = document.querySelector<HTMLButtonElement>("#retry-field");
   if (retryField) retryField.onclick = () => void choose(selected, false);
   document.querySelectorAll<HTMLAnchorElement>("[data-nav]").forEach(
@@ -731,6 +774,11 @@ function bindLocal() {
               "on",
               (x as HTMLElement).dataset.layer === layer,
             ),
+          );
+        document
+          .querySelectorAll<HTMLButtonElement>("[data-layer]")
+          .forEach((x) =>
+            x.setAttribute("aria-pressed", String(x.dataset.layer === layer)),
           );
         updateMap();
       }),
@@ -779,7 +827,16 @@ function bindLocal() {
   if (camera)
     camera.onclick = () => {
       perspective = !perspective;
-      camera.textContent = perspective ? "Flat" : "Perspective";
+      camera.textContent = perspective ? "2D" : "3D";
+      camera.setAttribute(
+        "aria-label",
+        perspective ? "Enable flat view" : "Enable perspective view",
+      );
+      camera.setAttribute(
+        "title",
+        perspective ? "Flat view" : "Perspective view",
+      );
+      camera.setAttribute("aria-pressed", String(perspective));
       map?.easeTo({
         pitch: perspective ? 40 : 0,
         bearing: perspective ? -15 : 0,
