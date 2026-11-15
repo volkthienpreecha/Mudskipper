@@ -18,7 +18,7 @@
       "district": "Fazilka",
       "weight": 1.0,
       "score": 2.6867,
-      "reason": "AWD not consistent (0 of 4 clear looks drained); DSR transplant signal",
+      "reason": "Not consistent with AWD (0 of 4 clear looks drained); DSR: transplant signal",
       "pick": "score"
     },
     {
@@ -28,7 +28,7 @@
       "district": "Fazilka",
       "weight": 1.0,
       "score": 2.6864,
-      "reason": "DSR transplant signal",
+      "reason": "DSR: transplant signal",
       "pick": "score"
     },
     {
@@ -38,7 +38,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 1.0,
       "score": 2.6863,
-      "reason": "AWD not enough evidence (4 clear looks); DSR transplant signal",
+      "reason": "Not enough evidence for AWD (4 clear looks); DSR: transplant signal",
       "pick": "score"
     },
     {
@@ -48,7 +48,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 1.0,
       "score": 2.6863,
-      "reason": "AWD consistent (3 of 4 clear looks drained); DSR transplant signal",
+      "reason": "Consistent with AWD (3 of 4 clear looks drained); DSR: transplant signal",
       "pick": "score"
     },
     {
@@ -58,7 +58,7 @@
       "district": "Fazilka",
       "weight": 1.0,
       "score": 2.6862,
-      "reason": "AWD not enough evidence (4 clear looks); DSR transplant signal",
+      "reason": "Not enough evidence for AWD (4 clear looks); DSR: transplant signal",
       "pick": "score"
     },
     {
@@ -78,7 +78,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 0.6,
       "score": 2.48802,
-      "reason": "AWD not enough evidence (4 clear looks); DSR signal unknown",
+      "reason": "Not enough evidence for AWD (4 clear looks); DSR: signal unknown",
       "pick": "score"
     },
     {
@@ -88,7 +88,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 0.6,
       "score": 2.4879,
-      "reason": "AWD not enough evidence (3 clear looks); DSR signal unknown",
+      "reason": "Not enough evidence for AWD (3 clear looks); DSR: signal unknown",
       "pick": "score"
     },
     {
@@ -98,7 +98,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 0.6,
       "score": 2.48784,
-      "reason": "AWD not enough evidence (5 clear looks); DSR signal",
+      "reason": "Not enough evidence for AWD (5 clear looks); DSR: DSR signal",
       "pick": "score"
     },
     {
@@ -118,7 +118,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 1.0,
       "score": 1.9568,
-      "reason": "AWD consistent (5 of 5 clear looks drained); DSR transplant signal",
+      "reason": "Consistent with AWD (5 of 5 clear looks drained); DSR: transplant signal",
       "pick": "score"
     },
     {
@@ -128,7 +128,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 1.0,
       "score": 1.9565,
-      "reason": "AWD not consistent (0 of 5 clear looks drained)",
+      "reason": "Not consistent with AWD (0 of 5 clear looks drained)",
       "pick": "score"
     },
     {
@@ -138,7 +138,7 @@
       "district": "Fazilka",
       "weight": 1.0,
       "score": 1.9564,
-      "reason": "AWD not enough evidence (5 clear looks); DSR transplant signal",
+      "reason": "Not enough evidence for AWD (5 clear looks); DSR: transplant signal",
       "pick": "score"
     },
     {
@@ -148,7 +148,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 1.0,
       "score": 1.9562,
-      "reason": "DSR transplant signal",
+      "reason": "DSR: transplant signal",
       "pick": "score"
     },
     {
@@ -158,7 +158,7 @@
       "district": "Fazilka",
       "weight": 0.6,
       "score": 1.61202,
-      "reason": "AWD not enough evidence (4 clear looks)",
+      "reason": "Not enough evidence for AWD (4 clear looks)",
       "pick": "score"
     },
     {
@@ -168,7 +168,7 @@
       "district": "Fazilka",
       "weight": 0.6,
       "score": 1.61202,
-      "reason": "AWD not enough evidence (4 clear looks); DSR signal unknown",
+      "reason": "Not enough evidence for AWD (4 clear looks); DSR: signal unknown",
       "pick": "score"
     },
     {
@@ -178,7 +178,7 @@
       "district": "Fazilka",
       "weight": 0.1,
       "score": 0.41467000000000004,
-      "reason": "Random check; AWD consistent (4 of 5 clear looks drained)",
+      "reason": "Random check; Consistent with AWD (4 of 5 clear looks drained)",
       "pick": "random"
     },
     {
@@ -188,7 +188,7 @@
       "district": "Fazilka",
       "weight": 0.6,
       "score": 1.1739,
-      "reason": "Random check; AWD not enough evidence (2 clear looks)",
+      "reason": "Random check; Not enough evidence for AWD (2 clear looks)",
       "pick": "random"
     },
     {
@@ -198,7 +198,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 0.6,
       "score": 1.1737199999999999,
-      "reason": "Random check; AWD not enough evidence (4 clear looks); DSR signal unknown",
+      "reason": "Random check; Not enough evidence for AWD (4 clear looks); DSR: signal unknown",
       "pick": "random"
     },
     {
@@ -208,7 +208,7 @@
       "district": "Sri Muktsar Sahib",
       "weight": 0.6,
       "score": 0.91092,
-      "reason": "Random check; AWD not enough evidence (3 clear looks)",
+      "reason": "Random check; Not enough evidence for AWD (3 clear looks)",
       "pick": "random"
     }
   ],

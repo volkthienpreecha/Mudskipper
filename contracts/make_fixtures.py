@@ -464,18 +464,18 @@ def render_hist(path, stage, observations):
 
 # ------------------------------------------------------------------------------------------------ writers
 def dump(obj):
-    return json.dumps(obj, ensure_ascii=False, indent=2) + "\n"
+    return json.dumps(obj, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
 
 
 def dump_collection(head, features):
     """GeoJSON with one feature per line: small files, readable diffs."""
-    lines = ",\n".join(json.dumps(f, ensure_ascii=False, separators=(",", ":")) for f in features)
+    lines = ",\n".join(json.dumps(f, ensure_ascii=False, separators=(",", ":"), allow_nan=False) for f in features)
     head_s = json.dumps(head, ensure_ascii=False, separators=(",", ":"))[:-1]
     return head_s + ',"features":[\n' + lines + "\n]}\n"
 
 
 def dump_jsonl(rows):
-    return "".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in rows)
+    return "".join(json.dumps(r, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n" for r in rows)
 
 
 def sha256_file(path):
@@ -614,8 +614,9 @@ def build(out: pathlib.Path):
             artifacts.append({"path": path.relative_to(run).as_posix(), "sha256": sha256_file(path)})
     provenance = {**hdr(), "git_sha": "fixture", "created_at": CREATED_AT,
                   "granules": [{"granule_id": p["granule_id"], "crid": p["crid"],
-                                "subset_sha256": hashlib.sha256(f"SAMPLE subset {p['granule_id']}".encode()).hexdigest()}
-                               for p in used],
+                                "subset_sha256": (hashlib.sha256(f"SAMPLE subset {p['granule_id']}".encode()).hexdigest()
+                                                  if p["used"] else None)}
+                               for p in passes],
                   "artifacts": artifacts,
                   "decomposition_check": {"reference": "SAMPLE: not run on fixtures (pipeline cross-checks one real "
                                                        "quad-pol pass against PyPolSARpro or polsartools)",
