@@ -32,3 +32,6 @@ Thumbs.db
 # Platform build output (assembled site + static API) and local Wrangler state
 platform/.site/
 *.tsbuildinfo
+
+# Platform caches (OG render fonts, local D1/KV state)
+platform/.cache/
