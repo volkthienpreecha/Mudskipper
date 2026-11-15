@@ -426,7 +426,8 @@ A FeatureCollection of claims. Geometry is a `Point`, `Polygon` or `MultiPolygon
 
 Uploads are ordinary GIS exports, so the schema accepts extra members (`name`, `crs`, `bbox`), extra
 properties (ignored) and positions with an altitude (ignored). Polygon rings MUST be closed (first position
-equals last) with at least 4 positions, otherwise `400 invalid_geometry`.
+equals last) with at least 4 positions and enclose an interior, otherwise `400 invalid_geometry` (also for any
+geometry type other than Point, Polygon and MultiPolygon).
 
 The sample has exactly 60 SYNTHETIC claims on real field ids of the same run, plus a few points that do not
 match any field, so the unmatched path is visible.
