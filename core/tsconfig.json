@@ -1,0 +1,27 @@
+{
+  // Core's own code may use only APIs that exist in browsers, workerd and Node: no @types/*, no DOM.
+  // `lib: WebWorker` is the web-standard global set (fetch, crypto.subtle, TextEncoder) all three share.
+  // tsconfig.dom.json re-checks the same files under the browser's set, tsconfig.test.json under Node's.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "WebWorker"],
+    "types": [],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"],
+  // The Node fixture loader needs @types/node; tsconfig.test.json checks it.
+  "exclude": ["src/fixtures-node.ts"]
+}
