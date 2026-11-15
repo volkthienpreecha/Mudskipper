@@ -42,6 +42,15 @@ describe("build-site (placeholder)", () => {
     expect(spec).toContain(LIMITS_TEXT);
   });
 
+  it("tags every number with its evidence tag (T12), and the og image alt does not call decoration data", () => {
+    expect(html).toMatch(/10 passes <span class="chip chip-observed"[^>]*>OBSERVED<\/span> · 300 fields <span class="chip chip-inferred"[^>]*>INFERRED<\/span> · 2 tiles <span class="chip chip-assumed"[^>]*>ASSUMED<\/span>/);
+    const cap = /<span class="cap">([\s\S]*?)<\/span>\s*<\/figcaption>/.exec(html)?.[1] ?? "";
+    expect(cap).toMatch(/fields <span class="chip chip-inferred"/);
+    expect(cap).toMatch(/passes <span class="chip chip-observed"/);
+    expect(cap).toMatch(/2026-10-23 <span class="chip chip-assumed"/);
+    expect(html).toContain('og:image:alt" content="Mudskipper: Was this rice field really drained? The wordmark beside a decorative pattern of water and mud squares (an illustration, not data).');
+  });
+
   it("has link-preview and SEO metadata", () => {
     for (const tag of ['property="og:image" content="https://mudskipper-nisar.pages.dev/og.png"', 'name="twitter:card" content="summary_large_image"', 'rel="canonical"', 'name="description"', "application/ld+json"]) {
       expect(html).toContain(tag);

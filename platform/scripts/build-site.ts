@@ -77,6 +77,13 @@ export interface SiteResult {
   routes: unknown;
 }
 
+/** Evidence chips (SPEC evidence rule, T12), styled by placeholder/style.css. */
+export const TAG = {
+  OBSERVED: '<span class="chip chip-observed" title="Radar measurement">OBSERVED</span>',
+  INFERRED: '<span class="chip chip-inferred" title="Our model\'s reading">INFERRED</span>',
+  ASSUMED: '<span class="chip chip-assumed" title="A cited parameter or our own setting">ASSUMED</span>',
+} as const;
+
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const cspHash = (s: string) => `'sha256-${createHash("sha256").update(s, "utf8").digest("base64")}'`;
 
@@ -136,9 +143,11 @@ export function seasonStrip(b: BundleResult, maxRows = 60): { svg: string; capti
     `<svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="strip-title">` +
     `<title id="strip-title">State of ${rows.length} fields on each of ${states.pass_ids.length} NISAR passes, ${esc(season.start)} to ${esc(season.end)}</title>` +
     `${parts.join("")}</svg>`;
+  // Every number carries its evidence tag (T12, contracts/evidence_tags.json): field counts INFERRED (mapped
+  // fields), pass counts OBSERVED, season dates ASSUMED (aoi.json configuration).
   const caption =
-    `Rows: the first ${rows.length} fields of the ${esc(story.hero_tile)} tile by id. Columns: the ${states.pass_ids.length} used passes, ` +
-    `placed by date across the season (${esc(season.start)} to ${esc(season.end)}).` + (b.run.fixture ? " SAMPLE DATA." : "");
+    `Rows: the first ${rows.length} fields ${TAG.INFERRED} of the ${esc(story.hero_tile)} tile by id. Columns: the ${states.pass_ids.length} used passes ${TAG.OBSERVED}, ` +
+    `placed by date across the season (${esc(season.start)} to ${esc(season.end)} ${TAG.ASSUMED}).` + (b.run.fixture ? " SAMPLE DATA." : "");
   return { svg, caption };
 }
 
@@ -193,6 +202,9 @@ function placeholderHtml(b: BundleResult, siteUrl: string): { html: string; csp:
     PASSES: String(story.counts["passes"]),
     FIELDS: String(story.counts["fields"]),
     TILES: String(meta.tiles.length),
+    TAG_OBSERVED: TAG.OBSERVED,
+    TAG_INFERRED: TAG.INFERRED,
+    TAG_ASSUMED: TAG.ASSUMED,
     STRIP_SVG: strip.svg,
     STRIP_CAPTION: strip.caption,
     ENDPOINTS: endpoints,
