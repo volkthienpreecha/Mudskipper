@@ -8,10 +8,10 @@ Rules, in order:
 1. One tile per district: Fazilka and Sri Muktsar Sahib (geoBoundaries ADM2 names `Fazilka` and `Muktsar`).
    The tile is a 15 x 15 km square in EPSG:32643 whose south-west corner is a multiple of 20 m, and it lies at
    least DISTRICT_MARGIN_M inside its district.
-2. Both tiles lie inside one NISAR frame and one orbit direction. The primary series is descending track 135
-   frame 73; we also require ascending track 84 frame 17 (the SPEC A6 second-direction fallback). A tile must be
-   at least FRAME_MARGIN_M inside the intersection of the footprints of every GCOV granule ASF lists for that
-   frame in the season, so it is covered on every pass, quad-pol (narrower) or dual-pol.
+2. Both tiles lie inside one NISAR frame and one orbit direction, for either series: descending track 135
+   frame 73 (D-003) and ascending track 84 frame 17 (the pipeline's main series, pipeline/STATE.md). A tile must
+   be at least FRAME_MARGIN_M inside the intersection of the footprints of every GCOV granule ASF lists for both
+   frames in the season, so it is covered on every pass, quad-pol (narrower) or dual-pol.
 3. Among the windows that pass 1-2 (origins on a STEP_M lattice), score by the GlobalRice20 2024 rice share
    (20 m) and cross-check with Zhao et al. 2024 (30 m): a window counts only if the independent Zhao mask also
    calls it rice-majority (share >= MIN_ZHAO_SHARE). The highest GlobalRice20 share wins (ties: north, then
@@ -46,8 +46,8 @@ DISTRICTS = [  # (tile id, district name used everywhere, geoBoundaries shapeNam
     ("muktsar", "Sri Muktsar Sahib", "Muktsar"),
 ]
 FRAMES = [  # (track, direction, frame, role)
-    (135, "descending", 73, "primary series"),
-    (84, "ascending", 17, "second direction (SPEC A6 fallback)"),
+    (135, "descending", 73, "descending series (D-003)"),
+    (84, "ascending", 17, "ascending series (pipeline main series)"),
 ]
 STEP_M = 500
 DISTRICT_MARGIN_M = 250

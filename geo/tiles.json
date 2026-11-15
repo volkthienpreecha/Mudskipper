@@ -44,7 +44,6 @@
         "candidates": 2930,
         "zhao_majority_candidates": 471,
         "district_area_ha": 325539.7,
-        "district_rice_share_globalrice20_2024": 0.2592,
         "top5_search_scores": [
           {
             "utm_origin": [
@@ -135,7 +134,6 @@
         "candidates": 2636,
         "zhao_majority_candidates": 2636,
         "district_area_ha": 263312.2,
-        "district_rice_share_globalrice20_2024": 0.4062,
         "top5_search_scores": [
           {
             "utm_origin": [
@@ -198,7 +196,7 @@
       "track": 135,
       "direction": "descending",
       "frame": 73,
-      "role": "primary series",
+      "role": "descending series (D-003)",
       "n_granules": 10,
       "source": "https://api.daac.asf.alaska.edu/services/search/param?dataset=NISAR&processingLevel=GCOV&relativeOrbit=135&frame=73&start=2026-06-17T00:00:00Z&end=2026-10-24T00:00:00Z&output=geojson",
       "granules": [
@@ -218,7 +216,7 @@
       "track": 84,
       "direction": "ascending",
       "frame": 17,
-      "role": "second direction (SPEC A6 fallback)",
+      "role": "ascending series (pipeline main series)",
       "n_granules": 10,
       "source": "https://api.daac.asf.alaska.edu/services/search/param?dataset=NISAR&processingLevel=GCOV&relativeOrbit=84&frame=17&start=2026-06-17T00:00:00Z&end=2026-10-24T00:00:00Z&output=geojson",
       "granules": [
