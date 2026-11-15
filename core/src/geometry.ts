@@ -94,6 +94,50 @@ export function contains(geometry: AreaGeometryInput, px: number, py: number): b
 }
 
 /**
+ * Polygons as typed arrays (the Worker's ranking input, platform/src/repo/rank-input.ts): field k owns
+ * polygons `parts[k] … parts[k+1] - 1`, polygon p owns rings `rings[p] … rings[p+1] - 1` (outer ring first),
+ * ring r owns positions `verts[r] … verts[r+1] - 1`, and position v is `coords[2v], coords[2v + 1]`.
+ */
+export interface FlatPolygons {
+  readonly parts: Uint32Array;
+  readonly rings: Uint32Array;
+  readonly verts: Uint32Array;
+  readonly coords: Float64Array;
+}
+
+/** `inRing` over ring r of flat polygons: the same predicate on the same doubles, in the same order. */
+function inFlatRing(px: number, py: number, g: FlatPolygons, r: number): boolean {
+  const v0 = g.verts[r]!;
+  const v1 = g.verts[r + 1]!;
+  if (v1 === v0) return false;
+  const c = g.coords;
+  let inside = false;
+  let xj = c[2 * (v1 - 1)]!;
+  let yj = c[2 * (v1 - 1) + 1]!;
+  for (let v = v0; v < v1; v++) {
+    const xi = c[2 * v]!;
+    const yi = c[2 * v + 1]!;
+    if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
+    xj = xi;
+    yj = yi;
+  }
+  return inside;
+}
+
+/** `contains` for field k of flat polygons, exactly: true iff `contains(geometry of field k, px, py)`. */
+export function containsFlat(g: FlatPolygons, k: number, px: number, py: number): boolean {
+  for (let p = g.parts[k]!; p < g.parts[k + 1]!; p++) {
+    const r0 = g.rings[p]!;
+    const r1 = g.rings[p + 1]!;
+    if (r1 === r0 || !inFlatRing(px, py, g, r0)) continue;
+    let inHole = false;
+    for (let r = r0 + 1; r < r1 && !inHole; r++) inHole = inFlatRing(px, py, g, r);
+    if (!inHole) return true;
+  }
+  return false;
+}
+
+/**
  * B6 claim point. A Point is itself. A (Multi)Polygon: the part whose outer ring has the largest
  * `planarArea` (strictly larger wins, so the first part wins ties); the average of its vertices (closing
  * vertex excluded) if that lies inside the outer ring; otherwise the midpoint of the first two crossings of
