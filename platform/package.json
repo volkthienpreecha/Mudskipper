@@ -28,7 +28,6 @@
     "@cloudflare/vitest-plugin": "1.8.2",
     "@types/node": "^24",
     "ajv": "8.20.0",
-    "ajv-formats": "3.0.1",
     "sharp": "0.35.5",
     "typescript": "7.0.2",
     "vitest": "5.1.0",

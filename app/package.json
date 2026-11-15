@@ -11,8 +11,7 @@
     "test": "node --test test/data.test.ts"
   },
   "dependencies": {
-    "@mudskipper/core": "*",
-    "maplibre-gl": "6.18.0"
+    "@mudskipper/core": "*"
   },
   "devDependencies": {
     "typescript": "7.0.2",
