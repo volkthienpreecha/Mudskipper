@@ -21,6 +21,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 import type { JsonObject } from "../src/contracts.ts";
 import { ROUTES } from "../src/app.ts";
 import { HSTS, PERMISSIONS_POLICY } from "../src/http/headers.ts";
@@ -335,7 +336,9 @@ export function installApp(out: string, siteUrl: string): void {
 
 /** `npm run build -w @mudskipper/app` with the API origin baked in (never edits app/ sources). */
 export function buildApp(apiBase: string): void {
-  const res = spawnSync("npm", ["run", "build", "-w", "@mudskipper/app"], {
+  const command = process.platform === "win32" ? (process.env.ComSpec ?? "cmd.exe") : "npm";
+  const args = process.platform === "win32" ? ["/d", "/s", "/c", "npm.cmd run build -w @mudskipper/app"] : ["run", "build", "-w", "@mudskipper/app"];
+  const res = spawnSync(command, args, {
     cwd: REPO_ROOT,
     stdio: ["ignore", "pipe", "pipe"],
     encoding: "utf8",
@@ -464,4 +467,4 @@ function main() {
   console.log(`site → ${r.out}: ${r.app} + /data bundle for ${r.bundle.run.run_id}, ${r.files} files; _routes.json include ${JSON.stringify((r.routes as { include: string[] }).include)}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main();

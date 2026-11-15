@@ -22,6 +22,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 import { getPlatformProxy } from "wrangler";
 import { diffRun, diffStatements, execute, expectedWrites, fullStatements, liveStatement, planRun, type D1Like, type TableDiff } from "../src/d1/plan.ts";
 import { buildBundle } from "./build-bundle.ts";
@@ -177,7 +178,7 @@ async function main() {
   if (values.json) console.log(JSON.stringify(report));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   process.chdir(PLATFORM_ROOT);
   main().catch((e: Error) => {
     console.error(`load-d1: ${e.message}`);

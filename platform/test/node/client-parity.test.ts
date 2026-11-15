@@ -19,7 +19,7 @@ const walk = (d: string) => {
   for (const n of readdirSync(d)) {
     const p = join(d, n);
     if (statSync(p).isDirectory()) walk(p);
-    else files.set(p.slice(site.length), new Uint8Array(readFileSync(p)));
+    else files.set(p.slice(site.length).split("\\").join("/"), new Uint8Array(readFileSync(p)));
   }
 };
 walk(site);

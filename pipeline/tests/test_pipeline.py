@@ -2,6 +2,8 @@
 Freeman-Durden known answer, linear-power averaging) plus the B3.4 uncertain rule.
 Run from repo root:  .venv\\Scripts\\python.exe -m pytest pipeline\\tests -q
 Artifact tests run against artifacts/$RUN_ID (default r01) and skip if it is missing.
+Exported runs can exercise the read-only contract checks; internal rerun checks
+require zonal.jsonl and the original input caches.
 """
 import datetime as dt, hashlib, json, os, subprocess, sys
 import numpy as np
@@ -15,6 +17,7 @@ RUN = os.environ.get("RUN_ID", "r01")
 ART = os.path.join(ROOT, "artifacts", RUN)
 GAP = (dt.datetime(2026, 7, 27, 22, 3, 25), dt.datetime(2026, 8, 10, 0, 55, 27))
 need_art = pytest.mark.skipif(not os.path.exists(os.path.join(ART, "observations.jsonl")), reason="no artifacts")
+need_internal = pytest.mark.skipif(not os.path.exists(os.path.join(ART, "zonal.jsonl")), reason="no internal zonal inputs")
 
 
 def passes():
@@ -107,7 +110,7 @@ def test_observation_schema_and_uncertain_rule():
 
 
 # ---------- determinism: rerunning classify gives an identical file
-@need_art
+@need_internal
 def test_classify_is_deterministic(tmp_path):
     path = os.path.join(ART, "observations.jsonl")
     before = hashlib.sha256(open(path, "rb").read()).hexdigest()
@@ -129,7 +132,7 @@ def test_used_passes_have_pixel_and_terms():
             assert vf and all(0 <= v <= 1 for v in vf.values()), p["pass_id"]
 
 
-@need_art
+@need_internal
 def test_checks_schema_passes():
     c = json.load(open(os.path.join(ART, "checks.json")))
     assert c["schema"]["status"] == "PASS"
@@ -137,7 +140,7 @@ def test_checks_schema_passes():
         assert c[k]["status"] in ("PASS", "WARN")
 
 
-@need_art
+@need_internal
 def test_provenance_lists_sentinel1_when_fused():
     fused = any("fused_sentinel1" in r["flags"] for r in obs())
     prov = json.load(open(os.path.join(ART, "provenance.json")))
@@ -146,7 +149,7 @@ def test_provenance_lists_sentinel1_when_fused():
 
 
 # ---------- export: field attributes come from the right segment (label N -> array slot N-1)
-@need_art
+@need_internal
 def test_export_field_area_matches_segment():
     exp = os.path.join(ROOT, "artifacts", "r01v1", "fields.geojson")
     if not os.path.exists(exp):

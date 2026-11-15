@@ -100,8 +100,8 @@ export function writeD1Config(remote: boolean): string {
 
 /** Run the workspace's wrangler with CLOUDFLARE_ACCOUNT_ID pinned. Throws on a non-zero exit. */
 export function wrangler(args: string[], opts: SpawnSyncOptions & { quiet?: boolean } = {}): string {
-  const bin = join(REPO_ROOT, "node_modules", ".bin", "wrangler");
-  const res = spawnSync(bin, args, {
+  const bin = join(REPO_ROOT, "node_modules", "wrangler", "bin", "wrangler.js");
+  const res = spawnSync(process.execPath, [bin, ...args], {
     cwd: PLATFORM_ROOT,
     encoding: "utf8",
     stdio: opts.quiet ? ["ignore", "pipe", "pipe"] : ["ignore", "pipe", "inherit"],
@@ -110,7 +110,7 @@ export function wrangler(args: string[], opts: SpawnSyncOptions & { quiet?: bool
   });
   const stdout = String(res.stdout ?? "");
   if (res.status !== 0) {
-    throw new Error(`wrangler ${args.join(" ")} failed (exit ${res.status}):\n${stdout}\n${String(res.stderr ?? "")}`);
+    throw new Error(`wrangler ${args.join(" ")} failed (exit ${res.status}):\n${stdout}\n${res.error?.message ?? String(res.stderr ?? "")}`);
   }
   return stdout;
 }

@@ -33,6 +33,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { appendFileSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 import { mulberry32 } from "@mudskipper/core";
 import { ACCOUNT_ID, PROJECT, PRODUCTION_URL } from "./lib/wrangler.ts";
 import { REPO_ROOT } from "./lib/run.ts";
@@ -179,7 +180,7 @@ function resolveDeployment(base: string): string {
   const host = new URL(base).hostname;
   const sub = host.endsWith(`.${PROJECT}.pages.dev`) ? host.slice(0, -(`.${PROJECT}.pages.dev`.length)) : null;
   const list = (env: "production" | "preview") => {
-    const res = spawnSync(join(REPO_ROOT, "node_modules", ".bin", "wrangler"), ["pages", "deployment", "list", "--project-name", PROJECT, "--environment", env, "--json"], {
+    const res = spawnSync(process.execPath, [join(REPO_ROOT, "node_modules", "wrangler", "bin", "wrangler.js"), "pages", "deployment", "list", "--project-name", PROJECT, "--environment", env, "--json"], {
       encoding: "utf8",
       env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: process.env["CLOUDFLARE_ACCOUNT_ID"] ?? ACCOUNT_ID },
     });
@@ -235,8 +236,8 @@ function jsonObjects(onObject: (o: TailEvent) => void): (chunk: string) => void 
 async function startTail(deployment: string): Promise<{ events: Map<string, TailEvent>; stop(): void }> {
   const events = new Map<string, TailEvent>();
   const child = spawn(
-    join(REPO_ROOT, "node_modules", ".bin", "wrangler"),
-    ["pages", "deployment", "tail", deployment, "--project-name", PROJECT, "--format", "json"],
+    process.execPath,
+    [join(REPO_ROOT, "node_modules", "wrangler", "bin", "wrangler.js"), "pages", "deployment", "tail", deployment, "--project-name", PROJECT, "--format", "json"],
     { env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: process.env["CLOUDFLARE_ACCOUNT_ID"] ?? ACCOUNT_ID }, stdio: ["ignore", "pipe", "pipe"] },
   );
   const feed = jsonObjects((o) => {
@@ -585,7 +586,7 @@ async function main() {
   process.exit(failed.length ? 1 : 0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main().catch((e: Error) => {
     console.error(`perf: ${e.stack ?? e.message}`);
     process.exit(1);

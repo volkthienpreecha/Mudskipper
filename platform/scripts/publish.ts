@@ -43,15 +43,16 @@
  *   --no-carry                do not keep the previous live run's /tiles files (step 8)
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 import { buildApp, buildSite, countFiles, finishSite, installApp, MAX_FILES } from "./build-site.ts";
 import { carryRun, liveRunOf } from "./lib/carry.ts";
 import { loadD1 } from "./load-d1.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT, REPO_ROOT, missingPublished, readRun } from "./lib/run.ts";
 import { smoke } from "./smoke.ts";
-import { preflight } from "./lib/preflight.ts";
+import { preflight, validatorPython } from "./lib/preflight.ts";
 import { ACCOUNT_ID, PRODUCTION_URL, PROJECT, d1Binding, r2Binding, readWranglerConfig, wrangler } from "./lib/wrangler.ts";
 
 interface Step {
@@ -152,7 +153,7 @@ async function main() {
         compute();
         const pre = readRun(runDir);
         if (pre.fields.features.length > 0) {
-          sh("make", ["district", `RUN_ID=${pre.run_id}`, `RUN_DIR=${runDir}`]);
+          sh("uv", ["run", "--project", "geo", "--frozen", "python", "geo/district_check.py", "--run-id", pre.run_id, "--run-dir", runDir]);
           compute(); // re-list provenance artifacts so district_check.json is hashed too (B3.9)
         }
         const run = readRun(runDir);
@@ -167,8 +168,12 @@ async function main() {
       name: `2. validate ${relative(REPO_ROOT, validateTarget)} --recompute`,
       run: () => {
         if (values["skip-validate"]) return console.log("   skipped (--skip-validate)");
-        if (!existsSync(join(REPO_ROOT, ".venv", ".ready"))) sh("make", ["setup"]);
-        sh(join(REPO_ROOT, ".venv", "bin", "python"), ["contracts/validate.py", relative(REPO_ROOT, validateTarget), "--recompute"]);
+        if (!existsSync(join(REPO_ROOT, ".venv", ".ready"))) {
+          sh(process.platform === "win32" ? "python" : "python3", ["-m", "venv", join(REPO_ROOT, ".venv")]);
+          sh(validatorPython(REPO_ROOT), ["-m", "pip", "install", "--disable-pip-version-check", "-r", "contracts/requirements.txt"]);
+          writeFileSync(join(REPO_ROOT, ".venv", ".ready"), "");
+        }
+        sh(validatorPython(REPO_ROOT), ["contracts/validate.py", relative(REPO_ROOT, validateTarget), "--recompute"]);
       },
     },
     {
@@ -298,7 +303,7 @@ async function main() {
   console.log(values["dry-run"] ? "dry run: nothing changed" : `published: ${production ? PRODUCTION_URL : stageUrl}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main().catch((e: Error) => {
     console.error(`publish: ${e.message}`);
     process.exit(1);

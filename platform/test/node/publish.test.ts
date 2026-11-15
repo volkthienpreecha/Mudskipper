@@ -4,7 +4,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { preflight } from "../../scripts/lib/preflight.ts";
+import { preflight, validatorPython } from "../../scripts/lib/preflight.ts";
 import { FIXTURE_RUN, PLATFORM_ROOT } from "../../scripts/lib/run.ts";
 
 const geoOnly = mkdtempSync(join(tmpdir(), "mudskipper-r01-"));
@@ -23,6 +23,23 @@ describe("preflight", () => {
     expect(pf.blocking.map((b) => b.file)).toEqual(["passes.json", "observations.jsonl", "provenance.json", "overlays/index.json"]);
     expect(new Set(pf.blocking.map((b) => b.owner))).toEqual(new Set(["pipeline (Ishaan)"]));
     expect(pf.notes.join(" ")).not.toContain("needs_citation"); // every parameter is cited or derived now
+  });
+});
+
+describe("repository validator interpreter", () => {
+  it.each([
+    ["linux", "bin", "python"],
+    ["win32", "Scripts", "python.exe"],
+  ] as const)("uses the %s venv interpreter", (platform, directory, executable) => {
+    const root = join(geoOnly, platform);
+    const interpreter = join(root, ".venv", directory, executable);
+    mkdirSync(join(root, ".venv", directory), { recursive: true });
+    writeFileSync(interpreter, "test interpreter path");
+    expect(validatorPython(root, platform)).toBe(interpreter);
+  });
+
+  it("fails closed when the repository venv interpreter is absent", () => {
+    expect(() => validatorPython(join(geoOnly, "missing"), "win32")).toThrow(/repository validator.*contracts\/requirements.txt/i);
   });
 });
 

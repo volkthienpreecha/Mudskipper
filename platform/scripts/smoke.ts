@@ -15,8 +15,9 @@
  * the fixture run is live, the ranking must equal contracts/fixtures/api/audit.response.json (created_at aside).
  */
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 import { REPO_ROOT } from "./lib/run.ts";
 import { createSchemaAjv, validatorFor } from "./lib/schemas.ts";
 import { PRODUCTION_URL } from "./lib/wrangler.ts";
@@ -313,7 +314,7 @@ async function main() {
   process.exit(res.ok ? 0 : 1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main().catch((e: Error) => {
     console.error(`smoke: ${e.message}`);
     process.exit(1);

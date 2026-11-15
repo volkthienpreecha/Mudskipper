@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+from field_units import FieldUnits, grid_transform
 
 RUN = os.environ.get("RUN_ID", "r01")
 ART = os.path.join("artifacts", RUN)
@@ -23,7 +24,7 @@ ZOOM = np.s_[500:650, 100:250]  # 3x3 km at 20 m
 
 
 def sheet(tile, pids, dates, states, hhs, win, path, title):
-    fig, axs = plt.subplots(2, len(pids), figsize=(2.3 * len(pids), 5.3))
+    fig, axs = plt.subplots(2, len(pids), figsize=(2.3 * len(pids), 5.3), squeeze=False)
     for k, pid in enumerate(pids):
         st = states[pid][win]
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -45,7 +46,43 @@ def sheet(tile, pids, dates, states, hhs, win, path, title):
     fig.savefig(path, dpi=110); plt.close(fig)
 
 
+def geo_overlays(fields, rows):
+    """Rasterise the same geo identities used for statistics on each pass grid."""
+    grouped = {}
+    for r in rows:
+        if r.get("field_geometry_sha256") != fields.fingerprints.get(r["field_id"], "missing"):
+            raise ValueError(f"overlay field {r['field_id']} does not match geo handoff; rerun zonal/classify")
+        grouped.setdefault((r["pass_id"], r["tile"]), {})[r["field_id"]] = CODE[r["inferred"]["state"]]
+    os.makedirs(os.path.join(ART, "overlays"), exist_ok=True)
+    index = []
+    for (pid, tile), codes in sorted(grouped.items()):
+        with np.load(f"data/{pid}_{tile}.npz") as d:
+            lab, _, _, meta = fields.raster(tile, d["x"], d["y"], d["epsg"])
+            lut = np.array([0] + [codes.get(p["field_id"], 0) for p in meta], dtype=np.uint8)
+            st = lut[lab]
+            rgba = LUT[st].copy()
+            rgba[..., 3] = np.where(st > 0, 200, 0)
+            url = f"overlays/{pid}_{tile}.png"
+            plt.imsave(os.path.join(ART, url), rgba)
+            tf = grid_transform(d["x"], d["y"], d["epsg"])
+            height, width = lab.shape
+            tr = Transformer.from_crs(int(d["epsg"]), 4326, always_xy=True)
+            coords = [list(tr.transform(*(tf @ p))) for p in ((0, 0), (width, 0), (width, height), (0, height))]
+            index.append({"pass_id": pid, "tile": tile, "url": url, "coordinates": coords,
+                          "field_source": "geo", "field_ids": sorted(codes),
+                          "field_geometry_sha256": {f: fields.fingerprints[f] for f in sorted(codes)},
+                          "grid": {"epsg": int(d["epsg"]), "transform": list(tf)[:6],
+                                   "width": width, "height": height}})
+    json.dump(index, open(os.path.join(ART, "overlays", "index.json"), "w"), indent=1, allow_nan=False)
+    print(f"{len(index)} geo field overlays -> {ART}")
+
+
 def main():
+    fields = FieldUnits(ART)
+    if fields.geo:
+        rows = [json.loads(l) for l in open(os.path.join(ART, "observations.jsonl"))]
+        geo_overlays(fields, rows)
+        return
     dates = {p["pass_id"]: p["datetime"][:10]
              for p in json.load(open(os.path.join(ART, "passes.json")))["passes"] if p["used"]}
     codes = {}

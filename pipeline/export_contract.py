@@ -5,17 +5,19 @@ Internal ids  -> contract ids:
 Fields: the contract caps fields.geojson at 5,000. A fixed random sample (seed 0) of rice-like fields is kept,
 FIELDS_PER_TILE per tile, so per-pass shares stay unbiased. Polygons are the provisional segments, polygonised
 in UTM and reprojected to WGS84 (source "grid": derived on the 20 m raster grid until geo/ fields.geojson lands).
-If the run directory already has an aoi.json / fields.geojson from geo/, use those instead (TODO when it lands).
+Geo aoi.json / fields.geojson are authoritative when present; their field IDs,
+geometry, area, source and rice fractions survive export unchanged.
 Writes: aoi.json, fields.geojson, passes.json, observations.jsonl, provenance.json, overlays/ (+ index.json), hist/.
 Usage: python pipeline/export_contract.py [in_run=r01] [out_run=r01v1]
 """
-import datetime as dt, glob, hashlib, json, os, shutil, subprocess, sys
+import datetime as dt, glob, hashlib, json, os, re, shutil, sys
 import numpy as np
 import rasterio.features
 from affine import Affine
 from pyproj import Transformer
 from shapely.geometry import shape, mapping
 from shapely.ops import transform as shp_transform  # noqa
+from field_units import FieldUnits
 
 IN = sys.argv[1] if len(sys.argv) > 1 else "r01"
 OUT = sys.argv[2] if len(sys.argv) > 2 else "r01v1"
@@ -33,7 +35,11 @@ def sha(p):
 def gsha(v, tiles):
     """One checksum per granule: our fetch hashes each tile subset, so combine this run's tiles in order."""
     if isinstance(v, str):
+        if not re.fullmatch(r"[0-9a-f]{64}", v):
+            raise ValueError("source provenance contains an invalid subset checksum")
         return v
+    if not v or not all(t in v and re.fullmatch(r"[0-9a-f]{64}", v[t]) for t in tiles):
+        raise ValueError("source provenance is missing physical subset checksums for selected tiles")
     return hashlib.sha256("".join(f"{t}:{v[t]}" for t in tiles if t in v).encode()).hexdigest()
 
 
@@ -48,6 +54,8 @@ def granule_list(passes, prov, tiles):
             continue
         seen.add(gid)
         g = by.get(gid)
+        if p["used"] and not g:
+            raise ValueError(f"used granule {gid} has no source provenance")
         out.append({"granule_id": gid, "crid": p["crid"], "subset_sha256": gsha(g["subset_sha256"], tiles) if g else None})
     return out
 
@@ -57,25 +65,89 @@ def pid(p):
 
 
 def fid(internal):
+    if re.fullmatch(r"[a-z][a-z0-9]{0,15}-\d{5}", internal):
+        return internal
     tile, n = internal.rsplit("_s", 1)
     return f"{tile}-{int(n):05d}"
 
 
-def warp_overlay(src_png, dst_png, tile, bbox):
+def select_fields(rows, fields):
+    """Keep geo identity intact; record every explicit, deterministic sample."""
+    by_tile = {}
+    available = {p["field_id"]: p for t in fields.tiles() for p in fields.metadata(t)}
+    for row in rows:
+        f = row["field_id"]
+        if f not in available or available[f]["tile"] != row["tile"]:
+            raise ValueError(f"observation {f} has no matching field geometry/tile; rerun zonal/classify")
+        if fields.geo and row.get("field_source") != available[f]["source"]:
+            raise ValueError(f"observation {f} lacks matching geo field_source; rerun zonal/classify")
+        if fields.geo and row.get("field_geometry_sha256") != fields.fingerprints[f]:
+            raise ValueError(f"observation {f} does not match this geo geometry/metadata; rerun zonal/classify")
+        by_tile.setdefault(row["tile"], set()).add(f)
+    notrice = {r["field_id"] for r in rows if "not_rice_like" in r["flags"] or "not_rice_2024" in r["flags"]}
+    if not by_tile:
+        raise ValueError("no observations to export")
+    if fields.geo:
+        for tile, ids in by_tile.items():
+            absent = {p["field_id"] for p in fields.metadata(tile)} - ids
+            if absent:
+                raise ValueError(f"{len(absent)} geo fields in {tile} have no measurements; rerun zonal/classify")
+    # The contract allows 5,000 total, not 2,500 for each of arbitrarily many tiles.
+    all_ids = set().union(*by_tile.values())
+    all_geo = fields.geo and len(all_ids) <= 5000
+    quota = 5000 if all_geo else min(FIELDS_PER_TILE, 5000 // len(by_tile))
+    rng = np.random.default_rng(0)
+    keep = set()
+    for tile, ids in sorted(by_tile.items()):
+        cand = sorted(ids if fields.geo else ids - notrice)
+        keep.update(rng.choice(cand, min(quota, len(cand)), replace=False).tolist())
+    if not keep:
+        raise ValueError("no eligible field observations to export")
+    excluded = sorted(set().union(*by_tile.values()) - keep)
+    return keep, {"rule": "all_geo_fields" if all_geo else "seed_0_equal_tile_sample", "seed": 0, "contract_limit": 5000,
+                  "per_tile_limit": None if all_geo else quota, "field_source": "geo" if fields.geo else "segments",
+                  "input_fields": len(set().union(*by_tile.values())), "selected_fields": len(keep),
+                  "selected_ids": sorted(keep), "excluded_ids": excluded}
+
+
+def geo_export_fields(fields, keep, head):
+    """No re-numbering, geometry simplification, area/rice clamping or label substitution."""
+    features = [f for fs in fields.by_tile.values() for f in fs if f["properties"]["field_id"] in keep]
+    features.sort(key=lambda f: f["properties"]["field_id"])
+    if {f["properties"]["field_id"] for f in features} != keep:
+        raise ValueError("selected field IDs are absent from geo handoff")
+    tiles = {f["properties"]["tile"] for f in features}
+    aoi = {**fields.aoi, **head, "tiles": [t for t in fields.aoi["tiles"] if t["id"] in tiles]}
+    return {**fields.collection, **head, "features": features}, aoi
+
+
+def warp_overlay(src_png, dst_png, tile, bbox, grid=None, fields=None, keep=None):
     """Reproject an overlay PNG from the UTM field grid onto a north-up lon/lat grid covering the tile bbox
     (B3.10 wants the bbox corners). Nearest neighbour, so class colours are unchanged."""
     from PIL import Image
     from rasterio.warp import reproject, Resampling
     from rasterio.transform import from_bounds
-    ref = np.load(f"data/p20260702_{tile}.npz")
     a = np.array(Image.open(src_png).convert("RGBA"))
     h, w = a.shape[:2]
-    res = (ref["x"][-1] - ref["x"][0] + 10) / w
-    src_tf = Affine(res, 0, ref["x"][0] - 5, 0, -res, ref["y"][0] + 5)
+    if grid:
+        if [w, h] != [grid["width"], grid["height"]]:
+            raise ValueError("overlay grid metadata and PNG dimensions differ")
+        src_tf, src_crs = Affine(*grid["transform"]), grid["epsg"]
+        if fields is not None:
+            x = src_tf.c + (np.arange(w) + .5) * src_tf.a
+            y = src_tf.f + (np.arange(h) + .5) * src_tf.e
+            lab, _, _, meta = fields.raster(tile, x, y, src_crs)
+            selected = np.array([False] + [p["field_id"] in keep for p in meta])
+            a[~selected[lab], 3] = 0
+    else:
+        ref = np.load(f"data/p20260702_{tile}.npz")
+        res = (ref["x"][-1] - ref["x"][0] + 10) / w
+        src_tf = Affine(res, 0, ref["x"][0] - 5, 0, -res, ref["y"][0] + 5)
+        src_crs = int(ref["epsg"])
     dst_tf = from_bounds(*bbox, w, h)
     out = np.zeros_like(a)
     for k in range(4):
-        reproject(a[..., k], out[..., k], src_transform=src_tf, src_crs=f"EPSG:{int(ref['epsg'])}",
+        reproject(a[..., k], out[..., k], src_transform=src_tf, src_crs=f"EPSG:{src_crs}",
                   dst_transform=dst_tf, dst_crs="EPSG:4326", resampling=Resampling.nearest)
     Image.fromarray(out, "RGBA").save(dst_png)
 
@@ -92,10 +164,10 @@ def write_checks(dst, head):
         if r["inferred"]["state"] != "uncertain":
             c = by_pass.setdefault(r["pass_id"], [0, 0]); c[0] += r["inferred"]["state"] == "flooded"; c[1] += 1
     share = {p: f / n for p, (f, n) in by_pass.items()}
-    last = max(share, key=lambda p: p[:8])
+    last = max(share, key=lambda p: p[:8]) if share else None
     peak_stage = max((v for k, v in pct.items() if k != "early" and v is not None), default=None)
     ok = (pct["early"] is not None and peak_stage is not None and pct["early"] < peak_stage
-          and share[last] < max(share.values()))
+          and last is not None and share[last] < max(share.values()))
     opera = None
     op = os.path.join(SRC, "opera_pairs.json")
     if os.path.exists(op):
@@ -134,11 +206,34 @@ def hist_by_stage(dst):
 
 
 def main():
+    if (not all(re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,31}", r) for r in (IN, OUT)) or IN == OUT):
+        raise SystemExit("input/output must be distinct contract run IDs under artifacts/")
+    fields = FieldUnits(SRC)
+    # Validate the geometry/measurement join before replacing any previous export.
+    rows = [json.loads(l) for l in open(os.path.join(SRC, "observations.jsonl"))]
+    keep, selection = select_fields(rows, fields)
+    passes = json.load(open(os.path.join(SRC, "passes.json")))["passes"]
+    expected = {(f, p["pass_id"]) for f in keep for p in passes if p["used"]}
+    pairs = [(r["field_id"], r["pass_id"]) for r in rows if r["field_id"] in keep]
+    if set(pairs) != expected or len(pairs) != len(expected):
+        raise ValueError("selected fields require exactly one observation for every used pass; rerun zonal/classify")
+    if any(r["valid_frac"] > 0 and r["observed"].get("hh_db") is None for r in rows):
+        raise ValueError("nonzero valid coverage requires actual backscatter; refusing to drop missing measurements")
+    tiles = sorted({r["tile"] for r in rows})
+    prov = json.load(open(os.path.join(SRC, "provenance.json")))
+    granules = granule_list(passes, prov, tiles)
+    git = os.environ.get("RUN_GIT_SHA", prov.get("git_sha") or "")
+    if not re.fullmatch(r"[0-9a-f]{7,40}", git):
+        raise ValueError("source provenance requires its real git_sha (or explicit RUN_GIT_SHA)")
+    created = os.environ.get("RUN_CREATED_AT", prov.get("created_at") or "")
+    if created.endswith("+00:00"):
+        created = created[:-6] + "Z"
+    if not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", created):
+        raise ValueError("source provenance requires its UTC created_at (or explicit RUN_CREATED_AT)")
     if os.path.exists(DST):
         shutil.rmtree(DST)
     os.makedirs(os.path.join(DST, "overlays"))
     head = {"v": 1, "run_id": OUT}
-    passes = json.load(open(os.path.join(SRC, "passes.json")))["passes"]
     # ---- passes.json
     idmap, seen, out_passes = {}, set(), []
     for p in passes:
@@ -162,24 +257,16 @@ def main():
         out_passes.append(q)
     json.dump({**head, "passes": out_passes}, open(os.path.join(DST, "passes.json"), "w"), indent=1)
     # ---- observations: pick the field sample
-    rows = [json.loads(l) for l in open(os.path.join(SRC, "observations.jsonl"))]
-    tiles = sorted({r["tile"] for r in rows})
-    notrice = {r["field_id"] for r in rows if "not_rice_like" in r["flags"] or "not_rice_2024" in r["flags"]}
     rp = {}
     if os.path.exists(os.path.join(SRC, "rice_prior.jsonl")):
         rp = {json.loads(l)["field_id"]: json.loads(l)["rice_frac_2024"] for l in open(os.path.join(SRC, "rice_prior.jsonl"))}
-    rng = np.random.default_rng(0); keep = set()
-    for t in tiles:
-        cand = sorted({r["field_id"] for r in rows if r["tile"] == t and r["field_id"] not in notrice})
-        keep |= set(rng.choice(cand, min(FIELDS_PER_TILE, len(cand)), replace=False).tolist())
+    json.dump({**head, **selection}, open(os.path.join(DST, "field_selection.json"), "w"), indent=1)
     allowed_obs = {"hh_db", "hv_db", "vv_db", "ps_db", "pd_db", "pv_db", "hh_hv_db"}
     with open(os.path.join(DST, "observations.jsonl"), "w") as f:
         for r in rows:
             if r["field_id"] not in keep or r["pass_id"] not in idmap:
                 continue
             o = {k: v for k, v in r["observed"].items() if k in allowed_obs}
-            if r["valid_frac"] > 0 and o.get("hh_db") is None:
-                continue  # contract: observed may be null only when valid_frac is 0
             pf = r["inferred"]["p_flooded"]
             inf = {"state": r["inferred"]["state"], "p_flooded": pf,
                    "confidence": None if pf is None else round(abs(2 * pf - 1), 4), "method": r["inferred"]["method"]}
@@ -188,8 +275,11 @@ def main():
                                 "flags": sorted(set(r["flags"]))}) + "\n")
     # ---- fields.geojson + aoi.json
     feats, aoi_tiles = [], []
+    if fields.geo:
+        collection, aoi = geo_export_fields(fields, keep, head)
+        feats, aoi_tiles = collection["features"], aoi["tiles"]
     ref_pass = "p20260702"
-    for t in tiles:
+    for t in ([] if fields.geo else tiles):
         ref = np.load(f"data/{ref_pass}_{t}.npz"); seg = np.load(f"data/segments_{t}.npz")
         res = 10 * int(seg["ml"]); lab = seg["labels"].astype("int32")
         tf = Affine(res, 0, ref["x"][0] - 5, 0, -res, ref["y"][0] + 5)
@@ -216,7 +306,7 @@ def main():
         aoi_tiles.append({"id": t, "district": DISTRICT[t], "bbox": [round(min(xs) - 1e-4, 4), round(min(ys) - 1e-4, 4),
                                                                       round(max(xs) + 1e-4, 4), round(max(ys) + 1e-4, 4)]})
     json.dump({**head, "type": "FeatureCollection", "features": feats}, open(os.path.join(DST, "fields.geojson"), "w"))
-    json.dump({**head, "tiles": aoi_tiles, "utm_epsg": 32643, "season": {"start": "2026-06-17", "end": "2026-10-23"},
+    json.dump(aoi if fields.geo else {**head, "tiles": aoi_tiles, "utm_epsg": 32643, "season": {"start": "2026-06-17", "end": "2026-10-23"},
                "stages": {"mid_start": "2026-07-15", "late_start": "2026-09-10"},
                "gaps": [{"start": "2026-07-27T22:03:25Z", "end": "2026-08-10T00:55:27Z",
                          "source": "https://nisar-docs.asf.alaska.edu/availability-overview/"}]},
@@ -226,28 +316,27 @@ def main():
     for o in json.load(open(os.path.join(SRC, "overlays", "index.json"))):
         if o["pass_id"] not in idmap:
             continue
+        if fields.geo and (not o.get("grid") or o.get("field_source") != "geo"):
+            raise ValueError("geo export requires overlays regenerated on the same geo fields")
+        if fields.geo and any(o.get("field_geometry_sha256", {}).get(f) != fields.fingerprints.get(f, "missing")
+                              for f in o.get("field_ids", [])):
+            raise ValueError("overlay field geometry/metadata differs from this geo handoff")
         name = f"overlays/{idmap[o['pass_id']]}_{o['tile']}.png"
         b = next(a["bbox"] for a in aoi_tiles if a["id"] == o["tile"])
-        warp_overlay(os.path.join(SRC, o["url"]), os.path.join(DST, name), o["tile"], b)
+        warp_overlay(os.path.join(SRC, o["url"]), os.path.join(DST, name), o["tile"], b, o.get("grid"),
+                     fields if fields.geo else None, keep)
         ov.append({"pass_id": idmap[o["pass_id"]], "tile": o["tile"], "url": name,
                    "coordinates": [[b[0], b[3]], [b[2], b[3]], [b[2], b[1]], [b[0], b[1]]]})
     json.dump({**head, "overlays": ov}, open(os.path.join(DST, "overlays", "index.json"), "w"), indent=1)
     hist_by_stage(DST)
     write_checks(DST, head)
     # ---- provenance (last: hashes the files above)
-    prov = json.load(open(os.path.join(SRC, "provenance.json")))
-    used_g = {p["granule_id"] for p in passes if p["used"]}
-    try:
-        git = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    except Exception:
-        git = ""
     arts = [{"path": os.path.relpath(p, DST).replace(os.sep, "/"), "sha256": sha(p)}
             for p in sorted(glob.glob(os.path.join(DST, "**", "*"), recursive=True))
             if os.path.isfile(p) and not p.endswith("provenance.json")]
     dc = prov.get("decomposition_check") or {}
-    json.dump({**head, "git_sha": git if len(git) >= 7 else "0000000",
-               "created_at": os.environ.get("RUN_CREATED_AT", "2026-11-14T00:00:00Z"),  # run config, not wall clock (T2)
-               "granules": granule_list(passes, prov, tiles),
+    json.dump({**head, "git_sha": git, "created_at": created,
+               "granules": granules,
                "artifacts": arts,
                "decomposition_check": {"reference": dc.get("reference", "not run"), "max_abs_diff_db": dc.get("max_abs_diff_db")}},
               open(os.path.join(DST, "provenance.json"), "w"), indent=1)

@@ -1,4 +1,13 @@
-# pipeline/ state (Ishaan's lane) — updated 2026-11-14
+# pipeline/ state (Ishaan's lane) — integration update 2026-11-15
+
+The geo-field integration and offline CI are consolidated into the shared source.
+Published `r01v1` was fetched through the checksum-verifying release transfer and
+passed the pipeline contract validator: 5,000 grid fields, 9 used passes, 45,000
+observations. Core/district computation and API bundling use a separate local copy.
+See [INTEGRATION.md](INTEGRATION.md) for commands, evidence and remaining input limits.
+
+The following notes are historical; their empty-repository and uncommitted-work
+statements describe the original lane checkout.
 
 Spec: `C:\Users\lingi\Downloads\Mudskipper (NASA) Specs.pdf` (LANE ISHAAN, Part C; contracts in Part B).
 Team repo is still EMPTY (Karthik's Lane 0 not pushed): no docs/SPEC.md, contracts/, aoi.json, fields.geojson, DECISIONS.md.

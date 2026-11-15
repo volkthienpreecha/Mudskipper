@@ -1,21 +1,21 @@
-"""Steps 3+4 (dual-pol path): mask each cached tile and compute per-field stats.
+"""Aggregate GCOV covariance in linear power on authoritative geo fields.
 
-Field units, in order of preference:
-  1. artifacts/<run>/fields.geojson from geo/ (rasterised)  -> TODO when it lands
-  2. data/segments_<tile>.npz from segments.py (provisional, source "segments")
-Only valid cropland pixels are averaged (GCOV mask + WorldCover cropland).
-Averages are taken in linear power, then converted to dB (B3.4).
-Every pass is mapped onto the field raster by map coordinates, so passes from
-different tracks (slightly different windows) line up exactly.
-Output: artifacts/<run>/zonal.jsonl, artifacts/<run>/fields_provisional.jsonl
+Falls back to provisional segments only when fields.geojson is absent. Each
+pass is sampled on its own map grid. Geo fields retain their contract IDs and
+metadata; coverage includes portions of a field outside the cached window.
 """
-import glob, json, os
+import json
+import os
+from pathlib import Path
 import numpy as np
+from field_units import FieldUnits, sample_grid, cache_matches
+from affine import Affine
+from freeman_durden import freeman_durden
 
 RUN = os.environ.get("RUN_ID", "r01")
 ART = os.path.join("artifacts", RUN)
 STAGES = (("early", "2026-07-15"), ("mid", "2026-09-10"), ("late", "9999"))
-REF_PASS = "p20260702"  # segments + land cover are defined on this pass's grid (track 084)
+REF_PASS = "p20260702"
 
 
 def stage_of(date, stages=STAGES):
@@ -31,71 +31,114 @@ def field_id(tile, i):
 
 
 def on_grid(src, res, x0, y0, x, y, fill=0):
-    """Sample raster `src` (cell size `res`, top-left corner x0,y0) at pixel centres x,y."""
-    col = np.floor((x - x0) / res).astype(int)
-    row = np.floor((y0 - y) / res).astype(int)
-    ok = ((row >= 0) & (row < src.shape[0]))[:, None] & ((col >= 0) & (col < src.shape[1]))[None, :]
-    out = src[np.clip(row, 0, src.shape[0] - 1)][:, np.clip(col, 0, src.shape[1] - 1)]
-    return np.where(ok, out, fill)
+    return sample_grid(src, Affine(res, 0, x0, 0, -res, y0), x, y, fill)
 
 
 def field_rasters(tile, x, y):
-    """(labels, cropland) for a tile, sampled at pixel centres x,y."""
-    ref = np.load(f"data/{REF_PASS}_{tile}.npz")
-    x0, y0 = ref["x"][0] - 5, ref["y"][0] + 5
-    seg = np.load(f"data/segments_{tile}.npz")
-    lab = on_grid(seg["labels"], 10 * int(seg["ml"]), x0, y0, x, y)
-    crop = on_grid(np.load(f"data/landcover_{tile}.npz")["crop"], 10, x0, y0, x, y, fill=False)
-    return lab, crop
+    """Legacy segment API. New callers should use FieldUnits.raster with CRS."""
+    with np.load(f"data/{REF_PASS}_{tile}.npz") as ref:
+        return FieldUnits(ART).raster(tile, x, y, ref["epsg"])[:2]
 
 
 def want(tile):
-    """Tiles for this run: TILES=a,b (or legacy ONLY_TILE=a); default all cached tiles."""
     t = os.environ.get("TILES") or os.environ.get("ONLY_TILE")
     return t is None or tile in t.split(",")
 
 
+def zonal_records(d, p, tile, fields):
+    """One pass/tile, without IO; QP decomposes field means, never pixel dB."""
+    required = {"x", "y", "epsg", "HHHH", "HVHV", "mask"}
+    if p.get("pol_mode") == "QP":
+        required |= {"VVVV", "HHVV"}
+    missing = required - set(d.keys())
+    if missing:
+        raise ValueError(f"{p['pass_id']}/{tile} missing physical raster terms: {sorted(missing)}")
+    if p.get("granule_id") and ("granule_id" not in d or str(d["granule_id"]) != p["granule_id"]):
+        raise ValueError(f"{p['pass_id']}/{tile} cached granule does not match passes.json")
+    lab, crop, totals, meta = fields.raster(tile, d["x"], d["y"], d["epsg"])
+    terms = {k: np.asarray(d[k], dtype="c16" if k == "HHVV" else "f8")
+             for k in ("HHHH", "HVHV", "VVVV", "HHVV") if k in d}
+    if ("VVVV" in terms) != ("HHVV" in terms):
+        raise ValueError("quad-pol requires both VVVV and HHVV")
+    if "VHVH" in d and "VVVV" in terms:
+        terms["HVHV"] = (terms["HVHV"] + np.asarray(d["VHVH"], dtype="f8")) / 2
+    if any(a.shape != lab.shape for a in [np.asarray(d["mask"]), *terms.values()]):
+        raise ValueError(f"{p['pass_id']}/{tile} raster dimensions differ from x/y grid")
+    m = np.asarray(d["mask"])
+    ok = (m > 0) & (m < 255)
+    if "VHVH" in d and "VVVV" in terms:
+        ok &= np.isfinite(d["VHVH"]) & (d["VHVH"] > 0)
+    for k, a in terms.items():
+        ok &= np.isfinite(a)
+        if k != "HHVV":
+            ok &= a > 0
+    use = ok & crop & (lab > 0)
+    nl = len(meta) + 1
+    cnt = np.bincount(lab[use], minlength=nl)
+    def mean(a):
+        return np.bincount(lab[use], weights=a[use], minlength=nl) / np.maximum(cnt, 1)
+    means = {k: mean(a.real) + 1j * mean(a.imag) if np.iscomplexobj(a) else mean(a) for k, a in terms.items()}
+    qp = "VVVV" in terms
+    if qp:
+        ps, pd, pv = freeman_durden(means["HHHH"], means["HVHV"], means["VVVV"], means["HHVV"])
+    stages = STAGES
+    if fields.aoi:
+        stages = (("early", fields.aoi["stages"]["mid_start"]),
+                  ("mid", fields.aoi["stages"]["late_start"]), ("late", "9999"))
+    for i, props in enumerate(meta, 1):
+        obs = {"hh_db": None, "hv_db": None, "hh_hv_db": None}
+        if qp:
+            obs.update(vv_db=None, ps_db=None, pd_db=None, pv_db=None)
+        if cnt[i]:
+            obs.update(hh_db=db(means["HHHH"][i]), hv_db=db(means["HVHV"][i]),
+                       hh_hv_db=db(means["HHHH"][i] / means["HVHV"][i]))
+            if qp:
+                obs.update({k: db(max(float(a[i]), 1e-8)) for k, a in
+                            (("vv_db", means["VVVV"]), ("ps_db", ps), ("pd_db", pd), ("pv_db", pv))})
+        yield {"field_id": props["field_id"], "pass_id": p["pass_id"], "tile": tile, "track": p["track"],
+               "field_source": props["source"], "area_ha": props["area_ha"],
+               **({"field_geometry_sha256": fields.fingerprints[props["field_id"]]} if fields.geo else {}),
+               **({"rice_mask_frac": props["rice_mask_frac"]} if fields.geo else {}),
+               "n_px": int(cnt[i]), "valid_frac": round(float(cnt[i] / max(totals[i], 1)), 4),
+               "stage": stage_of(p["datetime"][:10], stages), "observed": obs}
+
+
 def main():
-    if os.path.exists(os.path.join(ART, "fields.geojson")):
-        raise SystemExit("fields.geojson found: polygon rasterisation not wired yet (TODO), refusing to silently use segments")
-    passes = {p["pass_id"]: p for p in json.load(open(os.path.join(ART, "passes.json")))["passes"] if p["used"]}
+    fields = FieldUnits(ART, ref_pass=REF_PASS)
+    pp = Path(ART) / "passes.json"
+    if not pp.exists():
+        raise SystemExit(f"missing {pp}: geo artifacts alone contain no radar passes or measurements")
+    passes = [p for p in json.loads(pp.read_text())["passes"] if p["used"]]
+    tiles = [t for t in fields.tiles() if want(t)]
+    if not passes or not tiles:
+        raise SystemExit("no used passes or matching field tiles; provide the radar and field handoffs")
+    inputs = [(p, tile, Path("data") / f"{p['pass_id']}_{tile}.npz") for p in passes for tile in tiles]
+    missing = [str(path) for _, _, path in inputs if not path.exists()]
+    if missing:
+        raise SystemExit("missing physical radar caches (run pipeline/fetch.py for this AOI): " + ", ".join(missing[:8]))
+    if fields.geo:
+        bounds = {t["id"]: t["bbox"] for t in fields.aoi["tiles"]}
+        for p, tile, path in inputs:
+            if not cache_matches(path, bounds[tile], p["granule_id"]):
+                raise SystemExit(f"{path} has no matching AOI/granule/checksum sidecar; rerun pipeline/fetch.py for this AOI")
     n = 0
-    with open(os.path.join(ART, "fields_provisional.jsonl"), "w") as ff:
-        for path in sorted(glob.glob("data/segments_*.npz")):
-            tile = os.path.basename(path)[9:-4]
-            if not want(tile):
-                continue
-            s = np.load(path)
-            for i, (a, c) in enumerate(zip(s["area_ha"], s["crop_frac"]), 1):
-                ff.write(json.dumps({"field_id": field_id(tile, i), "tile": tile, "area_ha": round(float(a), 2),
-                                     "source": "segments", "crop_frac": round(float(c), 3)}) + "\n")
-    with open(os.path.join(ART, "zonal.jsonl"), "w") as out:
-        for path in sorted(glob.glob("data/p2026*_*.npz")):
-            pass_id, tile = os.path.basename(path)[:-4].split("_", 1)
-            if pass_id not in passes or not want(tile):
-                continue
-            d = np.load(path)
-            lab, crop = field_rasters(tile, d["x"], d["y"])
-            hh, hv, m = d["HHHH"].astype("f8"), d["HVHV"].astype("f8"), d["mask"]
-            # mask: 0 = partially focused/invalid, 255 = outside swath, 1..n = valid subswath
-            ok = (m > 0) & (m < 255) & np.isfinite(hh) & np.isfinite(hv) & (hh > 0) & (hv > 0)
-            use = ok & crop & (lab > 0)
-            nl = int(np.load(f"data/segments_{tile}.npz")["labels"].max()) + 1
-            tot = np.bincount(lab[crop & (lab > 0)], minlength=nl)
-            cnt = np.bincount(lab[use], minlength=nl)
-            sh = np.bincount(lab[use], weights=hh[use], minlength=nl)
-            sv = np.bincount(lab[use], weights=hv[use], minlength=nl)
-            date = passes[pass_id]["datetime"][:10]
-            for i in range(1, nl):
-                rec = {"field_id": field_id(tile, i), "pass_id": pass_id, "tile": tile, "track": passes[pass_id]["track"],
-                       "n_px": int(cnt[i]), "valid_frac": round(float(cnt[i] / max(tot[i], 1)), 4),
-                       "stage": stage_of(date), "observed": {"hh_db": None, "hv_db": None, "hh_hv_db": None}}
-                if cnt[i]:
-                    h, x = sh[i] / cnt[i], sv[i] / cnt[i]
-                    rec["observed"] = {"hh_db": db(h), "hv_db": db(x), "hh_hv_db": db(h / x)}
-                out.write(json.dumps(rec) + "\n")
-                n += 1
-            print(pass_id, tile, "track", passes[pass_id]["track"], f"{nl - 1} fields")
+    pending = Path(ART) / "zonal.jsonl.tmp"
+    try:
+        with pending.open("w", encoding="utf-8", newline="\n") as out:
+            for p, tile, path in inputs:
+                with np.load(path) as d:
+                    for row in zonal_records(d, p, tile, fields):
+                        out.write(json.dumps(row, allow_nan=False) + "\n")
+                        n += 1
+                print(p["pass_id"], tile, "track", p["track"], f"{len(fields.metadata(tile))} fields")
+        pending.replace(Path(ART) / "zonal.jsonl")
+    finally:
+        pending.unlink(missing_ok=True)
+    name = "field_units.jsonl" if fields.geo else "fields_provisional.jsonl"
+    with (Path(ART) / name).open("w", encoding="utf-8", newline="\n") as out:
+        for tile in tiles:
+            for props in fields.metadata(tile):
+                out.write(json.dumps(props, allow_nan=False) + "\n")
     print(f"{n} rows -> {ART}/zonal.jsonl")
 
 

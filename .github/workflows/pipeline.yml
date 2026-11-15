@@ -1,0 +1,35 @@
+name: pipeline
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: offline radar and geo integration (python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.4"
+          enable-cache: true
+          cache-dependency-glob: pipeline/requirements-test.txt
+      - name: Create isolated test environment
+        run: uv venv .venv-pipeline --python 3.12
+      - name: Install test dependencies
+        run: uv pip install --python .venv-pipeline/bin/python -r pipeline/requirements-test.txt
+      - name: Synthetic array and polygon tests
+        run: .venv-pipeline/bin/python -m pytest pipeline/tests -v
