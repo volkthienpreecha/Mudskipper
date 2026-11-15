@@ -4,9 +4,30 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { MAX_BODY_BYTES } from "../../src/limits.ts";
 import { auditId, defaultSeed, sha256Hex } from "../../src/crypto.ts";
 import { RankError, type RankFn } from "../../src/audit/rank.ts";
-import { call, envFor, fixtureApi, goldenRank, resetCaches, validators as V, type BackendKind } from "./helpers.ts";
+import { AUDIT_TTL_SECONDS, D1AuditStore, KvAuditStore, kvAuditKey } from "../../src/audit/store.ts";
+import type { BundleManifest } from "../../src/repo/types.ts";
+import { ORIGIN, call, envFor, fixtureApi, goldenRank, resetCaches, validators as V, type BackendKind } from "./helpers.ts";
 
 beforeEach(resetCaches);
+
+/** The fixture bundle's content version (what audits are stored under). */
+async function bundleHash(): Promise<string> {
+  const m = (await (await env.ASSETS.fetch(`${ORIGIN}/data/runs/fixture/manifest.json`)).json()) as BundleManifest;
+  return m.bundle_hash;
+}
+
+/** The fixture deployment with a different bundle_hash: the same run_id regenerated in place. */
+function regeneratedAssets(hash: string): Fetcher {
+  return {
+    async fetch(input: string | Request | URL, init?: RequestInit) {
+      const url = String(input instanceof Request ? input.url : input);
+      const res = await env.ASSETS.fetch(input, init);
+      if (!url.endsWith("/data/runs/fixture/manifest.json")) return res;
+      const m = (await res.json()) as BundleManifest;
+      return Response.json({ ...m, bundle_hash: hash });
+    },
+  };
+}
 
 const golden = () => JSON.parse(env.TEST_AUDIT_REQUEST) as { claims: { features: Record<string, unknown>[] }; budget: number; seed?: number };
 const post = (body: BodyInit, kind: BackendKind | ReturnType<typeof envFor> = "static", rank?: RankFn, headers: Record<string, string> = {}) =>
@@ -169,7 +190,7 @@ describe.each(["static", "d1"] as BackendKind[])("audit storage round trip (%s b
     expect(defaultSeed("0000000a" + "0".repeat(56))).toBe(10);
   });
 
-  it("POST stores (201 + Location), repeats return the stored copy (200), GET serves it immutable", async () => {
+  it("POST stores (201 + Location), repeats return the stored copy (200), GET serves it (fixture run: live policy)", async () => {
     const req = golden();
     req.seed = kind === "d1" ? 21 : 22;
     const bytes = JSON.stringify(req);
@@ -189,7 +210,8 @@ describe.each(["static", "d1"] as BackendKind[])("audit storage round trip (%s b
 
     const got = await call(`/api/audit/${id}`, kind);
     expect(got.status).toBe(200);
-    expect(got.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    // the fixture run is regenerated in place, so its audits are never cached as immutable (review item 1)
+    expect(got.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=600");
     expect(await got.json()).toStrictEqual(body);
   });
 
@@ -198,10 +220,11 @@ describe.each(["static", "d1"] as BackendKind[])("audit storage round trip (%s b
     req.seed = kind === "d1" ? 31 : 32;
     const res = (await (await post(JSON.stringify(req), kind)).json()) as { audit_id: string };
     const id = res.audit_id;
-    const inD1 = await env.DB.prepare("SELECT audit_id, budget, seed, synthetic, result_json FROM audits WHERE audit_id = ?").bind(id).first<Record<string, unknown>>();
-    const inKv = await env.AUDITS.get(`audit:${id}`);
+    const version = await bundleHash();
+    const inD1 = await env.DB.prepare("SELECT audit_id, budget, seed, synthetic, result_json, bundle_hash FROM audits WHERE audit_id = ?").bind(id).first<Record<string, unknown>>();
+    const inKv = await env.AUDITS.get(kvAuditKey(version, id));
     const stored = kind === "d1" ? String(inD1?.["result_json"]) : String(inKv);
-    if (kind === "d1") expect(inD1).toMatchObject({ audit_id: id, budget: 20, seed: req.seed, synthetic: 1 });
+    if (kind === "d1") expect(inD1).toMatchObject({ audit_id: id, budget: 20, seed: req.seed, synthetic: 1, bundle_hash: version });
     else expect(inKv).not.toBeNull();
     expect(stored).not.toContain("coordinates"); // the ranking only: no claim geometry is kept
   });
@@ -217,5 +240,54 @@ describe.each(["static", "d1"] as BackendKind[])("audit storage round trip (%s b
     const res = await post(JSON.stringify(req), kind, goldenRank);
     expect(res.status).toBe(201);
     expect(V.auditResponse(await res.json())).toBe(true);
+  });
+});
+
+describe("review item 1: a stored audit is only served for the run version it was ranked on", () => {
+  it("static + KV: after the run is regenerated in place, the same body re-ranks and the old result is gone", async () => {
+    const req = golden();
+    req.seed = 51;
+    const bytes = JSON.stringify(req);
+    const first = await post(bytes);
+    expect(first.status).toBe(201);
+    const id = ((await first.json()) as { audit_id: string }).audit_id;
+    expect((await call(`/api/audit/${id}`, "static")).status).toBe(200);
+
+    const regenerated = envFor("static", { ASSETS: regeneratedAssets("f".repeat(64)) });
+    resetCaches(); // a new deployment runs in new isolates
+    expect((await call(`/api/audit/${id}`, regenerated)).status).toBe(404); // never the stale ranking
+    let reranked = 0;
+    const marker: RankFn = async (...args) => ((reranked++), goldenRank(...args));
+    const again = await call("/api/audit", regenerated, { method: "POST", body: bytes, headers: { "content-type": "application/json" } }, marker);
+    expect(again.status).toBe(201);
+    expect(reranked).toBe(1);
+    expect(((await again.json()) as { audit_id: string }).audit_id).toBe(id); // B6 step 8 id is unchanged
+  });
+
+  it("D1: a row from another version is not served, and a new POST replaces it", async () => {
+    const store = new D1AuditStore(env.DB);
+    const golden = fixtureApi("audit.response") as never as Parameters<D1AuditStore["put"]>[0];
+    const a = { ...golden, audit_id: "a_00000000000000d1", created_at: "2026-11-14T00:00:00Z" };
+    await store.put(a, "v-old");
+    expect(await store.get(a.audit_id, "v-old")).toStrictEqual(a);
+    expect(await store.get(a.audit_id, "v-new")).toBeNull();
+    const b = { ...a, created_at: "2026-11-15T00:00:00Z" };
+    expect(await store.put(b, "v-new")).toStrictEqual(b);
+    expect(await store.get(a.audit_id, "v-old")).toBeNull();
+    expect(await store.put({ ...b, created_at: "2026-11-16T00:00:00Z" }, "v-new")).toStrictEqual(b); // first write wins
+  });
+
+  it("KV keys carry the version and expire after 30 days", async () => {
+    const puts: { key: string; options: unknown }[] = [];
+    const fake = {
+      get: async () => null,
+      put: async (key: string, _v: string, options: unknown) => void puts.push({ key, options }),
+    } as unknown as KVNamespace;
+    const golden = fixtureApi("audit.response") as never as Parameters<KvAuditStore["put"]>[0];
+    await new KvAuditStore(fake).put(golden, "0123456789abcdef0123");
+    expect(puts).toHaveLength(1);
+    expect(puts[0]!.key).toBe(`audit:0123456789abcdef:${golden.audit_id}`);
+    expect(puts[0]!.options).toMatchObject({ expirationTtl: AUDIT_TTL_SECONDS });
+    expect(AUDIT_TTL_SECONDS).toBe(2_592_000);
   });
 });

@@ -162,14 +162,16 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     if (!backend.audits) {
       throw new ApiError(503, "storage_unavailable", "Audit storage is not configured on this deployment.");
     }
+    const audits = backend.audits;
     const bytes = await readBodyCapped(c.req.raw);
     const { request, inputHash } = await parseAuditBody(bytes);
     const live = await backend.repo.live();
+    const version = await backend.repo.version(live);
     const seed = request.seed ?? defaultSeed(inputHash);
     const id = await auditId(live.run_id, inputHash, request.budget, seed);
     const location = { location: `/api/audit/${id}` };
 
-    const existing = await backend.audits.get(id);
+    const existing = await audits.get(id, version);
     if (existing) return json(existing, 200, CACHE.none, location);
 
     const inputs = await backend.repo.rankInputs(live);
@@ -184,7 +186,7 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
       // core and the platform disagree on CONTRACTS.md B6 step 8; store under core's id and say so in the logs.
       console.error(`audit_id mismatch: platform ${id}, ranking ${result.audit_id}`);
     }
-    const stored = await backend.audits.put(result);
+    const stored = await audits.put(result, version);
     return json(stored, 201, CACHE.none, { location: `/api/audit/${stored.audit_id}` });
   });
 
@@ -193,9 +195,11 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     if (!AUDIT_ID.test(id)) throw badRequest(`audit id must match ${AUDIT_ID.source}.`);
     const backend = backendOf(c);
     if (!backend.audits) throw new ApiError(503, "storage_unavailable", "Audit storage is not configured on this deployment.");
-    const stored = await backend.audits.get(id);
+    const live = await backend.repo.live();
+    const stored = await backend.audits.get(id, await backend.repo.version(live));
     if (!stored) throw notFound(`No audit with id ${id}.`);
-    return json(stored, 200, CACHE.immutable);
+    // A real run's audit never changes (content-addressed, K-308); the fixture run is regenerated in place.
+    return json(stored, 200, live.fixture ? CACHE.live : CACHE.immutable);
   });
 
   app.get("/tiles/*", async (c) => serveTile(c.req.raw, c.env, backendOf(c).tiles));
