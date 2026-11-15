@@ -9,17 +9,17 @@
 import { Hono, type Context } from "hono";
 import { DOC_NAMES, AUDIT_ID, TILE_ID, VERDICTS, type DocName, type Live } from "./contracts.ts";
 import type { AppEnv } from "./env.ts";
-import { auditId, defaultSeed, sha256Hex } from "./crypto.ts";
+import { auditId, defaultSeed } from "./crypto.ts";
 import { ApiError, badRequest, errorBody, notFound } from "./http/errors.ts";
 import { CACHE, applySecurityHeaders, etagMatches } from "./http/headers.ts";
-import { readBodyCapped, parseJson, validateAuditRequest } from "./audit/validate.ts";
+import { parseAuditBody, readBodyCapped, toApiError } from "./audit/validate.ts";
 import { RankError, defaultRank, type RankFn } from "./audit/rank.ts";
 import { selectBackend, type Backend } from "./backend.ts";
 import { fieldsPage, header } from "./shapes.ts";
 import { serveTile } from "./tiles.ts";
 
 export interface AppOptions {
-  /** The ranking implementation (core/rank.ts). Defaults to the Phase 1 stub (501). */
+  /** The ranking implementation. Defaults to core's `rank`; tests inject doubles and failures. */
   rank?: RankFn;
   /** Clock, for tests. */
   now?: () => Date;
@@ -160,9 +160,8 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
       throw new ApiError(503, "storage_unavailable", "Audit storage is not configured on this deployment.");
     }
     const bytes = await readBodyCapped(c.req.raw);
-    const request = validateAuditRequest(parseJson(bytes));
+    const { request, inputHash } = await parseAuditBody(bytes);
     const live = await backend.repo.live();
-    const inputHash = await sha256Hex(bytes);
     const seed = request.seed ?? defaultSeed(inputHash);
     const id = await auditId(live.run_id, inputHash, request.budget, seed);
     const location = { location: `/api/audit/${id}` };
@@ -175,7 +174,7 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
     try {
       result = await rank(request, inputHash, inputs.fields, inputs.summaries, live.run_id, isoSeconds(now()), live.fixture);
     } catch (e) {
-      if (e instanceof RankError) throw new ApiError(400, e.code, e.message);
+      if (e instanceof RankError) throw toApiError(e);
       throw e;
     }
     if (result.audit_id !== id) {
@@ -231,6 +230,6 @@ export function createApp(options: AppOptions = {}): Hono<AppEnv> {
   return app;
 }
 
-/** The deployed app. TODO(core): nothing to change here; wire core's rank in src/audit/rank.ts (`defaultRank`). */
+/** The deployed app (ranking: core's `rank`). */
 export const app = createApp();
 export default app;

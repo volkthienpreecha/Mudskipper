@@ -12,7 +12,6 @@ export type ErrorCode =
   | "not_found"
   | "method_not_allowed"
   | "range_not_satisfiable"
-  | "not_implemented"
   | "no_live_run"
   | "storage_unavailable"
   | "internal";

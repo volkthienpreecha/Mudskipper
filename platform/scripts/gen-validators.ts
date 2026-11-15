@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 /**
- * Compile the API JSON Schemas (contracts/schemas) into standalone, dependency-free validator modules.
+ * Compile the API JSON Schemas (contracts/schemas) into a standalone, dependency-free validator module for
+ * the tests that run inside workerd (test/gen/validators.js): every API response schema, checked with the
+ * real JSON Schemas rather than a hand-written copy.
  *
- *   node scripts/gen-validators.ts          # write src/gen/audit-request.js and test/gen/validators.js
- *   node scripts/gen-validators.ts --check  # fail if a committed file is stale (CI)
+ *   node scripts/gen-validators.ts          # write test/gen/validators.js
+ *   node scripts/gen-validators.ts --check  # fail if the file in the repo is stale (CI)
  *
- * Why generated: Ajv compiles schemas with `new Function`, which workerd forbids, so a Function cannot compile
- * schemas at runtime. Ajv's standalone mode emits the compiled code instead. Its two runtime helpers are
- * inlined so the output imports nothing. The output is deterministic, so it is committed and checked for drift
- * like the fixtures.
- *
- * - src/gen/audit-request.js: the one validator production needs (POST /api/audit request body).
- * - test/gen/validators.js: every API response schema, for the tests that run inside workerd.
+ * Why generated: Ajv compiles schemas with `new Function`, which workerd forbids. Ajv's standalone mode emits
+ * the compiled code instead; its two runtime helpers are inlined so the output imports nothing. The output is
+ * deterministic, so it lives in the repo and is checked for drift like the fixtures. (Production validates
+ * the audit request with core's dependency-free `validateAuditRequest`.)
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -44,7 +43,6 @@ export const RESPONSE_VALIDATORS: Record<string, string> = {
 };
 
 const TARGETS: { file: string; validators: Record<string, string> }[] = [
-  { file: join(root, "src", "gen", "audit-request.js"), validators: { auditRequest: "api/audit_request.schema.json" } },
   { file: join(root, "test", "gen", "validators.js"), validators: RESPONSE_VALIDATORS },
 ];
 

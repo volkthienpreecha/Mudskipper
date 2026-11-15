@@ -46,7 +46,7 @@ export const fixtureApi = (name: string) => structuredClone(env.TEST_FIXTURE_API
 
 /** A stand-in for core's rank: returns the golden response for the golden request (Phase 1 envelope tests). */
 export const goldenRank: RankFn = async (req, inputHash, fields, summaries, runId, createdAt, fixture) => {
-  const golden = fixtureApi("audit.response") as AuditResponse;
+  const golden = fixtureApi("audit.response") as unknown as AuditResponse;
   if (summaries.size !== 300 || fields.length !== 300) throw new Error("rank inputs are incomplete");
   const seed = req.seed ?? defaultSeed(inputHash);
   const audit_id = await auditId(runId, inputHash, req.budget, seed);
@@ -64,7 +64,7 @@ export async function loadFixtureIntoD1(): Promise<number> {
   const live = await assetJson<Live>("/data/live.json");
   const plans = planRun(run, buildApiDocs(run), manifest);
   const diffs = await diffRun(env.DB, plans, run.run_id);
-  const res = await execute(env.DB, [...diffStatements(diffs), liveStatement(live as never)]);
+  const res = await execute(env.DB, [...diffStatements(diffs), liveStatement(live)]);
   return res.rowsWritten;
 }
 

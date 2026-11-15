@@ -87,7 +87,11 @@ describe("POST /api/audit: limits and validation (B6 error codes)", () => {
   it("claims without claim_id get #n ids, which can never collide with a valid claim_id", async () => {
     const req = golden();
     for (const f of req.claims.features) delete (f["properties"] as Record<string, unknown>)["claim_id"];
-    await expectError(await post(JSON.stringify(req)), 501, "not_implemented");
+    const res = await post(JSON.stringify(req));
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { ranked: { claim_id: string }[] };
+    expect(V.auditResponse(body)).toBe(true);
+    expect(body.ranked.every((r) => /^#\d+$/.test(r.claim_id))).toBe(true);
   });
 
   it("accepts ordinary GIS exports: extra members, extra properties, altitude", async () => {
@@ -96,31 +100,61 @@ describe("POST /api/audit: limits and validation (B6 error codes)", () => {
     (req.claims as Record<string, unknown>)["crs"] = { type: "name", properties: { name: "EPSG:4326" } };
     (req.claims.features[0]!["properties"] as Record<string, unknown>)["notes"] = "x";
     req.claims.features[0]!["geometry"] = { type: "Point", coordinates: [74.1, 30.3, 182.5] };
-    await expectError(await post(JSON.stringify(req)), 501, "not_implemented");
+    const res = await post(JSON.stringify(req));
+    expect(res.status).toBe(201);
+    expect(V.auditResponse(await res.json())).toBe(true);
   });
 });
 
-describe("POST /api/audit: Phase 1 ranking seam", () => {
-  it("a valid request reaches the ranking and gets 501 not_implemented until core lands", async () => {
-    await expectError(await post(env.TEST_AUDIT_REQUEST), 501, "not_implemented");
+describe.each(["static", "d1"] as BackendKind[])("POST /api/audit with core's ranking (%s backend)", (kind) => {
+  it("the exact bytes of audit.request.json rank exactly as audit.response.json (created_at aside)", async () => {
+    const res = await post(env.TEST_AUDIT_REQUEST, kind);
+    expect([200, 201]).toContain(res.status);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(V.auditResponse(body)).toBe(true);
+    const { created_at: _a, ...got } = body;
+    const { created_at: _b, ...want } = fixtureApi("audit.response");
+    expect(got).toStrictEqual(want);
+    expect(body["created_at"]).toBe("2026-11-14T00:00:00Z");
   });
 
+  it("T7: exactly 20% random picks, and the same ranking for the same seed whatever the bytes", async () => {
+    const req = golden();
+    const compact = (await (await post(JSON.stringify(req), kind)).json()) as { audit_id: string; ranked: { pick: string }[] };
+    const pretty = (await (await post(JSON.stringify(req, null, 4), kind)).json()) as { audit_id: string; ranked: unknown[] };
+    expect(compact.ranked.filter((r) => r.pick === "random")).toHaveLength(Math.floor((20 + 2) / 5));
+    expect(pretty.ranked).toStrictEqual(compact.ranked);
+    expect(pretty.audit_id).not.toBe(compact.audit_id); // ids depend on the exact bytes (B6 step 8)
+  });
+});
+
+describe("POST /api/audit: ranking errors and storage", () => {
   it("503 storage_unavailable when neither D1 nor KV is bound", async () => {
-    await expectError(await post(env.TEST_AUDIT_REQUEST, { ASSETS: env.ASSETS }, goldenRank), 503, "storage_unavailable");
+    await expectError(await post(env.TEST_AUDIT_REQUEST, { ASSETS: env.ASSETS }), 503, "storage_unavailable");
   });
 
-  it("maps a RankError from core to 400 with its code", async () => {
+  it("maps core's RankError to its status and code", async () => {
     const failing: RankFn = async () => {
       throw new RankError("invalid_geometry", "claim SYN-0001: no interior point");
     };
-    await expectError(await post(env.TEST_AUDIT_REQUEST, "static", failing), 400, "invalid_geometry");
+    const req = golden();
+    req.seed = 11;
+    await expectError(await post(JSON.stringify(req), "static", failing), 400, "invalid_geometry");
+  });
+
+  it("a zero-area polygon is invalid_geometry from core (K-205)", async () => {
+    const req = golden();
+    req.claims.features[0]!["geometry"] = { type: "Polygon", coordinates: [[[74, 30], [74.1, 30], [74.2, 30], [74, 30]]] };
+    await expectError(await post(JSON.stringify(req)), 400, "invalid_geometry");
   });
 
   it("hides unexpected ranking failures behind a 500 internal error", async () => {
     const boom: RankFn = async () => {
       throw new Error("secret detail");
     };
-    const res = await post(env.TEST_AUDIT_REQUEST, "static", boom);
+    const req = golden();
+    req.seed = 12;
+    const res = await post(JSON.stringify(req), "static", boom);
     await expectError(res.clone(), 500, "internal");
     expect(await res.text()).not.toContain("secret detail");
   });
@@ -128,8 +162,7 @@ describe("POST /api/audit: Phase 1 ranking seam", () => {
 
 describe.each(["static", "d1"] as BackendKind[])("audit storage round trip (%s backend)", (kind) => {
   it("input_hash, seed and audit_id follow CONTRACTS.md B6 step 8 (golden request)", async () => {
-    const bytes = env.TEST_AUDIT_REQUEST;
-    const hash = await sha256Hex(bytes);
+    const hash = await sha256Hex(env.TEST_AUDIT_REQUEST);
     const want = fixtureApi("audit.response");
     expect(hash).toBe(want["input_hash"]);
     expect(await auditId("fixture", hash, 20, 7)).toBe(want["audit_id"]);
@@ -137,16 +170,18 @@ describe.each(["static", "d1"] as BackendKind[])("audit storage round trip (%s b
   });
 
   it("POST stores (201 + Location), repeats return the stored copy (200), GET serves it immutable", async () => {
-    const want = fixtureApi("audit.response");
-    const first = await post(env.TEST_AUDIT_REQUEST, kind, goldenRank);
+    const req = golden();
+    req.seed = kind === "d1" ? 21 : 22;
+    const bytes = JSON.stringify(req);
+    const first = await post(bytes, kind);
     expect(first.status).toBe(201);
-    const id = want["audit_id"] as string;
-    expect(first.headers.get("location")).toBe(`/api/audit/${id}`);
-    const body = await first.json();
+    const body = (await first.json()) as { audit_id: string; seed: number };
     expect(V.auditResponse(body)).toBe(true);
-    expect(body).toStrictEqual({ ...want, created_at: "2026-11-14T00:00:00Z" });
+    const id = await auditId("fixture", await sha256Hex(bytes), 20, req.seed);
+    expect(body.audit_id).toBe(id); // platform and core agree on B6 step 8
+    expect(first.headers.get("location")).toBe(`/api/audit/${id}`);
 
-    const again = await post(env.TEST_AUDIT_REQUEST, kind, async () => {
+    const again = await post(bytes, kind, async () => {
       throw new Error("must not re-rank a stored audit");
     });
     expect(again.status).toBe(200);
@@ -158,14 +193,17 @@ describe.each(["static", "d1"] as BackendKind[])("audit storage round trip (%s b
     expect(await got.json()).toStrictEqual(body);
   });
 
-  it("stores in D1 `audits` when DB is bound, otherwise in KV", async () => {
-    const want = fixtureApi("audit.response");
-    await post(env.TEST_AUDIT_REQUEST, kind, goldenRank);
-    const id = want["audit_id"] as string;
-    const inD1 = await env.DB.prepare("SELECT audit_id, budget, seed, synthetic FROM audits WHERE audit_id = ?").bind(id).first();
+  it("stores in D1 `audits` when DB is bound, otherwise in KV, and never the upload itself", async () => {
+    const req = golden();
+    req.seed = kind === "d1" ? 31 : 32;
+    const res = (await (await post(JSON.stringify(req), kind)).json()) as { audit_id: string };
+    const id = res.audit_id;
+    const inD1 = await env.DB.prepare("SELECT audit_id, budget, seed, synthetic, result_json FROM audits WHERE audit_id = ?").bind(id).first<Record<string, unknown>>();
     const inKv = await env.AUDITS.get(`audit:${id}`);
-    if (kind === "d1") expect(inD1).toMatchObject({ audit_id: id, budget: 20, seed: 7, synthetic: 1 });
+    const stored = kind === "d1" ? String(inD1?.["result_json"]) : String(inKv);
+    if (kind === "d1") expect(inD1).toMatchObject({ audit_id: id, budget: 20, seed: req.seed, synthetic: 1 });
     else expect(inKv).not.toBeNull();
+    expect(stored).not.toContain("coordinates"); // the ranking only: no claim geometry is kept
   });
 
   it("GET /api/audit/:id is 404 when missing and 400 when malformed", async () => {
@@ -173,28 +211,11 @@ describe.each(["static", "d1"] as BackendKind[])("audit storage round trip (%s b
     await expectError(await call("/api/audit/not-an-id", kind), 400, "invalid_request");
   });
 
-  it("a different seed is a different audit", async () => {
+  it("a test double can stand in for core through the seam", async () => {
     const req = golden();
-    req.seed = 8;
-    const body = JSON.stringify(req, null, 2) + "\n";
-    const res = await post(body, kind, goldenRank);
+    req.seed = kind === "d1" ? 41 : 42;
+    const res = await post(JSON.stringify(req), kind, goldenRank);
     expect(res.status).toBe(201);
-    const id = await auditId("fixture", await sha256Hex(body), 20, 8);
-    expect(id).not.toBe(fixtureApi("audit.response")["audit_id"]);
-    expect(res.headers.get("location")).toBe(`/api/audit/${id}`);
-    expect(((await res.json()) as { audit_id: string }).audit_id).toBe(id);
-  });
-});
-
-// TODO(core): enable when @mudskipper/core is wired into src/audit/rank.ts (Phase 2).
-describe.skip("POST /api/audit with core's ranking (Phase 2)", () => {
-  it("the golden request ranks exactly as contracts/fixtures/api/audit.response.json", async () => {
-    const res = await post(env.TEST_AUDIT_REQUEST, "static");
-    expect(res.status).toBe(201);
-    expect(await res.json()).toStrictEqual({ ...fixtureApi("audit.response"), created_at: "2026-11-14T00:00:00Z" });
-  });
-  it("exactly 20% random picks and the same output for the same seed (T7)", async () => {
-    const a = (await (await post(env.TEST_AUDIT_REQUEST, "d1")).json()) as { ranked: { pick: string }[] };
-    expect(a.ranked.filter((r) => r.pick === "random")).toHaveLength(Math.floor((20 + 2) / 5));
+    expect(V.auditResponse(await res.json())).toBe(true);
   });
 });

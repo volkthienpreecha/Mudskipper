@@ -2,7 +2,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DATA_BACKENDS, call, envFor, fixtureApi, resetCaches, validators as V, type BackendKind } from "./helpers.ts";
-import type { Validator } from "../../src/gen/audit-request.js";
+import type { Validator } from "../gen/validators.js";
 
 beforeEach(resetCaches);
 
