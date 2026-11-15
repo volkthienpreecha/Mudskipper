@@ -56,7 +56,7 @@ describe("parameters", () => {
     assertSameJson(DEFAULT_PARAM_SOURCES, det.param_sources, "param_sources");
     expect(DEFAULT_SEED).toBe(det.seed);
     expect(DEFAULT_N_SIM).toBe(det.n_sim);
-    expect(DEFAULT_PARAM_SOURCES.drained_fraction_of_cycle.status).toBe("needs_citation");
+    expect(DEFAULT_PARAM_SOURCES.drained_fraction_of_cycle.status).toBe("derived");
   });
 });
 

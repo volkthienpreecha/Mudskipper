@@ -22,7 +22,7 @@ describe("preflight", () => {
     const pf = preflight(geoOnly, false);
     expect(pf.blocking.map((b) => b.file)).toEqual(["passes.json", "observations.jsonl", "provenance.json", "overlays/index.json"]);
     expect(new Set(pf.blocking.map((b) => b.owner))).toEqual(new Set(["pipeline (Ishaan)"]));
-    expect(pf.notes.join(" ")).toContain("drained_fraction_of_cycle");
+    expect(pf.notes.join(" ")).not.toContain("needs_citation"); // every parameter is cited or derived now
   });
 });
 

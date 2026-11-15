@@ -271,6 +271,18 @@ class GeoStage(Base):
         self.assertEqual(validate.main([str(self.geo), "--stage", "geo", "--quiet"]), 0)
 
 
+class AutoStage(Base):
+    def test_geo_only_run_is_validated_as_geo(self):
+        geo = self.tmp / "geo-only"
+        geo.mkdir()
+        for name in ("aoi.json", "fields.geojson"):
+            shutil.copy(self.run_dir / name, geo / name)
+        rep = validate.Report("test")
+        validate.validate_run(geo, SCHEMAS, rep)
+        self.assertEqual(rep.facts["stage"], "geo")
+        self.assertEqual(rep.errors, [])
+
+
 class EcmaPatterns(unittest.TestCase):
     def test_trailing_newline_does_not_match_anchored_pattern(self):
         errors = SCHEMAS.errors("live", {"v": 1, "run_id": "r01\n", "fixture": False})
