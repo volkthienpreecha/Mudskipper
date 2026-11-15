@@ -39,6 +39,7 @@ Each fills a gap SPEC Part B leaves open; details are in `contracts/CONTRACTS.md
 | C-011 | `overlays/index.json` is an object (`{v, run_id, overlays: [...]}`) so it can carry the header. |
 | C-012 | `/api/checks` also returns the district table; `/api/meta` adds asset URLs and the Limits text. |
 | C-013 | `param_sources` entries carry a status (`cited`, `derived`, `convention`, `needs_citation`); a real run with `needs_citation` fails validation. |
+| C-014 | After an independent review: `cf_false_flag_max` and `awd_miss_max` are fixed at 0.1; the season sentence states the count for any k\*; reason percents compared with a threshold round down; duplicate `claim_id` → 400, missing → `#<n>`; concave claims get an interior point; open rings → 400; uploads may carry extra GeoJSON members, properties and altitude; no `NaN`/`Infinity` anywhere; provenance lists every pass (T3); every cross-language detail (integer remainders, one-division probabilities, exact ray-casting predicate, code-unit sort order, parsed-value equality) is written into CONTRACTS.md. |
 
 ## Parameters and citations (for Ishaan's review, SPEC A4)
 
@@ -61,3 +62,4 @@ Each fills a gap SPEC Part B leaves open; details are in `contracts/CONTRACTS.md
 | F-004 | Islam et al. 2026 studied Bangladesh, not India; cite it as "L-band full-pol in South Asia". |
 | F-005 | Han et al. 2022 rice map (APRA500) is 500 m and covers 2000–2021 (CC-BY-4.0 on Zenodo); as a rice mask for 1–5 ha fields it is coarse. Note this in Methods if it is used. |
 | F-006 | FTW's default model `FTW_PRUE_EFNET_B5` has mixed weight licenses that include non-commercial data; the `*_CCBY` v3.1 variants are CC-BY-4.0. Prefer a CCBY variant (Lane Karthik step 3). |
+| F-007 | **Cloudflare free plan: D1 allows 100,000 rows written per day, and each index adds a write per row.** Loading ~55k rows naively can hit the cap; the publish script must use a guarded upsert (`ON CONFLICT … DO UPDATE … WHERE changed`) and few indexes (Lane Karthik plan). |
