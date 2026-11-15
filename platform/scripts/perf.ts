@@ -536,7 +536,8 @@ async function main() {
       note = (e as Error).message;
     }
     const ms = performance.now() - t0;
-    if (remote) await new Promise((r) => setTimeout(r, Number(values["pace-ms"]))); // the tail samples under bursts
+    // The tail samples under bursts; audits also stay under the API's rate limit (one every 3 s per client).
+    if (remote) await new Promise((r) => setTimeout(r, p.kind === "audit" ? Math.max(3100, Number(values["pace-ms"])) : Number(values["pace-ms"])));
     process.stderr.write(".");
     const { body: _b, fresh: _f, ...rest } = p;
     return { ...rest, id, status, ms, bytes, cpu, wall: null, outcome: remote ? null : "ok", ...(note ? { note } : {}) };
