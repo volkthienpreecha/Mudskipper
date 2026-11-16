@@ -9,12 +9,11 @@ for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown']) {
   window.addEventListener(type, () => { openingInteracted = true; }, { once: true, passive: true });
 }
 window.addEventListener('mudskipper:ready', () => {
-  if (!openingInteracted) { resetOpening(); requestAnimationFrame(resetOpening); }
+  if (!openingInteracted) { resetOpening(); }
 });
 window.addEventListener('pageshow', event => {
   if (event.persisted || !openingInteracted) {
     resetOpening();
-    requestAnimationFrame(resetOpening);
   }
 });
 
