@@ -6,6 +6,7 @@
   font-display: swap;
 }
 :root {
+  font-synthesis: none;
   --sans: "ROMANS", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
   --font-family-body: var(--sans);
   --font-family-heading: var(--sans);
@@ -14,3 +15,8 @@
   --mono: var(--sans);
 }
 body, button, input, select, textarea, code, pre, svg text { font-family: var(--sans); }
+
+/* ROMANS supplies Regular only. Keep its solid outlines and emphasize selected UI text. */
+:is(b,strong,nav a,.brand span,.btn,.ms-text-action,.bt-action,.astryx-button) {
+  -webkit-text-stroke: .25px currentColor;
+}

@@ -153,6 +153,10 @@ test('all scroll chapters expose one accessible stage and no stage-selector butt
         await page.waitForTimeout(380);
         assert.equal(await page.locator('#'+id).getAttribute('data-scroll-index'),String(index));
         assert.equal(await page.locator('#'+id+' [data-scroll-stage]:not([inert])').count(),1);
+        if(id==='ms-method-sequence') {
+          const alphas=await page.locator('#'+id+' .ms-science-scene').evaluateAll(es=>es.map(e=>Number(getComputedStyle(e).opacity)));
+          assert.deepEqual(alphas,[0,1,2].map(i=>i===index?1:0),'Only the current science visual is visible after settling');
+        }
         const result=await new AxeBuilder({page}).include('#'+id).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']).analyze();
         assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],`${id} ${index}`);
       }
@@ -187,6 +191,8 @@ test('centered hero and wordmark use the supplied sky, and season reveals do not
   const page=await open();
   try {
     assert.equal(await page.evaluate(()=>document.fonts.check('16px ROMANS')),true);
+    assert.equal(await page.locator('h1').evaluate(e=>getComputedStyle(e).fontSynthesis),'none');
+    assert.equal(await page.locator('nav a').first().evaluate(e=>getComputedStyle(e).webkitTextStrokeWidth),'0.25px');
     for(const selector of ['h1','nav a','#season .sub','#searchField','#seasonSvg text','#ms-api-response','#ms-run-request']) {
       assert.ok((await page.locator(selector).first().evaluate(e=>getComputedStyle(e).fontFamily)).includes('ROMANS'),selector+' uses the supplied font');
     }
@@ -207,6 +213,9 @@ test('centered hero and wordmark use the supplied sky, and season reveals do not
     assert.notEqual(await page.locator('.brand-card').evaluate(e=>getComputedStyle(e).clipPath),initialMask);
     const center=await page.locator('.brand-lockup').evaluate(e=>{const r=e.getBoundingClientRect();return r.left+r.width/2});
     assert.ok(Math.abs(center-720)<3);
+    await scrollProgress(page,'ms-how-sequence',1);
+    const gap=await page.evaluate(()=>document.querySelector('#season .label')!.getBoundingClientRect().top-document.querySelector('#ms-how-sequence [data-scroll-stage="2"] .ms-product-window')!.getBoundingClientRect().bottom);
+    assert.ok(gap<130,`The field record hands off to the season without a blank viewport (${gap}px)`);
     const data=await page.locator('#seasonTable tbody').innerText();
     await scrollProgress(page,'season',.1);const crop=await page.locator('#seasonSvg').evaluate(e=>getComputedStyle(e).clipPath);
     await scrollProgress(page,'season',.9);assert.notEqual(await page.locator('#seasonSvg').evaluate(e=>getComputedStyle(e).clipPath),crop);
