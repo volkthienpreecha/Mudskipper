@@ -314,3 +314,18 @@ test('reloading or reopening the site starts at the headline, while map navigati
   assert.equal(await page.evaluate(()=>scrollY),0);
  }finally{await page.context().close();}
 });
+
+
+test('opening a field report preserves focus when it replaces the district picker',async()=>{
+ const page=await open('reduce');
+ try{
+  await page.locator('#map').scrollIntoViewIfNeeded();
+  await page.locator('#fcard .chips').waitFor();
+  await page.locator('#backBtn').click();
+  await page.locator('#fcard .pickbtn[data-tile="fazilka"]').click();
+  await page.locator('#fieldPicker').focus();
+  await page.locator('#gF path').first().evaluate(e=>e.dispatchEvent(new MouseEvent('click',{bubbles:true})));
+  await page.locator('#fcard .chips').waitFor();
+  assert.equal(await page.evaluate(()=>document.activeElement?.id),'fcard');
+ }finally{await page.context().close();}
+});

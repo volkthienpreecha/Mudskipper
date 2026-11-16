@@ -838,7 +838,7 @@ async function renderCard(i, withLoad = true) {
     ? `[data-field-pass="${active.dataset.fieldPass}"]`
     : active?.matches?.(".model-details summary")
       ? ".model-details summary"
-      : active === card
+      : active
         ? "card"
         : null;
   const [v, why] = verdictLine(f.s),
