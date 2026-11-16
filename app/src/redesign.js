@@ -314,6 +314,17 @@ async function load() {
   });
   await activateDataset(DATA);
   await restoreLocation();
+  let enteredDemo = false;
+  const enterDemo = async () => {
+    if (enteredDemo || restoring || touring) return;
+    enteredDemo = true;
+    if (view === "country") await select(interesting("fazilka"), "fazilka");
+  };
+  const entryObserver = new IntersectionObserver(entries => {
+    if (entries.some(e=>e.isIntersecting)) { void enterDemo(); entryObserver.disconnect(); }
+  }, { threshold:.15 });
+  entryObserver.observe($("mapapp"));
+
   const { mountComponents } = await import("./components.ts");
   componentUI = mountComponents({
     dataset: DATA,
@@ -549,20 +560,20 @@ function updateStatistics() {
     if ($(id)) $(id).textContent = value;
   }
   document.querySelector("#map .sub").textContent =
-    `Explore ${fields.length.toLocaleString()} fields across ${Object.keys(DATA.tiles).length} study areas, then play through ${DATA.passes.length} radar acquisitions.`;
+    `Explore ${fields.length.toLocaleString()} fields across ${Object.keys(DATA.tiles).length} study areas, then play through ${DATA.passes.length} satellite visits.`;
   document.querySelector("#season h2").textContent =
-    `${fields.length.toLocaleString()} fields across Kharif ${DATA.passes[0].slice(0, 4)}`;
+    `${fields.length.toLocaleString()} fields across rice-growing season ${DATA.passes[0].slice(0, 4)}`;
   document.querySelector("#season .sub").textContent = `${Object.values(
     DATA.tiles,
   )
     .map((t) => t.district)
     .join(" and ")} · ${fmt(DATA.passes[0])} to ${fmt(DATA.passes.at(-1))}`;
   document.querySelector(".tl-head>span").textContent =
-    "Share of fields by model state";
+    "How many fields held water or dried out";
 }
 
 function countryCard() {
-  card.innerHTML = `<div class="fc-id">Punjab, India</div><div class="fc-meta">Kharif ${esc(DATA.passes[0].slice(0, 4))}</div><div class="fc-verdict">Explore a study area</div><p class="fc-text">Choose a district, select a field, and follow its radar observations through the season.</p><div class="fc-pick">${Object.keys(
+  card.innerHTML = `<div class="fc-id">Punjab, India</div><div class="fc-meta">Rice season ${esc(DATA.passes[0].slice(0, 4))}</div><div class="fc-verdict">Explore a study area</div><p class="fc-text">Choose a district, select a field, and follow its radar observations through the season.</p><div class="fc-pick">${Object.keys(
     DATA.tiles,
   )
     .map(
@@ -589,7 +600,7 @@ function fieldsCard() {
   const order = fs
     .map((f, i) => [f.id, i])
     .sort((a, b) => a[0].localeCompare(b[0]));
-  card.innerHTML = `<h3 class="fc-id">${esc(NICE[tile])}</h3><div class="fc-meta">${fs.length} mapped fields</div><p class="fc-empty fc-empty-top">Select a field on the map, or choose one from the list.</p><label class="fc-picker" for="fieldPicker"><span>Choose a field</span><select id="fieldPicker"><option value="">Field ID</option>${order.map(([id, i]) => `<option value="${i}">${esc(id)}</option>`).join("")}</select></label><button type="button" class="btn btn-ghost btn-sm fc-open" id="fieldPickerOpen">Open field report</button>`;
+  card.innerHTML = `<h3 class="fc-id">${esc(NICE[tile])}</h3><div class="fc-meta">${fs.length} mapped fields</div><p class="fc-empty fc-empty-top">Click a field to see whether it held water or dried out.</p><label class="fc-picker" for="fieldPicker"><span>Choose a field</span><select id="fieldPicker"><option value="">Field ID</option>${order.map(([id, i]) => `<option value="${i}">${esc(id)}</option>`).join("")}</select></label><button type="button" class="btn btn-ghost btn-sm fc-open" id="fieldPickerOpen">Open field report</button>`;
   const picker = $("fieldPicker");
   $("fieldPickerOpen").onclick = () => {
     if (picker.value === "") {
@@ -787,7 +798,7 @@ function verdictLine(s) {
   const clear = [...s].filter((c) => c === "f" || c === "d").length,
     dry = [...s].filter((c) => c === "d").length;
   return [
-    `Drained on ${dry} of ${clear} clear passes`,
+    `Dried out on ${dry} of ${clear} visits`,
     `${[...s].filter((c) => c === "u").length} uncertain observations`,
   ];
 }
@@ -855,7 +866,7 @@ async function renderCard(i, withLoad = true) {
   const hhText = f.hh
     .map((value, j) => `${fmt(DATA.passes[j])} ${value == null ? "unavailable" : value.toFixed(1) + " dB"}`)
     .join("; ");
-  card.innerHTML = `<h3 class="fc-id">${esc(f.id)}</h3><div class="fc-meta">${esc(NICE[tile])} · ${Number(f.ha).toFixed(2)} ha${f.rice === null ? "" : ` · ${Math.round(f.rice * 100)}% rice cover`}</div><div class="fc-verdict">${v}<small>${why}</small></div><div class="chips" role="group" aria-label="Radar state on each pass. Choose a pass to show it on the map.">${[...f.s].map((c, j) => `<button type="button" class="chip${j === pass ? " now" : ""}" data-field-pass="${j}" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}" aria-label="${fmt(DATA.passes[j])}, ${stateLabel(c)}"${j === pass ? ' aria-current="true"' : ""}><span class="${c === "-" ? "n" : c}">${stateGlyph(c)}</span><em>${fmt(DATA.passes[j]).replace(" ", "<br>")}</em></button>`).join("")}</div><div class="spark"><small><span>HH backscatter</span><span>${vals.length ? lo.toFixed(1) + " to " + hi.toFixed(1) + " dB" : "Unavailable"}</span></small><svg viewBox="-4 -4 308 62" preserveAspectRatio="none" role="img" aria-label="HH backscatter by acquisition: ${esc(hhText)}"><path d="${path}" fill="none" stroke="#101d42" stroke-width="1.5"/>${pts.map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#101d42"/>`).join("")}</svg></div><div class="fc-foot"><div><b>${stateLabel(f.s[pass])}</b>${fmt(DATA.passes[pass])}</div><div><b>${conf == null ? "Unavailable" : conf.toFixed(2)}</b>classifier confidence</div></div>${detailMarkup(details.get(f.id))}`;
+  card.innerHTML = `<h3 class="fc-id">${esc(f.id)}</h3><div class="fc-meta">${esc(NICE[tile])} · ${Number(f.ha).toFixed(2)} ha${f.rice === null ? "" : ` · ${Math.round(f.rice * 100)}% rice cover`}</div><div class="fc-verdict">${v}<small>${why}</small></div><div class="chips" role="group" aria-label="Radar state on each satellite visit. Choose a pass to show it on the map.">${[...f.s].map((c, j) => `<button type="button" class="chip${j === pass ? " now" : ""}" data-field-pass="${j}" title="${fmt(DATA.passes[j])}: ${stateLabel(c)}" aria-label="${fmt(DATA.passes[j])}, ${stateLabel(c)}"${j === pass ? ' aria-current="true"' : ""}><span class="${c === "-" ? "n" : c}">${stateGlyph(c)}</span><em>${fmt(DATA.passes[j]).replace(" ", "<br>")}</em></button>`).join("")}</div><div class="spark"><small><span>Radar signal (HH)</span><span>${vals.length ? lo.toFixed(1) + " to " + hi.toFixed(1) + " dB" : "Unavailable"}</span></small><svg viewBox="-4 -4 308 62" preserveAspectRatio="none" role="img" aria-label="Radar signal (HH) by acquisition: ${esc(hhText)}"><path d="${path}" fill="none" stroke="#101d42" stroke-width="1.5"/>${pts.map((p) => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#101d42"/>`).join("")}</svg></div><div class="fc-foot"><div><b>${stateLabel(f.s[pass])}</b>${fmt(DATA.passes[pass])}</div><div><b>${conf == null ? "Unavailable" : conf.toFixed(2)}</b>model confidence</div></div>${detailMarkup(details.get(f.id))}`;
   if (wasOpen && card.querySelector(".model-details"))
     card.querySelector(".model-details").open = true;
   card.querySelectorAll("[data-field-pass]").forEach(
@@ -1013,7 +1024,7 @@ playBtn.addEventListener("click", async () => {
 });
 slider.addEventListener("pointerdown", stopSeason);
 
-// season shape: share of all 375 real fields in each state on each pass (stacked area, gap band shaded)
+// season shape: share of all 375 real fields in each state on each satellite visit (stacked area, gap band shaded)
 function seasonChart() {
   const svgS = $("seasonSvg"),
     tip = $("seasonTip");
@@ -1280,7 +1291,7 @@ rewire('[data-load="explore"]', async () => {
     block: "center",
   });
   await wait(motionOff() ? 0 : 700);
-  if (view === "country") await goTile(Object.keys(DATA.tiles)[0]);
+  if (view === "country") await select(interesting("fazilka"), "fazilka");
   // Continue where the button leads: keyboard focus moves to the first field on the map (WCAG 2.4.3).
   if (view === "fields") focusField(selected ?? 0);
 });
@@ -1332,7 +1343,7 @@ async function runTour(b) {
   say("Explore the fields in " + NICE[Object.keys(DATA.tiles)[0]]);
   await goTile(Object.keys(DATA.tiles)[0]);
   if (!valid()) return;
-  say("Follow the acquisitions through the season");
+  say("Watch the fields change through the season");
   await playSeason();
   if (!valid()) return;
   say("Select a field for its measurements");

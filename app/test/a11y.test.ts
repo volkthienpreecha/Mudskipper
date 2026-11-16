@@ -137,6 +137,9 @@ describe('axe-core, WCAG 2.2 A and AA', { timeout: 30 * 60_000 }, () => {
 
   test('map: study area, selected field, field list and search error', async () => {
     const page = await open();
+    await page.locator('#map').scrollIntoViewIfNeeded();
+    await page.waitForSelector('#fcard .chips');
+    await page.click('#backBtn');
     await page.click('#fcard .pickbtn');
     await page.waitForSelector('#fieldPicker');
     await expectNoViolations(page, 'study area with the field list');
@@ -306,6 +309,11 @@ describe('keyboard only', { timeout: 30 * 60_000 }, () => {
     assert.match((await describeFocus(page)).name, /Skip to the map/);
     await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'map');
+
+    await page.waitForSelector('#fcard .chips');
+    await page.focus('#backBtn');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('#fcard .pickbtn');
 
     // A district marker on the country map opens the study area and hands focus to the first field.
     await page.focus('#fieldMap .mk');

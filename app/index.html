@@ -568,7 +568,7 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
   <div class="hero-intro"><span>Punjab, India</span></div>
   <div class="hero-copy">
     <h1>Check <span class="rice-phrase">rice-field</span> drainage<br>from space.</h1>
-    <p class="lede">Compare radar observations and choose where to inspect.</p>
+    <p class="lede">See when fields held water or dried out, then choose where to inspect.</p>
     <div class="ctas">
       <button class="btn btn-primary" type="button" data-load="explore"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="spin"></span><span class="txt">Explore the map</span><span class="bar"></span></button>
       <button class="btn btn-ghost" type="button" data-load="tour"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg></span><span class="spin"></span><span class="txt">Take the tour</span><span class="bar"></span></button>
@@ -585,9 +585,9 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
     <div class="journey-narration">
       <h2 id="journeyTitle" class="sr-only">How Mudskipper checks drainage</h2>
       <div class="journey-chapters">
-        <article class="journey-chapter" data-chapter="0"><p class="chapter-index">Satellite</p><h3>Radar sees through<br>the clouds.</h3><p>NISAR sends radar pulses toward the ground and measures the returning signal.</p></article>
-        <article class="journey-chapter" data-chapter="1"><p class="chapter-index">Field</p><h3>Same boundary.<br>Every pass.</h3><p>Follow flooded, drained and uncertain states within a mapped rice-field boundary.</p></article>
-        <article class="journey-chapter" data-chapter="2"><p class="chapter-index">Evidence</p><h3>Check the record.<br>Plan the visit.</h3><p>Compare radar measurements and model results, then rank fields for inspection.</p><a class="journey-open" href="#analysis">Open the analysis <span aria-hidden="true">↗</span></a></article>
+        <article class="journey-chapter" data-chapter="0"><p class="chapter-index">Satellite</p><h3>Radar sees through<br>the clouds.</h3><p>The NISAR satellite uses radar to observe fields, even through clouds.</p></article>
+        <article class="journey-chapter" data-chapter="1"><p class="chapter-index">Field</p><h3>One field.<br>Different dates.</h3><p>Compare dates to see whether a field held water, dried out, or needs a closer look.</p></article>
+        <article class="journey-chapter" data-chapter="2"><p class="chapter-index">Evidence</p><h3>Check the record.<br>Plan the visit.</h3><p>Use the field’s history to choose where an inspector should visit next.</p><a class="journey-open" href="#analysis">Open the analysis <span aria-hidden="true">↗</span></a></article>
       </div>
 
     </div>
@@ -627,16 +627,16 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
       <div><small id="pvMeta">Loading field</small><strong>Season observations</strong></div>
       <span class="verdict" id="pvVerdict">Loading</span>
     </div>
-    <div class="journey-acquisition"><span>Radar pass</span><b id="journeyAcquisition">Loading observations</b></div>
-    <div class="passes" id="pvPasses" role="list" aria-label="Radar state on each pass"></div>
+    <div class="journey-acquisition"><span>Satellite visit</span><b id="journeyAcquisition">Loading observations</b></div>
+    <div class="passes" id="pvPasses" role="list" aria-label="Estimated water status at each satellite visit"></div>
     <div class="pv-legend">
       <span><span class="ic f" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.8C8 1.8 3.5 7 3.5 10a4.5 4.5 0 0 0 9 0C12.5 7 8 1.8 8 1.8Z"/></svg></span>Flooded</span>
       <span><span class="ic d" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3" width="13" height="10" rx="2"/><path d="M5 3l2 4-2 2 2 4M10 3 9 6l3 2-2 5"/></svg></span>Drained</span>
       <span><span class="ic u" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M6.2 6.2a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.4M8 11.6v.1"/></svg></span>Uncertain</span>
     </div>
     <div class="pv-foot">
-      <div><b id="pvConf">—</b>mean classifier confidence</div>
-      <div><b id="pvPassCount">—</b>radar passes</div>
+      <div><b id="pvConf">—</b>mean model confidence</div>
+      <div><b id="pvPassCount">—</b>satellite visits</div>
       <div><b id="pvFieldCount">—</b>mapped fields</div>
     </div>
     </div>
@@ -658,7 +658,7 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
   <div class="wrap">
     <p class="label rv">Map</p>
     <h2 class="rv" id="mapTitle">Inspect a field in Punjab</h2>
-    <p class="sub rv">Choose a district and field. Use the timeline to compare radar passes.</p>
+    <p class="sub rv">Choose a district and field. Use the timeline to compare satellite visits.</p>
     <div class="mapapp rv" id="mapapp">
       <div class="map-bar">
         <div class="seg" role="group" aria-label="Study area">
@@ -669,11 +669,11 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
       </div>
       <div class="map-body">
         <div class="map-wrap">
-          <svg id="fieldMap" role="group" aria-label="Map of rice fields coloured by radar state" aria-describedby="mapHelp"></svg>
+          <svg id="fieldMap" role="group" aria-label="Map of rice fields coloured by estimated water status" aria-describedby="mapHelp"></svg>
           <p class="sr-only" id="mapHelp">Choose a study area, then press Tab to reach the fields. Arrow keys move between fields, Home and End jump to the first and last field, and Enter selects one. You can also search by field ID or choose a field from the list in the field report.</p>
           <div class="tour-cap" id="tourCap" aria-live="polite"></div>
           <div class="map-topbar">
-            <div class="map-date"><small>NISAR pass</small><strong id="mapDate">Jul 2</strong></div>
+            <div class="map-date"><small>Satellite visit</small><strong id="mapDate">Jul 2</strong></div>
             <button class="map-back" id="backBtn">Back to India</button>
           </div>
           <div class="map-loader" id="mapLoader" role="status"><span class="spin" aria-hidden="true"></span>Loading map…</div>
@@ -686,7 +686,7 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
       <div class="slider-row">
         <button class="btn btn-ghost btn-sm" type="button" id="playBtn" aria-label="Play season"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg></span><span class="txt">Play</span></button>
         <div class="slider-box">
-          <input type="range" id="passSlider" min="0" max="8" value="0" step="1" aria-label="NISAR pass date">
+          <input type="range" id="passSlider" min="0" max="8" value="0" step="1" aria-label="Satellite visit date">
           <div class="ticks" id="ticks" aria-hidden="true"></div>
         </div>
       </div>
@@ -711,24 +711,24 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
 <section id="season" data-bg="2">
   <div class="wrap" data-scroll-pin>
     <p class="label rv">Season</p>
-    <h2 class="rv">Rice-field states across Kharif 2026</h2>
-    <p class="sub rv">Compare flooded, drained and uncertain area across the season.</p>
+    <h2 class="rv">Water across the 2026 rice season</h2>
+    <p class="sub rv">See how many fields held water, dried out, or had unclear results on each date.</p>
     <div class="stats rv">
       <div class="stat"><strong id="liveFieldCount">—</strong><span>mapped rice fields</span></div>
-      <div class="stat"><strong id="livePassCount">—</strong><span>radar passes</span></div>
-      <div class="stat"><strong id="liveUncertainPct">—</strong><span>of field looks marked uncertain</span></div>
+      <div class="stat"><strong id="livePassCount">—</strong><span>satellite visits</span></div>
+      <div class="stat"><strong id="liveUncertainPct">—</strong><span>of field observations uncertain</span></div>
       <div class="stat"><strong id="liveGapDays">—</strong><span>days in the season data gap</span></div>
     </div>
     <div class="timeline" id="tl">
-      <div class="tl-head"><span>Share of fields in each state on each pass</span><span id="seasonHint">Hover the chart, or focus it and use the arrow keys, to read each pass</span></div>
-      <div class="season" id="seasonPlot" tabindex="0" role="group" aria-label="Season chart" aria-describedby="seasonHint"><svg id="seasonSvg" role="img" aria-label="Share of fields flooded, drained and uncertain on each pass"></svg><div class="season-tip" id="seasonTip"></div></div><p class="sr-only" id="seasonAnnounce" role="status"></p>
+      <div class="tl-head"><span>Share of fields by water status on each date</span><span id="seasonHint">Hover the chart, or focus it and use the arrow keys, to compare dates</span></div>
+      <div class="season" id="seasonPlot" tabindex="0" role="group" aria-label="Season chart" aria-describedby="seasonHint"><svg id="seasonSvg" role="img" aria-label="Share of fields flooded, drained and uncertain on each date"></svg><div class="season-tip" id="seasonTip"></div></div><p class="sr-only" id="seasonAnnounce" role="status"></p>
       <div class="pv-legend tl-legend">
         <span><span class="ic f" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.8C8 1.8 3.5 7 3.5 10a4.5 4.5 0 0 0 9 0C12.5 7 8 1.8 8 1.8Z"/></svg></span>Flooded: water standing</span>
         <span><span class="ic d" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3" width="13" height="10" rx="2"/><path d="M5 3l2 4-2 2 2 4M10 3 9 6l3 2-2 5"/></svg></span>Drained: field dried out</span>
         <span><span class="ic u" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M6.2 6.2a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.4M8 11.6v.1"/></svg></span>Uncertain</span>
         <span><span class="gapkey" aria-hidden="true"></span>No satellite data, Jul 27 to Aug 10</span>
       </div>
-      <details class="chart-table" id="seasonTable"><summary>Show the chart data as a table</summary><div class="chart-table-wrap" tabindex="0" role="region" aria-label="Season chart data"><table><caption class="sr-only">Share of fields in each state on each pass</caption><thead><tr><th scope="col">Pass</th><th scope="col">Flooded</th><th scope="col">Drained</th><th scope="col">Uncertain</th><th scope="col">No observation</th></tr></thead><tbody></tbody></table></div></details>
+      <details class="chart-table" id="seasonTable"><summary>Show the chart data as a table</summary><div class="chart-table-wrap" tabindex="0" role="region" aria-label="Season chart data"><table><caption class="sr-only">Share of fields by water status on each date</caption><thead><tr><th scope="col">Date</th><th scope="col">Flooded</th><th scope="col">Drained</th><th scope="col">Uncertain</th><th scope="col">No observation</th></tr></thead><tbody></tbody></table></div></details>
     </div>
   </div>
 </section>
@@ -737,7 +737,7 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
   <div class="wrap">
     <p class="label rv">Method</p>
     <h2 class="rv">How radar reads a rice field</h2>
-    <p class="sub rv">See how water and rice plants change the returning radar signal.</p>
+    <p class="sub rv">Water and rice plants reflect radar differently. Compare the signal over time.</p>
     <div id="methodDemo" class="ms-demo"><p class="sub">Loading the radar demonstration…</p></div>
   </div>
 </section>
@@ -748,7 +748,7 @@ h2{font-size:clamp(32px,3.6vw,52px)!important;line-height:1.14!important;letter-
   <div class="wrap">
     <p class="label rv">Open data</p>
     <h2 class="rv">Request the field data</h2>
-    <p class="sub rv">Choose an endpoint to retrieve its JSON response.</p>
+    <p class="sub rv">Choose a data request and read the response in JSON, a format other apps can use.</p>
     <div id="apiDemo" class="ms-demo"><p class="sub">Loading the API explorer…</p></div>
   </div>
 </section>
