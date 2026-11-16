@@ -816,6 +816,7 @@ async function renderCard(i, withLoad = true) {
   const token = fieldVersion;
   if (dataset.kind === "api" && !details.has(f.id)) {
     if (!withLoad) return;
+    if (card.contains(document.activeElement)) card.focus({ preventScroll: true });
     card.innerHTML = '<p class="fc-empty" role="status">Loading field observations</p>';
     try {
       await detailFor(f);
