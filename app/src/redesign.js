@@ -339,6 +339,7 @@ async function load() {
       card.focus({ preventScroll: true });
     },
   });
+  window.dispatchEvent(new Event("mudskipper:ready"));
 }
 function drawBase() {
   const ring = (r) =>
