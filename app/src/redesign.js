@@ -339,6 +339,7 @@ async function load() {
       card.focus({ preventScroll: true });
     },
   });
+  window.dispatchEvent(new Event("mudskipper:ready"));
 }
 function drawBase() {
   const ring = (r) =>
@@ -815,6 +816,7 @@ async function renderCard(i, withLoad = true) {
   const token = fieldVersion;
   if (dataset.kind === "api" && !details.has(f.id)) {
     if (!withLoad) return;
+    if (card.contains(document.activeElement)) card.focus({ preventScroll: true });
     card.innerHTML = '<p class="fc-empty" role="status">Loading field observations</p>';
     try {
       await detailFor(f);
@@ -837,7 +839,7 @@ async function renderCard(i, withLoad = true) {
     ? `[data-field-pass="${active.dataset.fieldPass}"]`
     : active?.matches?.(".model-details summary")
       ? ".model-details summary"
-      : active === card
+      : active
         ? "card"
         : null;
   const [v, why] = verdictLine(f.s),

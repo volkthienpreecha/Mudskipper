@@ -291,3 +291,41 @@ test('map opens a Fazilka example and long option menus stay bounded and searcha
   assert.equal(await page.locator('#fcard .fc-id').textContent(),value,'Entering the map preserves a shared field selection');
  }finally{await page.context().close();}
 });
+
+
+test('reloading or reopening the site starts at the headline, while map navigation still works',async()=>{
+ const page=await open('reduce');
+ try{
+  await page.locator('#method').scrollIntoViewIfNeeded();
+  assert.ok(await page.evaluate(()=>scrollY)>1000);
+  await page.reload();
+  await page.locator('#ms-how-sequence').waitFor();
+  assert.equal(await page.evaluate(()=>scrollY),0);
+  assert.equal(await page.evaluate(()=>history.scrollRestoration),'manual');
+  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Map',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#fcard .fc-id')?.textContent?.startsWith('fazilka-'));
+  assert.ok(await page.evaluate(()=>scrollY)>1000);
+  await page.goto(server.origin+'/methods?dataset=snapshot');
+  await page.locator('#ms-how-sequence').waitFor();
+  await page.waitForFunction(()=>scrollY===0);
+  await page.goto(server.origin+'/privacy.html');
+  await page.goBack();
+  await page.locator('#ms-how-sequence').waitFor();
+  assert.equal(await page.evaluate(()=>scrollY),0);
+ }finally{await page.context().close();}
+});
+
+
+test('opening a field report preserves focus when it replaces the district picker',async()=>{
+ const page=await open('reduce');
+ try{
+  await page.locator('#map').scrollIntoViewIfNeeded();
+  await page.locator('#fcard .chips').waitFor();
+  await page.locator('#backBtn').click();
+  await page.locator('#fcard .pickbtn[data-tile="fazilka"]').click();
+  await page.locator('#fieldPicker').focus();
+  await page.locator('#gF path').first().evaluate(e=>e.dispatchEvent(new MouseEvent('click',{bubbles:true})));
+  await page.locator('#fcard .chips').waitFor();
+  assert.equal(await page.evaluate(()=>document.activeElement?.id),'fcard');
+ }finally{await page.context().close();}
+});
