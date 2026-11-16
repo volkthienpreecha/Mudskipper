@@ -311,7 +311,8 @@ describe('keyboard only', { timeout: 30 * 60_000 }, () => {
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'map');
 
     await page.waitForSelector('#fcard .chips');
-    await page.click('#backBtn');
+    await page.focus('#backBtn');
+    await page.keyboard.press('Enter');
     await page.waitForSelector('#fcard .pickbtn');
 
     // A district marker on the country map opens the study area and hands focus to the first field.
