@@ -49,3 +49,11 @@ html #season .stat span { position:relative; transform:none; margin-top:12px; pa
   .brand-lockup { transform:none; opacity:1; }
   .brand-handoff { opacity:0; }
 }
+
+/* Lazy component styles must not override scroll visibility or scene spacing. */
+html :is(#ms-claim-sequence,#ms-how-sequence,#ms-method-sequence).is-scroll-pinned { height:220svh; }
+@media(min-width:1000px) and (min-height:780px) and (prefers-reduced-motion:no-preference) {
+  html #ms-method-sequence.is-scroll-pinned .ms-science-scene { animation:none; }
+  html #ms-how-sequence.is-scroll-pinned .ms-sequence-stages { align-items:end; }
+  html #how { padding-bottom:16px; }
+}
