@@ -254,3 +254,40 @@ test('scrolling away from a focused claim retains focus on the sequence',async()
   assert.equal(await page.evaluate(()=>document.activeElement?.id),'ms-claim-sequence');
  }finally{await page.context().close()}
 });
+
+
+test('map opens a Fazilka example and long option menus stay bounded and searchable',async()=>{
+ const page=await open('reduce');
+ try{
+  await page.locator('#map').scrollIntoViewIfNeeded();
+  await page.waitForFunction(()=>document.querySelector('#fcard .fc-id')?.textContent?.startsWith('fazilka-'));
+  assert.equal(await page.locator('#gF path.sel').count(),1);
+  await page.locator('#searchField').fill('fazilka-');
+  await page.locator('#fieldSuggestions:not([hidden])').waitFor();
+  assert.equal(await page.locator('#searchField').getAttribute('list'),null);
+  assert.ok(await page.locator('#fieldSuggestions button').count()<=20);
+  assert.ok(await page.locator('#fieldSuggestions').evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.height<=innerHeight*.4}));
+  await page.locator('#searchField').press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  assert.equal(await page.locator('#fieldSuggestions button').nth(1).evaluate(e=>document.activeElement===e),true);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(()=>document.activeElement?.id),'searchField');
+  await page.locator('#ms-guide-field').scrollIntoViewIfNeeded();
+  await page.locator('#ms-guide-field').click();
+  await page.locator('#optionPicker[open]').waitFor();
+  await page.locator('#optionQuery').fill('muktsar');
+  assert.ok(await page.locator('#optionResults [role="option"]').count()>0);
+  assert.ok(await page.locator('#optionPicker').evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight}));
+  assert.deepEqual((await new AxeBuilder({page}).include('#optionPicker').analyze()).violations.map(v=>v.id),[]);
+  const value=await page.locator('#optionResults [role="option"]').first().textContent();
+  await page.locator('#optionResults [role="option"]').first().click();
+  assert.equal(await page.locator('#ms-guide-field').inputValue(),value);
+  assert.equal(await page.evaluate(()=>document.activeElement?.id),'ms-guide-field');
+  await page.locator('#ms-open-field').click();
+  await page.waitForFunction(id=>document.querySelector('#fcard .fc-id')?.textContent===id,value);
+  await page.reload();
+  await page.waitForFunction(id=>document.querySelector('#fcard .fc-id')?.textContent===id,value);
+  await page.locator('#map').scrollIntoViewIfNeeded();
+  assert.equal(await page.locator('#fcard .fc-id').textContent(),value,'Entering the map preserves a shared field selection');
+ }finally{await page.context().close();}
+});

@@ -13,3 +13,4 @@ import "./rice-story.css";
 import "./page-scroll.ts";
 
 import "./continuous-story.css";
+import "./option-picker.ts";
